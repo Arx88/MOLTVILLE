@@ -1,11 +1,30 @@
 import { logger } from '../utils/logger.js';
 
 export class VotingManager {
-  constructor(worldState, io) {
+  constructor(worldState, io, options = {}) {
     this.worldState = worldState;
     this.io = io;
+    this.db = options.db || null;
     this.voteDurationMs = parseInt(process.env.BUILDING_VOTE_DURATION_MS, 10) || 86400000;
     this.currentVote = null;
+  }
+
+  async initializeFromDb() {
+    if (!this.db) return;
+    const result = await this.db.query(
+      "SELECT * FROM vote_state WHERE status = 'open' ORDER BY starts_at DESC LIMIT 1"
+    );
+    if (!result.rows.length) return;
+    const row = result.rows[0];
+    this.currentVote = {
+      id: row.vote_id,
+      lotId: row.lot_id,
+      options: row.options,
+      votes: row.votes,
+      voters: new Set(row.voters || []),
+      startsAt: Number(row.starts_at),
+      endsAt: Number(row.ends_at)
+    };
   }
 
   startVote() {
@@ -32,6 +51,7 @@ export class VotingManager {
       startsAt: now,
       endsAt: now + this.voteDurationMs
     };
+    this.persistVote('open');
     this.io.emit('vote:started', this.getVoteSummary());
     logger.info(`Voting: started ${this.currentVote.id}`);
     return this.currentVote;
@@ -50,6 +70,7 @@ export class VotingManager {
     }
     this.currentVote.voters.add(agentId);
     this.currentVote.votes[optionId] = (this.currentVote.votes[optionId] || 0) + 1;
+    this.persistVote('open');
     return this.getVoteSummary();
   }
 
@@ -83,6 +104,7 @@ export class VotingManager {
     this.io.emit('vote:closed', result);
     this.io.emit('building:constructed', building);
     logger.info(`Voting: closed ${vote.id} winner ${winningOption.id}`);
+    this.persistVote('closed', winningOption);
     this.currentVote = null;
     return result;
   }
@@ -108,5 +130,31 @@ export class VotingManager {
       startsAt: this.currentVote.startsAt,
       endsAt: this.currentVote.endsAt
     };
+  }
+
+  persistVote(status, winner = null) {
+    if (!this.db || !this.currentVote) return;
+    const vote = this.currentVote;
+    this.db.query(
+      `INSERT INTO vote_state (vote_id, lot_id, options, votes, voters, starts_at, ends_at, status, winner)
+       VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9)
+       ON CONFLICT (vote_id) DO UPDATE SET
+         options = EXCLUDED.options,
+         votes = EXCLUDED.votes,
+         voters = EXCLUDED.voters,
+         status = EXCLUDED.status,
+         winner = EXCLUDED.winner`,
+      [
+        vote.id,
+        vote.lotId,
+        vote.options,
+        vote.votes,
+        Array.from(vote.voters),
+        vote.startsAt,
+        vote.endsAt,
+        status,
+        winner
+      ]
+    ).catch(error => logger.error('Vote persist failed:', error));
   }
 }

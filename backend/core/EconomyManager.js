@@ -1,8 +1,9 @@
 import { logger } from '../utils/logger.js';
 
 export class EconomyManager {
-  constructor(worldState) {
+  constructor(worldState, options = {}) {
     this.worldState = worldState;
+    this.db = options.db || null;
     this.balances = new Map();
     this.jobs = new Map();
     this.jobAssignments = new Map();
@@ -15,6 +16,32 @@ export class EconomyManager {
     this.reviewThreshold = parseFloat(process.env.REVIEW_THRESHOLD || '2.5');
     this.initializeJobs();
     this.initializeProperties();
+  }
+
+  async initializeFromDb() {
+    if (!this.db) return;
+    const balances = await this.db.query('SELECT agent_id, balance FROM economy_balances');
+    balances.rows.forEach(row => {
+      this.balances.set(row.agent_id, parseFloat(row.balance));
+    });
+
+    const properties = await this.db.query('SELECT * FROM economy_properties');
+    if (properties.rows.length) {
+      this.properties.clear();
+      properties.rows.forEach(row => {
+        this.properties.set(row.property_id, {
+          id: row.property_id,
+          name: row.name,
+          type: row.type,
+          buildingId: row.building_id,
+          price: parseFloat(row.price),
+          ownerId: row.owner_id,
+          forSale: row.for_sale
+        });
+      });
+    } else {
+      this.persistProperties();
+    }
   }
 
   initializeJobs() {
@@ -74,6 +101,7 @@ export class EconomyManager {
     if (!this.balances.has(agentId)) {
       this.balances.set(agentId, parseFloat(process.env.STARTING_BALANCE || '10'));
       this.transactions.set(agentId, []);
+      this.persistBalance(agentId);
       logger.info(`Economy: Initialized balance for agent ${agentId}`);
     }
   }
@@ -103,6 +131,7 @@ export class EconomyManager {
     const current = this.getBalance(agentId);
     this.balances.set(agentId, current + amount);
     this.recordTransaction(agentId, amount, reason);
+    this.persistBalance(agentId);
     logger.debug(`Economy: ${agentId} +${amount} (${reason})`);
   }
 
@@ -113,6 +142,7 @@ export class EconomyManager {
     }
     this.balances.set(agentId, current - amount);
     this.recordTransaction(agentId, -amount, reason);
+    this.persistBalance(agentId);
   }
 
   recordTransaction(agentId, amount, reason) {
@@ -124,6 +154,7 @@ export class EconomyManager {
       reason,
       timestamp: Date.now()
     });
+    this.persistTransaction(agentId, amount, reason);
   }
 
   listJobs() {
@@ -144,6 +175,7 @@ export class EconomyManager {
     if (property.ownerId !== agentId) throw new Error('Not the property owner');
     property.forSale = true;
     property.price = price;
+    this.persistProperty(property);
     return property;
   }
 
@@ -158,6 +190,7 @@ export class EconomyManager {
     }
     property.ownerId = agentId;
     property.forSale = false;
+    this.persistProperty(property);
     return property;
   }
 
@@ -215,5 +248,52 @@ export class EconomyManager {
     this.jobAssignments.delete(agentId);
     logger.info(`Economy: Agent ${agentId} was removed from job ${jobId}`);
     return job;
+  }
+
+  persistBalance(agentId) {
+    if (!this.db) return;
+    const balance = this.getBalance(agentId);
+    this.db.query(
+      'INSERT INTO economy_balances (agent_id, balance) VALUES ($1, $2) ON CONFLICT (agent_id) DO UPDATE SET balance = EXCLUDED.balance, updated_at = NOW()',
+      [agentId, balance]
+    ).catch(error => logger.error('Economy balance persist failed:', error));
+  }
+
+  persistTransaction(agentId, amount, reason) {
+    if (!this.db) return;
+    this.db.query(
+      'INSERT INTO economy_transactions (agent_id, amount, reason) VALUES ($1, $2, $3)',
+      [agentId, amount, reason]
+    ).catch(error => logger.error('Economy transaction persist failed:', error));
+  }
+
+  persistProperty(property) {
+    if (!this.db) return;
+    this.db.query(
+      `INSERT INTO economy_properties (property_id, name, type, building_id, price, owner_id, for_sale)
+       VALUES ($1, $2, $3, $4, $5, $6, $7)
+       ON CONFLICT (property_id) DO UPDATE SET
+         name = EXCLUDED.name,
+         type = EXCLUDED.type,
+         building_id = EXCLUDED.building_id,
+         price = EXCLUDED.price,
+         owner_id = EXCLUDED.owner_id,
+         for_sale = EXCLUDED.for_sale,
+         updated_at = NOW()`,
+      [
+        property.id,
+        property.name,
+        property.type,
+        property.buildingId,
+        property.price,
+        property.ownerId,
+        property.forSale
+      ]
+    ).catch(error => logger.error('Property persist failed:', error));
+  }
+
+  persistProperties() {
+    if (!this.db) return;
+    this.properties.forEach(property => this.persistProperty(property));
   }
 }

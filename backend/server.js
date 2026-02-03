@@ -14,6 +14,7 @@ import { ActionQueue } from './core/ActionQueue.js';
 import { EconomyManager } from './core/EconomyManager.js';
 import { VotingManager } from './core/VotingManager.js';
 import { GovernanceManager } from './core/GovernanceManager.js';
+import { db } from './utils/db.js';
 
 import authRoutes from './routes/auth.js';
 import moltbotRoutes from './routes/moltbot.js';
@@ -55,9 +56,9 @@ const worldState = new WorldStateManager();
 const moltbotRegistry = new MoltbotRegistry();
 const actionQueue = new ActionQueue(worldState, moltbotRegistry);
 const interactionEngine = new InteractionEngine(worldState, moltbotRegistry);
-const economyManager = new EconomyManager(worldState);
-const votingManager = new VotingManager(worldState, io);
-const governanceManager = new GovernanceManager(io);
+const economyManager = new EconomyManager(worldState, { db });
+const votingManager = new VotingManager(worldState, io, { db });
+const governanceManager = new GovernanceManager(io, { db });
 
 app.locals.worldState = worldState;
 app.locals.moltbotRegistry = moltbotRegistry;
@@ -67,6 +68,12 @@ app.locals.economyManager = economyManager;
 app.locals.votingManager = votingManager;
 app.locals.governanceManager = governanceManager;
 app.locals.io = io;
+
+if (db) {
+  economyManager.initializeFromDb().catch(error => logger.error('Economy init failed:', error));
+  votingManager.initializeFromDb().catch(error => logger.error('Voting init failed:', error));
+  governanceManager.initializeFromDb().catch(error => logger.error('Governance init failed:', error));
+}
 
 // Routes
 app.use('/api/auth', authRoutes);

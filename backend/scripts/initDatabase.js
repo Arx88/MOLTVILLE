@@ -1,0 +1,70 @@
+import { withDb } from '../utils/db.js';
+import { logger } from '../utils/logger.js';
+
+const schema = `
+CREATE TABLE IF NOT EXISTS economy_balances (
+  agent_id TEXT PRIMARY KEY,
+  balance NUMERIC NOT NULL DEFAULT 0,
+  updated_at TIMESTAMP NOT NULL DEFAULT NOW()
+);
+
+CREATE TABLE IF NOT EXISTS economy_transactions (
+  id SERIAL PRIMARY KEY,
+  agent_id TEXT NOT NULL,
+  amount NUMERIC NOT NULL,
+  reason TEXT NOT NULL,
+  created_at TIMESTAMP NOT NULL DEFAULT NOW()
+);
+
+CREATE TABLE IF NOT EXISTS economy_properties (
+  property_id TEXT PRIMARY KEY,
+  name TEXT NOT NULL,
+  type TEXT NOT NULL,
+  building_id TEXT NOT NULL,
+  price NUMERIC NOT NULL,
+  owner_id TEXT,
+  for_sale BOOLEAN NOT NULL DEFAULT TRUE,
+  updated_at TIMESTAMP NOT NULL DEFAULT NOW()
+);
+
+CREATE TABLE IF NOT EXISTS vote_state (
+  vote_id TEXT PRIMARY KEY,
+  lot_id TEXT NOT NULL,
+  options JSONB NOT NULL,
+  votes JSONB NOT NULL,
+  voters JSONB NOT NULL,
+  starts_at BIGINT NOT NULL,
+  ends_at BIGINT NOT NULL,
+  status TEXT NOT NULL,
+  winner JSONB
+);
+
+CREATE TABLE IF NOT EXISTS governance_elections (
+  election_id TEXT PRIMARY KEY,
+  candidates JSONB NOT NULL,
+  votes JSONB NOT NULL,
+  voters JSONB NOT NULL,
+  starts_at BIGINT NOT NULL,
+  ends_at BIGINT NOT NULL,
+  status TEXT NOT NULL,
+  winner JSONB
+);
+
+CREATE TABLE IF NOT EXISTS governance_president (
+  id INTEGER PRIMARY KEY DEFAULT 1,
+  president JSONB,
+  updated_at TIMESTAMP NOT NULL DEFAULT NOW()
+);
+`;
+
+async function main() {
+  await withDb(async (db) => {
+    await db.query(schema);
+    logger.info('Database schema initialized.');
+  });
+}
+
+main().catch((error) => {
+  logger.error('Failed to initialize database:', error);
+  process.exit(1);
+});
