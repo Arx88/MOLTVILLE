@@ -215,7 +215,7 @@ function updateGovernancePanel(governance) {
   const policies = governance.policies || [];
   const policyRows = policies.length
     ? policies.slice(0, 3).map(policy => (
-      `<div class="panel-row">📜 ${policy.type}: ${policy.value}</div>`
+      `<div class="panel-row">📜 ${formatPolicyLabel(policy)}</div>`
     )).join('')
     : '<div class="panel-row panel-muted">Sin políticas activas</div>';
   panel.innerHTML = `
@@ -244,6 +244,21 @@ function updateRelationshipsPanel(network) {
     })
     .join('');
   panel.innerHTML = `<div class="panel-title">Relaciones</div>${edges}`;
+}
+
+function formatPolicyLabel(policy) {
+  switch (policy.type) {
+    case 'citizen_stipend':
+      return `Estipendio ciudadano +${Number(policy.value || 0) * 100}%`;
+    case 'salary_boost':
+      return `Bonus salarial +${Number(policy.value || 0) * 100}%`;
+    case 'tax_rate':
+      return `Impuesto ingreso ${Number(policy.value || 0) * 100}%`;
+    case 'housing_tax':
+      return `Impuesto vivienda ${Number(policy.value || 0) * 100}%`;
+    default:
+      return `${policy.type}: ${policy.value}`;
+  }
 }
 
 function mergeBuildingVisuals(serverBuildings) {

@@ -13,7 +13,8 @@ export class EconomyManager {
     this.policyState = {
       baseIncomeMultiplier: 1,
       salaryMultiplier: 1,
-      taxRate: 0
+      taxRate: 0,
+      housingTaxRate: 0
     };
     this.lastIncomeAt = Date.now();
     this.incomeIntervalMs = parseInt(process.env.INCOME_INTERVAL_MS, 10) || 60000;
@@ -142,6 +143,16 @@ export class EconomyManager {
         const taxAmount = gross * this.policyState.taxRate;
         this.decrementBalance(agentId, taxAmount, 'tax_withholding');
       }
+
+      if (this.policyState.housingTaxRate > 0) {
+        const ownedProperties = this.getPropertiesByOwner(agentId);
+        ownedProperties.forEach(property => {
+          const housingTax = property.price * this.policyState.housingTaxRate;
+          if (housingTax > 0) {
+            this.decrementBalance(agentId, housingTax, `housing_tax:${property.id}`);
+          }
+        });
+      }
     }
   }
 
@@ -149,7 +160,8 @@ export class EconomyManager {
     const nextState = {
       baseIncomeMultiplier: 1,
       salaryMultiplier: 1,
-      taxRate: 0
+      taxRate: 0,
+      housingTaxRate: 0
     };
 
     policies.forEach(policy => {
@@ -162,6 +174,9 @@ export class EconomyManager {
           break;
         case 'tax_rate':
           nextState.taxRate = Math.max(0, Number(policy.value || 0));
+          break;
+        case 'housing_tax':
+          nextState.housingTaxRate = Math.max(0, Number(policy.value || 0));
           break;
         default:
           break;
@@ -207,6 +222,10 @@ export class EconomyManager {
 
   listProperties() {
     return Array.from(this.properties.values());
+  }
+
+  getPropertiesByOwner(agentId) {
+    return Array.from(this.properties.values()).filter(property => property.ownerId === agentId);
   }
 
   getProperty(propertyId) {
