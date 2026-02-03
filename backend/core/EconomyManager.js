@@ -10,6 +10,11 @@ export class EconomyManager {
     this.reviews = new Map();
     this.properties = new Map();
     this.transactions = new Map();
+    this.policyState = {
+      baseIncomeMultiplier: 1,
+      salaryMultiplier: 1,
+      taxRate: 0
+    };
     this.lastIncomeAt = Date.now();
     this.incomeIntervalMs = parseInt(process.env.INCOME_INTERVAL_MS, 10) || 60000;
     this.baseIncome = parseFloat(process.env.BASE_INCOME || '2');
@@ -116,15 +121,54 @@ export class EconomyManager {
     this.lastIncomeAt = now;
 
     for (const agentId of this.balances.keys()) {
-      this.incrementBalance(agentId, this.baseIncome, 'base_income');
+      const baseIncome = this.baseIncome * this.policyState.baseIncomeMultiplier;
+      const incomeTotal = [];
+      incomeTotal.push({ amount: baseIncome, reason: 'base_income' });
       const jobId = this.jobAssignments.get(agentId);
       if (jobId) {
         const job = this.jobs.get(jobId);
         if (job) {
-          this.incrementBalance(agentId, job.salary, 'job_salary');
+          incomeTotal.push({
+            amount: job.salary * this.policyState.salaryMultiplier,
+            reason: 'job_salary'
+          });
         }
       }
+
+      const gross = incomeTotal.reduce((sum, item) => sum + item.amount, 0);
+      incomeTotal.forEach(item => this.incrementBalance(agentId, item.amount, item.reason));
+
+      if (this.policyState.taxRate > 0 && gross > 0) {
+        const taxAmount = gross * this.policyState.taxRate;
+        this.decrementBalance(agentId, taxAmount, 'tax_withholding');
+      }
     }
+  }
+
+  applyPolicies(policies = []) {
+    const nextState = {
+      baseIncomeMultiplier: 1,
+      salaryMultiplier: 1,
+      taxRate: 0
+    };
+
+    policies.forEach(policy => {
+      switch (policy.type) {
+        case 'citizen_stipend':
+          nextState.baseIncomeMultiplier += Number(policy.value || 0);
+          break;
+        case 'salary_boost':
+          nextState.salaryMultiplier += Number(policy.value || 0);
+          break;
+        case 'tax_rate':
+          nextState.taxRate = Math.max(0, Number(policy.value || 0));
+          break;
+        default:
+          break;
+      }
+    });
+
+    this.policyState = nextState;
   }
 
   incrementBalance(agentId, amount, reason) {

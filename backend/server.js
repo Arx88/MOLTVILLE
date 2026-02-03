@@ -258,6 +258,7 @@ io.on('connection', (socket) => {
 setInterval(() => {
   worldState.tick();
   actionQueue.processQueue();
+  economyManager.applyPolicies(governanceManager.getSummary().policies || []);
   economyManager.tick();
   votingManager.tick();
   governanceManager.tick();
