@@ -29,4 +29,20 @@ router.post('/vote', (req, res) => {
   }
 });
 
+router.post('/policies', (req, res) => {
+  const { type, value, durationMs, description } = req.body;
+  const { governanceManager } = req.app.locals;
+  try {
+    const policy = governanceManager.setPolicy({
+      type,
+      value,
+      durationMs: durationMs ? Number(durationMs) : null,
+      description
+    });
+    res.json({ success: true, policy });
+  } catch (error) {
+    res.status(400).json({ success: false, error: error.message });
+  }
+});
+
 export default router;

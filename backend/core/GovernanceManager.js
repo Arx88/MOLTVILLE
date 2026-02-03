@@ -7,6 +7,7 @@ export class GovernanceManager {
     this.electionDurationMs = parseInt(process.env.PRESIDENT_ELECTION_MS, 10) || 86400000;
     this.currentPresident = null;
     this.currentElection = null;
+    this.policies = [];
   }
 
   async initializeFromDb() {
@@ -15,6 +16,7 @@ export class GovernanceManager {
       this.db.query("SELECT * FROM governance_elections WHERE status = 'open' ORDER BY starts_at DESC LIMIT 1"),
       this.db.query('SELECT president FROM governance_president WHERE id = 1')
     ]);
+    const policiesResult = await this.db.query("SELECT policy FROM governance_policies WHERE status = 'active'");
 
     if (presidentResult.rows.length) {
       this.currentPresident = presidentResult.rows[0].president;
@@ -31,6 +33,8 @@ export class GovernanceManager {
         endsAt: Number(row.ends_at)
       };
     }
+
+    this.policies = policiesResult.rows.map(row => row.policy);
   }
 
   startElection() {
@@ -91,6 +95,8 @@ export class GovernanceManager {
       this.closeElection();
       this.startElection();
     }
+
+    this.expirePolicies();
   }
 
   closeElection() {
@@ -143,8 +149,39 @@ export class GovernanceManager {
   getSummary() {
     return {
       president: this.currentPresident,
-      election: this.getElectionSummary()
+      election: this.getElectionSummary(),
+      policies: this.policies
     };
+  }
+
+  setPolicy({ type, value, durationMs, description }) {
+    const now = Date.now();
+    const policy = {
+      id: `policy-${now}`,
+      type,
+      value,
+      description: description || '',
+      createdAt: now,
+      expiresAt: durationMs ? now + durationMs : null
+    };
+    this.policies.push(policy);
+    this.persistPolicy(policy, 'active');
+    this.io.emit('governance:policy_added', policy);
+    return policy;
+  }
+
+  expirePolicies() {
+    const now = Date.now();
+    const active = [];
+    this.policies.forEach(policy => {
+      if (policy.expiresAt && policy.expiresAt <= now) {
+        this.persistPolicy(policy, 'expired');
+        this.io.emit('governance:policy_expired', policy);
+      } else {
+        active.push(policy);
+      }
+    });
+    this.policies = active;
   }
 
   persistElection(status, winner = null) {
@@ -180,5 +217,15 @@ export class GovernanceManager {
        ON CONFLICT (id) DO UPDATE SET president = EXCLUDED.president, updated_at = NOW()`,
       [this.currentPresident]
     ).catch(error => logger.error('President persist failed:', error));
+  }
+
+  persistPolicy(policy, status) {
+    if (!this.db) return;
+    this.db.query(
+      `INSERT INTO governance_policies (policy_id, policy, status)
+       VALUES ($1, $2, $3)
+       ON CONFLICT (policy_id) DO UPDATE SET policy = EXCLUDED.policy, status = EXCLUDED.status`,
+      [policy.id, policy, status]
+    ).catch(error => logger.error('Policy persist failed:', error));
   }
 }

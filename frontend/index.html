@@ -212,10 +212,17 @@ function updateGovernancePanel(governance) {
   const electionRow = election
     ? `<div class="panel-row panel-muted">Elección activa (${election.candidates.length} candidatos)</div>`
     : '<div class="panel-row panel-muted">Sin elección activa</div>';
+  const policies = governance.policies || [];
+  const policyRows = policies.length
+    ? policies.slice(0, 3).map(policy => (
+      `<div class="panel-row">📜 ${policy.type}: ${policy.value}</div>`
+    )).join('')
+    : '<div class="panel-row panel-muted">Sin políticas activas</div>';
   panel.innerHTML = `
     <div class="panel-title">Presidencia</div>
     ${presidentRow}
     ${electionRow}
+    ${policyRows}
   `;
 }
 

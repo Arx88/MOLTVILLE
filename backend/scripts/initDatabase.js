@@ -56,6 +56,13 @@ CREATE TABLE IF NOT EXISTS governance_president (
   updated_at TIMESTAMP NOT NULL DEFAULT NOW()
 );
 
+CREATE TABLE IF NOT EXISTS governance_policies (
+  policy_id TEXT PRIMARY KEY,
+  policy JSONB NOT NULL,
+  status TEXT NOT NULL,
+  created_at TIMESTAMP NOT NULL DEFAULT NOW()
+);
+
 CREATE TABLE IF NOT EXISTS agent_relationships (
   agent_id TEXT NOT NULL,
   other_agent_id TEXT NOT NULL,
