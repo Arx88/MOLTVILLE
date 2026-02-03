@@ -48,4 +48,37 @@ router.get('/reviews/:agentId', (req, res) => {
   res.json({ agentId, reviews: economy.getReviews(agentId) });
 });
 
+router.get('/properties', (req, res) => {
+  const economy = req.app.locals.economyManager;
+  res.json({ properties: economy.listProperties() });
+});
+
+router.post('/properties/buy', (req, res) => {
+  const { agentId, propertyId } = req.body;
+  const economy = req.app.locals.economyManager;
+  try {
+    const property = economy.buyProperty(agentId, propertyId);
+    res.json({ success: true, property });
+  } catch (error) {
+    res.status(400).json({ success: false, error: error.message });
+  }
+});
+
+router.post('/properties/list', (req, res) => {
+  const { agentId, propertyId, price } = req.body;
+  const economy = req.app.locals.economyManager;
+  try {
+    const property = economy.listPropertyForSale(agentId, propertyId, parseFloat(price));
+    res.json({ success: true, property });
+  } catch (error) {
+    res.status(400).json({ success: false, error: error.message });
+  }
+});
+
+router.get('/transactions/:agentId', (req, res) => {
+  const { agentId } = req.params;
+  const economy = req.app.locals.economyManager;
+  res.json({ agentId, transactions: economy.getTransactions(agentId) });
+});
+
 export default router;
