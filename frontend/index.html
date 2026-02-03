@@ -48,13 +48,14 @@
   .agent-dot { width: 8px; height: 8px; border-radius: 50%; }
   .agent-name-hud { color: #ccc; font-size: 12px; }
 
-  #vote-panel, #governance-panel {
+  #vote-panel, #governance-panel, #relationships-panel {
     position: absolute; left: 20px; width: 300px;
     background: rgba(15,15,30,0.82); border: 1px solid rgba(100,140,255,0.2);
     border-radius: 12px; padding: 10px; backdrop-filter: blur(6px);
   }
   #vote-panel { top: 60px; }
   #governance-panel { top: 200px; }
+  #relationships-panel { top: 340px; }
   .panel-title { color: #a8c4ff; font-size: 12px; font-weight: 700; letter-spacing: 1px; text-transform: uppercase; margin-bottom: 6px; }
   .panel-row { color: #cfd8ff; font-size: 12px; margin-bottom: 4px; }
   .panel-muted { color: #7a85a9; font-size: 11px; }
@@ -78,6 +79,10 @@
   <div id="governance-panel">
     <div class="panel-title">Presidencia</div>
     <div class="panel-row panel-muted">Sin presidente actual</div>
+  </div>
+  <div id="relationships-panel">
+    <div class="panel-title">Relaciones</div>
+    <div class="panel-row panel-muted">Sin datos</div>
   </div>
   <div id="minimap-container">
     <canvas id="minimap" width="140" height="140"></canvas>
@@ -145,7 +150,8 @@ const WORLD_CONTEXT = {
   worldTime: null,
   weather: null,
   vote: null,
-  governance: null
+  governance: null,
+  socialNetwork: null
 };
 
 function getWeatherLabel(weather) {
@@ -213,6 +219,26 @@ function updateGovernancePanel(governance) {
   `;
 }
 
+function updateRelationshipsPanel(network) {
+  const panel = document.getElementById('relationships-panel');
+  if (!network || !network.edges || network.edges.length === 0) {
+    panel.innerHTML = '<div class="panel-title">Relaciones</div><div class="panel-row panel-muted">Sin datos</div>';
+    return;
+  }
+  const edges = network.edges
+    .sort((a, b) => (b.affinity || 0) - (a.affinity || 0))
+    .slice(0, 6)
+    .map(edge => {
+      const from = network.nodes.find(n => n.id === edge.from);
+      const to = network.nodes.find(n => n.id === edge.to);
+      const fromName = from ? from.name : edge.from;
+      const toName = to ? to.name : edge.to;
+      return `<div class="panel-row">${fromName} → ${toName} <span class="panel-muted">A:${edge.affinity} T:${edge.trust} R:${edge.respect}</span></div>`;
+    })
+    .join('');
+  panel.innerHTML = `<div class="panel-title">Relaciones</div>${edges}`;
+}
+
 function mergeBuildingVisuals(serverBuildings) {
   const byId = new Map(BUILDINGS.map(b => [b.id, b]));
   const added = [];
@@ -263,14 +289,17 @@ async function refreshWorldData(scene) {
   }
 
   try {
-    const [voteRes, govRes] = await Promise.all([
+    const [voteRes, govRes, networkRes] = await Promise.all([
       fetch(`${API_BASE}/api/vote/current`),
-      fetch(`${API_BASE}/api/governance/current`)
+      fetch(`${API_BASE}/api/governance/current`),
+      fetch(`${API_BASE}/api/world/social-network`)
     ]);
     const voteData = await voteRes.json();
     const govData = await govRes.json();
+    const networkData = await networkRes.json();
     WORLD_CONTEXT.vote = voteData.vote || null;
     WORLD_CONTEXT.governance = govData || null;
+    WORLD_CONTEXT.socialNetwork = networkData || null;
   } catch (error) {
     console.warn('Failed to fetch governance/vote state', error);
   }
@@ -283,6 +312,7 @@ async function refreshWorldData(scene) {
   document.getElementById('weather-display').textContent = `${weatherLabel.icon} ${weatherLabel.label}`;
   updateVotePanel(WORLD_CONTEXT.vote);
   updateGovernancePanel(WORLD_CONTEXT.governance);
+  updateRelationshipsPanel(WORLD_CONTEXT.socialNetwork);
 }
 
 // Road network definition (tile coordinates that are roads)

@@ -135,19 +135,30 @@ export class MoltbotRegistry {
     }
   }
 
-  updateRelationship(agentId, otherAgentId, delta) {
+  updateRelationship(agentId, otherAgentId, delta, dimensions = {}) {
     const agent = this.agents.get(agentId);
     if (agent) {
       if (!agent.memory.relationships[otherAgentId]) {
         agent.memory.relationships[otherAgentId] = {
           affinity: 0,
+          trust: 0,
+          respect: 0,
+          conflict: 0,
           interactions: 0,
           lastInteraction: null
         };
       }
       
       const rel = agent.memory.relationships[otherAgentId];
-      rel.affinity = Math.max(-100, Math.min(100, rel.affinity + delta));
+      const affinityDelta = typeof delta === 'number' ? delta : (delta.affinity || 0);
+      const trustDelta = dimensions.trust || 0;
+      const respectDelta = dimensions.respect || 0;
+      const conflictDelta = dimensions.conflict || 0;
+
+      rel.affinity = this.clamp(rel.affinity + affinityDelta, -100, 100);
+      rel.trust = this.clamp(rel.trust + trustDelta, -100, 100);
+      rel.respect = this.clamp(rel.respect + respectDelta, -100, 100);
+      rel.conflict = this.clamp(rel.conflict + conflictDelta, 0, 100);
       rel.interactions++;
       rel.lastInteraction = Date.now();
     }
@@ -174,9 +185,16 @@ export class MoltbotRegistry {
     if (!agent) return null;
     return agent.memory.relationships[otherAgentId] || {
       affinity: 0,
+      trust: 0,
+      respect: 0,
+      conflict: 0,
       interactions: 0,
       lastInteraction: null
     };
+  }
+
+  clamp(value, min, max) {
+    return Math.max(min, Math.min(max, value));
   }
 
   isAgentOnline(agentId) {
