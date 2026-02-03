@@ -5,10 +5,18 @@ export class WorldStateManager {
     this.tickCount = 0;
     this.agents = new Map();
     this.buildings = this.initializeBuildings();
+    this.lots = this.initializeLots();
     this.tiles = this.initializeTiles();
     this.width = 64;
     this.height = 64;
     this.tileSize = 32;
+    this.dayLengthMs = parseInt(process.env.DAY_LENGTH_MS, 10) || 7200000;
+    this.weatherChangeMs = parseInt(process.env.WEATHER_CHANGE_MS, 10) || 3600000;
+    this.worldStart = Date.now();
+    this.weatherState = {
+      current: 'clear',
+      lastChange: Date.now()
+    };
     // Movement interpolation state per agent
     this.movementState = new Map(); // agentId -> { fromX, fromY, toX, toY, progress, path }
   }
@@ -98,22 +106,35 @@ export class WorldStateManager {
 
     // Mark building footprints as not walkable (except plazas/gardens)
     if (this.buildings) {
-      this.buildings.forEach(b => {
-        if (b.type === 'plaza' || b.type === 'garden') return;
-        for (let bx = b.x; bx < b.x + b.width; bx++) {
-          for (let by = b.y; by < b.y + b.height; by++) {
-            const key = `${bx},${by}`;
-            if (tiles[key]) tiles[key].walkable = false;
-          }
-        }
-      });
+      this.buildings.forEach(b => this.markBuildingFootprint(tiles, b));
     }
 
     return tiles;
   }
 
+  initializeLots() {
+    return [
+      { id: 'lot-1', x: 6, y: 18, width: 3, height: 3, district: 'central' },
+      { id: 'lot-2', x: 22, y: 30, width: 3, height: 3, district: 'north' },
+      { id: 'lot-3', x: 46, y: 12, width: 3, height: 3, district: 'east' },
+      { id: 'lot-4', x: 32, y: 46, width: 3, height: 3, district: 'south' }
+    ];
+  }
+
+  markBuildingFootprint(tiles, building) {
+    if (building.type === 'plaza' || building.type === 'garden') return;
+    for (let bx = building.x; bx < building.x + building.width; bx++) {
+      for (let by = building.y; by < building.y + building.height; by++) {
+        const key = `${bx},${by}`;
+        if (tiles[key]) tiles[key].walkable = false;
+      }
+    }
+  }
+
   tick() {
     this.tickCount++;
+    this.updateWorldTime();
+    this.updateWeather();
     // Progress all active movements
     this.movementState.forEach((state, agentId) => {
       if (state.progress < 1) {
@@ -133,6 +154,44 @@ export class WorldStateManager {
 
   getCurrentTick() {
     return this.tickCount;
+  }
+
+  updateWorldTime() {
+    const elapsed = Date.now() - this.worldStart;
+    const progress = (elapsed % this.dayLengthMs) / this.dayLengthMs;
+    this.worldTime = {
+      dayProgress: progress,
+      phase: this.getTimePhase(progress)
+    };
+  }
+
+  getTimePhase(progress) {
+    if (progress < 0.25) return 'morning';
+    if (progress < 0.5) return 'afternoon';
+    if (progress < 0.75) return 'evening';
+    return 'night';
+  }
+
+  updateWeather() {
+    const now = Date.now();
+    if (now - this.weatherState.lastChange < this.weatherChangeMs) return;
+    const weatherOptions = ['clear', 'rain', 'snow', 'storm'];
+    const next = weatherOptions[Math.floor(Math.random() * weatherOptions.length)];
+    this.weatherState = {
+      current: next,
+      lastChange: now
+    };
+  }
+
+  getTimeState() {
+    if (!this.worldTime) {
+      this.updateWorldTime();
+    }
+    return this.worldTime;
+  }
+
+  getWeatherState() {
+    return this.weatherState;
   }
 
   addAgent(agentId, position) {
@@ -393,7 +452,9 @@ export class WorldStateManager {
       }).map(b => ({
         id: b.id, name: b.name, type: b.type,
         position: { x: b.x, y: b.y }, occupants: b.occupancy.length
-      }))
+      })),
+      worldTime: this.getTimeState(),
+      weather: this.getWeatherState()
     };
   }
 
@@ -418,9 +479,34 @@ export class WorldStateManager {
     return {
       width: this.width, height: this.height, tileSize: this.tileSize,
       buildings: this.buildings,
+      lots: this.lots,
       agents: this.getAllAgentPositions(),
-      tick: this.tickCount
+      tick: this.tickCount,
+      worldTime: this.getTimeState(),
+      weather: this.getWeatherState()
     };
+  }
+
+  addBuildingFromLot(building) {
+    const lotIndex = this.lots.findIndex(lot => lot.id === building.lotId);
+    if (lotIndex === -1) {
+      throw new Error('Lot not available');
+    }
+    const lot = this.lots[lotIndex];
+    const created = {
+      id: building.id,
+      name: building.name,
+      type: building.type,
+      x: lot.x,
+      y: lot.y,
+      width: lot.width,
+      height: lot.height,
+      occupancy: []
+    };
+    this.buildings.push(created);
+    this.lots.splice(lotIndex, 1);
+    this.markBuildingFootprint(this.tiles, created);
+    return created;
   }
 
   updateAgentState(agentId, state) {
