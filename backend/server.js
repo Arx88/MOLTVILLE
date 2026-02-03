@@ -11,10 +11,16 @@ import { WorldStateManager } from './core/WorldStateManager.js';
 import { MoltbotRegistry } from './core/MoltbotRegistry.js';
 import { InteractionEngine } from './core/InteractionEngine.js';
 import { ActionQueue } from './core/ActionQueue.js';
+import { EconomyManager } from './core/EconomyManager.js';
+import { VotingManager } from './core/VotingManager.js';
+import { GovernanceManager } from './core/GovernanceManager.js';
 
 import authRoutes from './routes/auth.js';
 import moltbotRoutes from './routes/moltbot.js';
 import worldRoutes from './routes/world.js';
+import economyRoutes from './routes/economy.js';
+import voteRoutes from './routes/vote.js';
+import governanceRoutes from './routes/governance.js';
 
 dotenv.config();
 
@@ -49,17 +55,26 @@ const worldState = new WorldStateManager();
 const moltbotRegistry = new MoltbotRegistry();
 const actionQueue = new ActionQueue(worldState, moltbotRegistry);
 const interactionEngine = new InteractionEngine(worldState, moltbotRegistry);
+const economyManager = new EconomyManager(worldState);
+const votingManager = new VotingManager(worldState, io);
+const governanceManager = new GovernanceManager(io);
 
 app.locals.worldState = worldState;
 app.locals.moltbotRegistry = moltbotRegistry;
 app.locals.actionQueue = actionQueue;
 app.locals.interactionEngine = interactionEngine;
+app.locals.economyManager = economyManager;
+app.locals.votingManager = votingManager;
+app.locals.governanceManager = governanceManager;
 app.locals.io = io;
 
 // Routes
 app.use('/api/auth', authRoutes);
 app.use('/api/moltbot', moltbotRoutes);
 app.use('/api/world', worldRoutes);
+app.use('/api/economy', economyRoutes);
+app.use('/api/vote', voteRoutes);
+app.use('/api/governance', governanceRoutes);
 
 app.get('/api/health', (req, res) => {
   res.json({
@@ -77,7 +92,10 @@ io.on('connection', (socket) => {
   // Viewer joins
   socket.on('viewer:join', () => {
     socket.join('viewers');
-    socket.emit('world:state', worldState.getFullState());
+    socket.emit('world:state', {
+      ...worldState.getFullState(),
+      governance: governanceManager.getSummary()
+    });
     socket.emit('agents:list', moltbotRegistry.getAllAgents());
     logger.info(`Viewer joined: ${socket.id}`);
   });
@@ -97,6 +115,7 @@ io.on('connection', (socket) => {
         avatar: avatar || 'char1',
         socketId: socket.id, apiKey
       });
+      economyManager.registerAgent(agent.id);
 
       const spawnPosition = worldState.getRandomSpawnPosition();
       worldState.addAgent(agent.id, spawnPosition);
@@ -107,7 +126,10 @@ io.on('connection', (socket) => {
       socket.emit('agent:registered', {
         agentId: agent.id,
         position: spawnPosition,
-        worldState: worldState.getAgentView(agent.id)
+        worldState: {
+          ...worldState.getAgentView(agent.id),
+          governance: governanceManager.getSummary()
+        }
       });
 
       io.emit('agent:spawned', {
@@ -200,7 +222,10 @@ io.on('connection', (socket) => {
   socket.on('agent:perceive', (data) => {
     try {
       if (!socket.agentId) { socket.emit('error', { message: 'Not authenticated' }); return; }
-      socket.emit('perception:update', worldState.getAgentView(socket.agentId));
+      socket.emit('perception:update', {
+        ...worldState.getAgentView(socket.agentId),
+        governance: governanceManager.getSummary()
+      });
     } catch (error) {
       logger.error('Perceive error:', error);
       socket.emit('error', { message: error.message });
@@ -226,11 +251,18 @@ io.on('connection', (socket) => {
 setInterval(() => {
   worldState.tick();
   actionQueue.processQueue();
+  economyManager.tick();
+  votingManager.tick();
+  governanceManager.tick();
 
   // Broadcast interpolated agent positions to viewers
   io.to('viewers').emit('world:tick', {
     tick: worldState.getCurrentTick(),
-    agents: worldState.getAllAgentPositions() // includes interpolated x,y
+    agents: worldState.getAllAgentPositions(), // includes interpolated x,y
+    worldTime: worldState.getTimeState(),
+    weather: worldState.getWeatherState(),
+    vote: votingManager.getVoteSummary(),
+    governance: governanceManager.getSummary()
   });
 }, parseInt(process.env.WORLD_TICK_RATE) || 100);
 

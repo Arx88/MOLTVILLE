@@ -20,6 +20,7 @@
   }
   #top-bar .city-name { color: #a8c4ff; font-size: 18px; font-weight: 700; letter-spacing: 3px; text-transform: uppercase; }
   #top-bar .time-display { color: #7faaee; font-size: 13px; }
+  #top-bar .weather-display { color: #f5c542; font-size: 13px; }
   #top-bar .agent-count { color: #6bcb77; font-size: 13px; }
 
   #chat-log {
@@ -46,6 +47,17 @@
   .agent-item { display: flex; align-items: center; gap: 8px; padding: 4px 0; }
   .agent-dot { width: 8px; height: 8px; border-radius: 50%; }
   .agent-name-hud { color: #ccc; font-size: 12px; }
+
+  #vote-panel, #governance-panel {
+    position: absolute; left: 20px; width: 300px;
+    background: rgba(15,15,30,0.82); border: 1px solid rgba(100,140,255,0.2);
+    border-radius: 12px; padding: 10px; backdrop-filter: blur(6px);
+  }
+  #vote-panel { top: 60px; }
+  #governance-panel { top: 200px; }
+  .panel-title { color: #a8c4ff; font-size: 12px; font-weight: 700; letter-spacing: 1px; text-transform: uppercase; margin-bottom: 6px; }
+  .panel-row { color: #cfd8ff; font-size: 12px; margin-bottom: 4px; }
+  .panel-muted { color: #7a85a9; font-size: 11px; }
 </style>
 </head>
 <body>
@@ -54,10 +66,19 @@
   <div id="top-bar">
     <span class="city-name">🏙️ Moltville</span>
     <span class="time-display" id="time-display">☀️ 10:00 AM</span>
+    <span class="weather-display" id="weather-display">🌤️ Clear</span>
     <span class="agent-count" id="agent-count">👥 0 Citizens</span>
   </div>
   <div id="chat-log"></div>
   <div id="agents-panel"></div>
+  <div id="vote-panel">
+    <div class="panel-title">Votación diaria</div>
+    <div class="panel-row panel-muted">Sin votación activa</div>
+  </div>
+  <div id="governance-panel">
+    <div class="panel-title">Presidencia</div>
+    <div class="panel-row panel-muted">Sin presidente actual</div>
+  </div>
   <div id="minimap-container">
     <canvas id="minimap" width="140" height="140"></canvas>
   </div>
@@ -78,7 +99,7 @@ const ISO_H = TILE / 2;
 const T = { GRASS:0, ROAD:1, WATER:2, SAND:3, STONE:4, DIRT:5, PATH:6, FLOWER:7 };
 
 // Building definitions — richer and more varied
-const BUILDINGS = [
+let BUILDINGS = [
   // ── Cafés & Social ──
   { id:'cafe1', name:'Hobbs Café', type:'cafe', x:14, y:8,  w:5, h:4, color:'#c0392b', roof:'#e74c3c', accent:'#f39c12', stories:1 },
   { id:'cafe2', name:'Corner Bistro', type:'cafe', x:42, y:18, w:4, h:3, color:'#8e6b3e', roof:'#a67c52', accent:'#e67e22', stories:1 },
@@ -113,6 +134,156 @@ const BUILDINGS = [
   { id:'inn', name:'Travelers Inn', type:'inn', x:52, y:42, w:4, h:3, color:'#a04000', roof:'#c0392b', accent:'#f39c12', stories:2 },
   { id:'church', name:'Chapel', type:'chapel', x:8,  y:42, w:3, h:4, color:'#ecf0f1', roof:'#bdc3c7', accent:'#f39c12', stories:2 },
 ];
+
+let LOTS = [];
+
+const API_BASE = window.location.hostname
+  ? `http://${window.location.hostname}:3001`
+  : 'http://localhost:3001';
+
+const WORLD_CONTEXT = {
+  worldTime: null,
+  weather: null,
+  vote: null,
+  governance: null
+};
+
+function getWeatherLabel(weather) {
+  const map = {
+    clear: { icon: '🌤️', label: 'Clear' },
+    rain: { icon: '🌧️', label: 'Rain' },
+    snow: { icon: '❄️', label: 'Snow' },
+    storm: { icon: '⛈️', label: 'Storm' }
+  };
+  return map[weather] || { icon: '🌤️', label: 'Clear' };
+}
+
+function formatServerTime(worldTime) {
+  if (!worldTime || typeof worldTime.dayProgress !== 'number') return null;
+  const minutes = Math.floor(worldTime.dayProgress * 1440);
+  const hours = Math.floor(minutes / 60);
+  const mins = minutes % 60;
+  const ampm = hours >= 12 ? 'PM' : 'AM';
+  const h12 = hours % 12 || 12;
+  const timeStr = `${h12}:${String(mins).padStart(2,'0')} ${ampm}`;
+  let icon = '☀️';
+  if (worldTime.phase === 'night') icon = '🌙';
+  if (worldTime.phase === 'evening') icon = '🌆';
+  if (worldTime.phase === 'morning') icon = '🌅';
+  return `${icon} ${timeStr}`;
+}
+
+function updateVotePanel(vote) {
+  const panel = document.getElementById('vote-panel');
+  if (!vote) {
+    panel.innerHTML = '<div class="panel-title">Votación diaria</div><div class="panel-row panel-muted">Sin votación activa</div>';
+    return;
+  }
+  const options = vote.options
+    .map(o => `<div class="panel-row">${o.name} <span class="panel-muted">(${o.votes})</span></div>`)
+    .join('');
+  const remainingMs = Math.max(0, vote.endsAt - Date.now());
+  const remainingMin = Math.ceil(remainingMs / 60000);
+  panel.innerHTML = `
+    <div class="panel-title">Votación diaria</div>
+    <div class="panel-row panel-muted">Lote: ${vote.lotId}</div>
+    ${options || '<div class="panel-row panel-muted">Sin opciones</div>'}
+    <div class="panel-row panel-muted">Cierra en ~${remainingMin} min</div>
+  `;
+}
+
+function updateGovernancePanel(governance) {
+  const panel = document.getElementById('governance-panel');
+  if (!governance) {
+    panel.innerHTML = '<div class="panel-title">Presidencia</div><div class="panel-row panel-muted">Sin presidente actual</div>';
+    return;
+  }
+  const president = governance.president;
+  const election = governance.election;
+  const presidentRow = president
+    ? `<div class="panel-row">👑 ${president.name}</div>`
+    : '<div class="panel-row panel-muted">Sin presidente actual</div>';
+  const electionRow = election
+    ? `<div class="panel-row panel-muted">Elección activa (${election.candidates.length} candidatos)</div>`
+    : '<div class="panel-row panel-muted">Sin elección activa</div>';
+  panel.innerHTML = `
+    <div class="panel-title">Presidencia</div>
+    ${presidentRow}
+    ${electionRow}
+  `;
+}
+
+function mergeBuildingVisuals(serverBuildings) {
+  const byId = new Map(BUILDINGS.map(b => [b.id, b]));
+  const added = [];
+  serverBuildings.forEach(b => {
+    if (byId.has(b.id)) return;
+    const palette = {
+      cafe: { color: '#c0392b', roof: '#e74c3c', accent: '#f39c12', stories: 1 },
+      library: { color: '#5b4a8a', roof: '#7d6ba0', accent: '#9b8ec4', stories: 2 },
+      market: { color: '#16a085', roof: '#1abc9c', accent: '#f39c12', stories: 1 },
+      gallery: { color: '#6c5b73', roof: '#8a7490', accent: '#d4a84b', stories: 2 },
+      civic: { color: '#34495e', roof: '#2c3e50', accent: '#3498db', stories: 3 }
+    };
+    const style = palette[b.type] || { color: '#7f8c8d', roof: '#95a5a6', accent: '#bdc3c7', stories: 1 };
+    BUILDINGS.push({
+      id: b.id,
+      name: b.name,
+      type: b.type,
+      x: b.x,
+      y: b.y,
+      w: b.width,
+      h: b.height,
+      color: style.color,
+      roof: style.roof,
+      accent: style.accent,
+      stories: style.stories
+    });
+    added.push(b);
+  });
+  return added;
+}
+
+async function refreshWorldData(scene) {
+  try {
+    const stateRes = await fetch(`${API_BASE}/api/world/state`);
+    const state = await stateRes.json();
+    WORLD_CONTEXT.worldTime = state.worldTime || null;
+    WORLD_CONTEXT.weather = state.weather || null;
+    LOTS = state.lots || [];
+    const newBuildings = mergeBuildingVisuals(state.buildings || []);
+    if (scene && newBuildings.length) {
+      scene.renderNewBuildings(newBuildings);
+    }
+    if (scene && scene.drawLots) {
+      scene.drawLots();
+    }
+  } catch (error) {
+    console.warn('Failed to fetch world state', error);
+  }
+
+  try {
+    const [voteRes, govRes] = await Promise.all([
+      fetch(`${API_BASE}/api/vote/current`),
+      fetch(`${API_BASE}/api/governance/current`)
+    ]);
+    const voteData = await voteRes.json();
+    const govData = await govRes.json();
+    WORLD_CONTEXT.vote = voteData.vote || null;
+    WORLD_CONTEXT.governance = govData || null;
+  } catch (error) {
+    console.warn('Failed to fetch governance/vote state', error);
+  }
+
+  const timeDisplay = formatServerTime(WORLD_CONTEXT.worldTime);
+  if (timeDisplay) {
+    document.getElementById('time-display').textContent = timeDisplay;
+  }
+  const weatherLabel = getWeatherLabel(WORLD_CONTEXT.weather?.current);
+  document.getElementById('weather-display').textContent = `${weatherLabel.icon} ${weatherLabel.label}`;
+  updateVotePanel(WORLD_CONTEXT.vote);
+  updateGovernancePanel(WORLD_CONTEXT.governance);
+}
 
 // Road network definition (tile coordinates that are roads)
 function generateTileMap() {
@@ -317,6 +488,11 @@ class MoltivilleScene extends Phaser.Scene {
     // Draw buildings
     this.drawBuildings();
 
+    // Lots overlay
+    this.lotGraphics = this.add.graphics();
+    this.lotGraphics.setDepth(100);
+    this.drawLots();
+
     // Agent graphics will be drawn each frame
     this.agentGraphics = this.add.graphics();
     this.agentGraphics.setDepth(500);
@@ -355,6 +531,10 @@ class MoltivilleScene extends Phaser.Scene {
     this.input.on('wheel', (p, dx, dy) => {
       // Simple: don't zoom for now, just allow scrolling nuance
     });
+
+    // Initial data fetch and polling
+    refreshWorldData(this);
+    this._worldInterval = setInterval(() => refreshWorldData(this), 5000);
   }
 
   drawTiles() {
@@ -468,6 +648,48 @@ class MoltivilleScene extends Phaser.Scene {
         this.drawBuilding(b);
       }
     });
+  }
+
+  renderNewBuildings(serverBuildings) {
+    serverBuildings.forEach(b => {
+      const visual = BUILDINGS.find(item => item.id === b.id);
+      if (!visual) return;
+      if (visual.type === 'plaza' || visual.type === 'garden') {
+        this.drawPlazaOrGarden(visual);
+      } else {
+        this.drawBuilding(visual);
+      }
+    });
+  }
+
+  drawLots() {
+    if (!this.lotGraphics) return;
+    this.lotGraphics.clear();
+    this.lotGraphics.lineStyle(1, 0xf1c40f, 0.7);
+    LOTS.forEach(lot => {
+      for (let dy = 0; dy < lot.height; dy++) {
+        for (let dx = 0; dx < lot.width; dx++) {
+          const tx = lot.x + dx;
+          const ty = lot.y + dy;
+          const pos = toIso(tx, ty);
+          const px = pos.x + this.sys.game.config.width / 2;
+          const py = pos.y + this.sys.game.config.height / 2;
+          this.drawLotDiamond(px, py);
+        }
+      }
+    });
+  }
+
+  drawLotDiamond(px, py) {
+    const w = ISO_W;
+    const h = ISO_H;
+    this.lotGraphics.strokePoints([
+      { x: px, y: py - h / 2 },
+      { x: px + w / 2, y: py },
+      { x: px, y: py + h / 2 },
+      { x: px - w / 2, y: py },
+      { x: px, y: py - h / 2 }
+    ], false, true);
   }
 
   drawPlazaOrGarden(b) {
@@ -944,6 +1166,12 @@ class MoltivilleScene extends Phaser.Scene {
       ctx.fillRect(b.x * scaleX, b.y * scaleY, b.w * scaleX, b.h * scaleY);
     });
 
+    // Lots (outlined)
+    ctx.strokeStyle = 'rgba(241,196,15,0.8)';
+    LOTS.forEach(lot => {
+      ctx.strokeRect(lot.x * scaleX, lot.y * scaleY, lot.width * scaleX, lot.height * scaleY);
+    });
+
     // Trees
     this.decorations.filter(d => d.type === 'tree').forEach(d => {
       ctx.fillStyle = '#27ae60';
@@ -1267,6 +1495,14 @@ class MoltivilleScene extends Phaser.Scene {
   // TIME
   // ============================================================
   updateTime(dt) {
+    if (WORLD_CONTEXT.worldTime) {
+      const timeDisplay = formatServerTime(WORLD_CONTEXT.worldTime);
+      if (timeDisplay) {
+        document.getElementById('time-display').textContent = timeDisplay;
+      }
+      return;
+    }
+
     this.gameTime += dt / 1000 * 0.5; // 0.5 game minutes per real second
     if (this.gameTime >= 1440) this.gameTime -= 1440;
 

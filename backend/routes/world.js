@@ -22,6 +22,16 @@ router.get('/buildings', async (req, res) => {
   }
 });
 
+// Get available lots
+router.get('/lots', async (req, res) => {
+  try {
+    const { worldState } = req.app.locals;
+    res.json(worldState.lots);
+  } catch (error) {
+    res.status(500).json({ error: error.message });
+  }
+});
+
 // Get building info
 router.get('/buildings/:buildingId', async (req, res) => {
   try {
