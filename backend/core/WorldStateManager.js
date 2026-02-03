@@ -1,7 +1,12 @@
 import { logger } from '../utils/logger.js';
 
 export class WorldStateManager {
-  constructor() {
+  constructor(options = {}) {
+    const {
+      tickRateMs = 100,
+      dayLengthMs = 2 * 60 * 60 * 1000,
+      weatherChangeMs = 6 * 60 * 60 * 1000
+    } = options;
     this.tickCount = 0;
     this.agents = new Map();
     this.buildings = this.initializeBuildings();
@@ -9,6 +14,18 @@ export class WorldStateManager {
     this.width = 64;
     this.height = 64;
     this.tileSize = 32;
+    this.tickRateMs = tickRateMs;
+    this.dayLengthMs = dayLengthMs;
+    this.weatherChangeMs = weatherChangeMs;
+    this.timeState = {
+      dayCount: 1,
+      timeMs: 0,
+      timeOfDay: 'morning'
+    };
+    this.weatherState = {
+      current: 'clear',
+      lastChangeMs: 0
+    };
     // Movement interpolation state per agent
     this.movementState = new Map(); // agentId -> { fromX, fromY, toX, toY, progress, path }
   }
@@ -114,6 +131,7 @@ export class WorldStateManager {
 
   tick() {
     this.tickCount++;
+    this.updateTimeAndWeather();
     // Progress all active movements
     this.movementState.forEach((state, agentId) => {
       if (state.progress < 1) {
@@ -129,6 +147,44 @@ export class WorldStateManager {
         }
       }
     });
+  }
+
+  updateTimeAndWeather() {
+    this.timeState.timeMs += this.tickRateMs;
+    if (this.timeState.timeMs >= this.dayLengthMs) {
+      this.timeState.timeMs -= this.dayLengthMs;
+      this.timeState.dayCount += 1;
+    }
+
+    const dayProgress = this.timeState.timeMs / this.dayLengthMs;
+    if (dayProgress < 0.25) this.timeState.timeOfDay = 'morning';
+    else if (dayProgress < 0.5) this.timeState.timeOfDay = 'afternoon';
+    else if (dayProgress < 0.75) this.timeState.timeOfDay = 'evening';
+    else this.timeState.timeOfDay = 'night';
+
+    this.weatherState.lastChangeMs += this.tickRateMs;
+    if (this.weatherState.lastChangeMs >= this.weatherChangeMs) {
+      this.weatherState.current = this.getNextWeather();
+      this.weatherState.lastChangeMs = 0;
+    }
+  }
+
+  getNextWeather() {
+    const options = [
+      { type: 'clear', weight: 50 },
+      { type: 'cloudy', weight: 20 },
+      { type: 'rain', weight: 15 },
+      { type: 'storm', weight: 5 },
+      { type: 'snow', weight: 5 },
+      { type: 'fog', weight: 5 }
+    ];
+    const total = options.reduce((sum, o) => sum + o.weight, 0);
+    let roll = Math.random() * total;
+    for (const option of options) {
+      roll -= option.weight;
+      if (roll <= 0) return option.type;
+    }
+    return 'clear';
   }
 
   getCurrentTick() {
@@ -376,6 +432,11 @@ export class WorldStateManager {
 
     return {
       position: { x: agent.x, y: agent.y, facing: agent.facing },
+      world: {
+        dayCount: this.timeState.dayCount,
+        timeOfDay: this.timeState.timeOfDay,
+        weather: this.weatherState.current
+      },
       currentBuilding: currentBuilding ? {
         id: currentBuilding.id, name: currentBuilding.name,
         type: currentBuilding.type, occupants: currentBuilding.occupancy.length
@@ -419,7 +480,12 @@ export class WorldStateManager {
       width: this.width, height: this.height, tileSize: this.tileSize,
       buildings: this.buildings,
       agents: this.getAllAgentPositions(),
-      tick: this.tickCount
+      tick: this.tickCount,
+      world: {
+        dayCount: this.timeState.dayCount,
+        timeOfDay: this.timeState.timeOfDay,
+        weather: this.weatherState.current
+      }
     };
   }
 
