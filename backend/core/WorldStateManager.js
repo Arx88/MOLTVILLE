@@ -9,6 +9,13 @@ export class WorldStateManager {
     this.width = 64;
     this.height = 64;
     this.tileSize = 32;
+    this.dayLengthMs = parseInt(process.env.DAY_LENGTH_MS, 10) || 7200000;
+    this.weatherChangeMs = parseInt(process.env.WEATHER_CHANGE_MS, 10) || 3600000;
+    this.worldStart = Date.now();
+    this.weatherState = {
+      current: 'clear',
+      lastChange: Date.now()
+    };
     // Movement interpolation state per agent
     this.movementState = new Map(); // agentId -> { fromX, fromY, toX, toY, progress, path }
   }
@@ -114,6 +121,8 @@ export class WorldStateManager {
 
   tick() {
     this.tickCount++;
+    this.updateWorldTime();
+    this.updateWeather();
     // Progress all active movements
     this.movementState.forEach((state, agentId) => {
       if (state.progress < 1) {
@@ -133,6 +142,44 @@ export class WorldStateManager {
 
   getCurrentTick() {
     return this.tickCount;
+  }
+
+  updateWorldTime() {
+    const elapsed = Date.now() - this.worldStart;
+    const progress = (elapsed % this.dayLengthMs) / this.dayLengthMs;
+    this.worldTime = {
+      dayProgress: progress,
+      phase: this.getTimePhase(progress)
+    };
+  }
+
+  getTimePhase(progress) {
+    if (progress < 0.25) return 'morning';
+    if (progress < 0.5) return 'afternoon';
+    if (progress < 0.75) return 'evening';
+    return 'night';
+  }
+
+  updateWeather() {
+    const now = Date.now();
+    if (now - this.weatherState.lastChange < this.weatherChangeMs) return;
+    const weatherOptions = ['clear', 'rain', 'snow', 'storm'];
+    const next = weatherOptions[Math.floor(Math.random() * weatherOptions.length)];
+    this.weatherState = {
+      current: next,
+      lastChange: now
+    };
+  }
+
+  getTimeState() {
+    if (!this.worldTime) {
+      this.updateWorldTime();
+    }
+    return this.worldTime;
+  }
+
+  getWeatherState() {
+    return this.weatherState;
   }
 
   addAgent(agentId, position) {
@@ -393,7 +440,9 @@ export class WorldStateManager {
       }).map(b => ({
         id: b.id, name: b.name, type: b.type,
         position: { x: b.x, y: b.y }, occupants: b.occupancy.length
-      }))
+      })),
+      worldTime: this.getTimeState(),
+      weather: this.getWeatherState()
     };
   }
 
@@ -419,7 +468,9 @@ export class WorldStateManager {
       width: this.width, height: this.height, tileSize: this.tileSize,
       buildings: this.buildings,
       agents: this.getAllAgentPositions(),
-      tick: this.tickCount
+      tick: this.tickCount,
+      worldTime: this.getTimeState(),
+      weather: this.getWeatherState()
     };
   }
 

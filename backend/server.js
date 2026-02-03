@@ -11,10 +11,12 @@ import { WorldStateManager } from './core/WorldStateManager.js';
 import { MoltbotRegistry } from './core/MoltbotRegistry.js';
 import { InteractionEngine } from './core/InteractionEngine.js';
 import { ActionQueue } from './core/ActionQueue.js';
+import { EconomyManager } from './core/EconomyManager.js';
 
 import authRoutes from './routes/auth.js';
 import moltbotRoutes from './routes/moltbot.js';
 import worldRoutes from './routes/world.js';
+import economyRoutes from './routes/economy.js';
 
 dotenv.config();
 
@@ -49,17 +51,20 @@ const worldState = new WorldStateManager();
 const moltbotRegistry = new MoltbotRegistry();
 const actionQueue = new ActionQueue(worldState, moltbotRegistry);
 const interactionEngine = new InteractionEngine(worldState, moltbotRegistry);
+const economyManager = new EconomyManager(worldState);
 
 app.locals.worldState = worldState;
 app.locals.moltbotRegistry = moltbotRegistry;
 app.locals.actionQueue = actionQueue;
 app.locals.interactionEngine = interactionEngine;
+app.locals.economyManager = economyManager;
 app.locals.io = io;
 
 // Routes
 app.use('/api/auth', authRoutes);
 app.use('/api/moltbot', moltbotRoutes);
 app.use('/api/world', worldRoutes);
+app.use('/api/economy', economyRoutes);
 
 app.get('/api/health', (req, res) => {
   res.json({
@@ -97,6 +102,7 @@ io.on('connection', (socket) => {
         avatar: avatar || 'char1',
         socketId: socket.id, apiKey
       });
+      economyManager.registerAgent(agent.id);
 
       const spawnPosition = worldState.getRandomSpawnPosition();
       worldState.addAgent(agent.id, spawnPosition);
@@ -226,11 +232,14 @@ io.on('connection', (socket) => {
 setInterval(() => {
   worldState.tick();
   actionQueue.processQueue();
+  economyManager.tick();
 
   // Broadcast interpolated agent positions to viewers
   io.to('viewers').emit('world:tick', {
     tick: worldState.getCurrentTick(),
-    agents: worldState.getAllAgentPositions() // includes interpolated x,y
+    agents: worldState.getAllAgentPositions(), // includes interpolated x,y
+    worldTime: worldState.getTimeState(),
+    weather: worldState.getWeatherState()
   });
 }, parseInt(process.env.WORLD_TICK_RATE) || 100);
 
