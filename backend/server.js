@@ -53,7 +53,7 @@ app.use('/api/', limiter);
 
 // Initialize core systems
 const worldState = new WorldStateManager();
-const moltbotRegistry = new MoltbotRegistry();
+const moltbotRegistry = new MoltbotRegistry({ db });
 const actionQueue = new ActionQueue(worldState, moltbotRegistry);
 const interactionEngine = new InteractionEngine(worldState, moltbotRegistry);
 const economyManager = new EconomyManager(worldState, { db });

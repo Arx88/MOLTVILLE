@@ -2,7 +2,8 @@ import { v4 as uuidv4 } from 'uuid';
 import { logger } from '../utils/logger.js';
 
 export class MoltbotRegistry {
-  constructor() {
+  constructor(options = {}) {
+    this.db = options.db || null;
     this.agents = new Map(); // agentId -> agent data
     this.apiKeys = new Map(); // apiKey -> agentId
     this.sockets = new Map(); // agentId -> socketId
@@ -18,6 +19,9 @@ export class MoltbotRegistry {
       existing.socketId = socketId;
       existing.lastSeen = Date.now();
       this.sockets.set(id, socketId);
+      if (this.db && !existing.memory.loadedFromDb) {
+        await this.loadAgentState(existing.id);
+      }
       logger.info(`Agent ${name} reconnected`);
       return existing;
     }
@@ -47,8 +51,50 @@ export class MoltbotRegistry {
     this.apiKeys.set(apiKey, agent.id);
     this.sockets.set(agent.id, socketId);
 
+    if (this.db) {
+      await this.loadAgentState(agent.id);
+    }
+
     logger.info(`Agent registered: ${name} (${agent.id})`);
     return agent;
+  }
+
+  async loadAgentState(agentId) {
+    if (!this.db) return;
+    const agent = this.agents.get(agentId);
+    if (!agent) return;
+
+    const [relationshipsResult, memoriesResult] = await Promise.all([
+      this.db.query(
+        'SELECT * FROM agent_relationships WHERE agent_id = $1',
+        [agentId]
+      ),
+      this.db.query(
+        'SELECT type, data, timestamp FROM agent_memories WHERE agent_id = $1 ORDER BY timestamp ASC',
+        [agentId]
+      )
+    ]);
+
+    relationshipsResult.rows.forEach(row => {
+      agent.memory.relationships[row.other_agent_id] = {
+        affinity: row.affinity,
+        trust: row.trust,
+        respect: row.respect,
+        conflict: row.conflict,
+        interactions: row.interactions,
+        lastInteraction: row.last_interaction
+      };
+    });
+
+    memoriesResult.rows.forEach(row => {
+      agent.memory.interactions.push({
+        type: row.type,
+        data: row.data,
+        timestamp: Number(row.timestamp)
+      });
+    });
+
+    agent.memory.loadedFromDb = true;
   }
 
   unregisterAgent(agentId) {
@@ -132,6 +178,8 @@ export class MoltbotRegistry {
           }
           break;
       }
+
+      this.persistMemory(agentId, memory);
     }
   }
 
@@ -161,6 +209,8 @@ export class MoltbotRegistry {
       rel.conflict = this.clamp(rel.conflict + conflictDelta, 0, 100);
       rel.interactions++;
       rel.lastInteraction = Date.now();
+
+      this.persistRelationship(agentId, otherAgentId, rel);
     }
   }
 
@@ -195,6 +245,40 @@ export class MoltbotRegistry {
 
   clamp(value, min, max) {
     return Math.max(min, Math.min(max, value));
+  }
+
+  persistRelationship(agentId, otherAgentId, rel) {
+    if (!this.db) return;
+    this.db.query(
+      `INSERT INTO agent_relationships
+        (agent_id, other_agent_id, affinity, trust, respect, conflict, interactions, last_interaction)
+       VALUES ($1, $2, $3, $4, $5, $6, $7, $8)
+       ON CONFLICT (agent_id, other_agent_id) DO UPDATE SET
+        affinity = EXCLUDED.affinity,
+        trust = EXCLUDED.trust,
+        respect = EXCLUDED.respect,
+        conflict = EXCLUDED.conflict,
+        interactions = EXCLUDED.interactions,
+        last_interaction = EXCLUDED.last_interaction`,
+      [
+        agentId,
+        otherAgentId,
+        rel.affinity,
+        rel.trust,
+        rel.respect,
+        rel.conflict,
+        rel.interactions,
+        rel.lastInteraction
+      ]
+    ).catch(error => logger.error('Relationship persist failed:', error));
+  }
+
+  persistMemory(agentId, memory) {
+    if (!this.db) return;
+    this.db.query(
+      'INSERT INTO agent_memories (agent_id, type, data, timestamp) VALUES ($1, $2, $3, $4)',
+      [agentId, memory.type, memory.data, memory.timestamp]
+    ).catch(error => logger.error('Memory persist failed:', error));
   }
 
   isAgentOnline(agentId) {

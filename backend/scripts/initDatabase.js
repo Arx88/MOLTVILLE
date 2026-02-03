@@ -55,6 +55,26 @@ CREATE TABLE IF NOT EXISTS governance_president (
   president JSONB,
   updated_at TIMESTAMP NOT NULL DEFAULT NOW()
 );
+
+CREATE TABLE IF NOT EXISTS agent_relationships (
+  agent_id TEXT NOT NULL,
+  other_agent_id TEXT NOT NULL,
+  affinity INTEGER NOT NULL DEFAULT 0,
+  trust INTEGER NOT NULL DEFAULT 0,
+  respect INTEGER NOT NULL DEFAULT 0,
+  conflict INTEGER NOT NULL DEFAULT 0,
+  interactions INTEGER NOT NULL DEFAULT 0,
+  last_interaction BIGINT,
+  PRIMARY KEY (agent_id, other_agent_id)
+);
+
+CREATE TABLE IF NOT EXISTS agent_memories (
+  id SERIAL PRIMARY KEY,
+  agent_id TEXT NOT NULL,
+  type TEXT NOT NULL,
+  data JSONB NOT NULL,
+  timestamp BIGINT NOT NULL
+);
 `;
 
 async function main() {
