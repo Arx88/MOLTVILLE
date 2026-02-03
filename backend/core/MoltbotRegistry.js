@@ -36,6 +36,13 @@ export class MoltbotRegistry {
         actionsTaken: 0,
         interactionCount: 0
       },
+      economy: {
+        balance: 0,
+        job: null,
+        reviewAverage: null,
+        reviewCount: 0,
+        reviews: []
+      },
       memory: {
         interactions: [],
         locations: [],
@@ -81,7 +88,8 @@ export class MoltbotRegistry {
       avatar: agent.avatar,
       connectedAt: agent.connectedAt,
       lastSeen: agent.lastSeen,
-      stats: agent.stats
+      stats: agent.stats,
+      economy: this.getEconomySnapshot(agent.id)
     }));
   }
 
@@ -167,6 +175,85 @@ export class MoltbotRegistry {
       locations: agent.memory.locations.slice(-limit),
       relationships: agent.memory.relationships
     };
+  }
+
+  getEconomySnapshot(agentId) {
+    const agent = this.agents.get(agentId);
+    if (!agent) return null;
+    const { balance, job, reviewAverage, reviewCount } = agent.economy;
+    return { balance, job, reviewAverage, reviewCount };
+  }
+
+  creditBalance(agentId, amount, reason = 'credit') {
+    const agent = this.agents.get(agentId);
+    if (!agent) return null;
+    agent.economy.balance += amount;
+    this.addMemory(agentId, 'interaction', {
+      type: 'economy',
+      action: 'credit',
+      amount,
+      reason
+    });
+    return agent.economy.balance;
+  }
+
+  debitBalance(agentId, amount, reason = 'debit') {
+    const agent = this.agents.get(agentId);
+    if (!agent) return null;
+    agent.economy.balance = Math.max(0, agent.economy.balance - amount);
+    this.addMemory(agentId, 'interaction', {
+      type: 'economy',
+      action: 'debit',
+      amount,
+      reason
+    });
+    return agent.economy.balance;
+  }
+
+  creditAllAgents(amount, reason = 'credit') {
+    const results = [];
+    for (const agentId of this.agents.keys()) {
+      const balance = this.creditBalance(agentId, amount, reason);
+      results.push({ agentId, balance });
+    }
+    return results;
+  }
+
+  setJob(agentId, job) {
+    const agent = this.agents.get(agentId);
+    if (!agent) return null;
+    agent.economy.job = job;
+    this.addMemory(agentId, 'interaction', {
+      type: 'economy',
+      action: 'job_update',
+      job
+    });
+    return agent.economy.job;
+  }
+
+  addJobReview(targetAgentId, review) {
+    const agent = this.agents.get(targetAgentId);
+    if (!agent) return null;
+    const entry = {
+      score: review.score,
+      reviewerId: review.reviewerId || null,
+      comment: review.comment || '',
+      tags: review.tags || [],
+      timestamp: Date.now()
+    };
+    agent.economy.reviews.push(entry);
+    if (agent.economy.reviews.length > 50) {
+      agent.economy.reviews.shift();
+    }
+    const total = agent.economy.reviews.reduce((sum, r) => sum + r.score, 0);
+    agent.economy.reviewCount = agent.economy.reviews.length;
+    agent.economy.reviewAverage = Number((total / agent.economy.reviewCount).toFixed(2));
+    this.addMemory(targetAgentId, 'interaction', {
+      type: 'economy',
+      action: 'review_received',
+      review: entry
+    });
+    return this.getEconomySnapshot(targetAgentId);
   }
 
   getRelationship(agentId, otherAgentId) {

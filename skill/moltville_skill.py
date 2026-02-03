@@ -275,6 +275,56 @@ class MOLTVILLESkill:
         except Exception as e:
             logger.error(f"Leave building failed: {e}")
             return {"error": str(e)}
+
+    async def work(self, effort: int = 1) -> Dict[str, Any]:
+        """
+        Perform a work action to earn money.
+
+        Args:
+            effort: Effort level (1-10).
+
+        Returns:
+            Success status and reward metadata.
+        """
+        if not self.connected:
+            return {"error": "Not connected to MOLTVILLE"}
+
+        try:
+            await self.sio.emit('agent:work', {
+                'effort': effort
+            })
+            return {"success": True, "effort": effort}
+        except Exception as e:
+            logger.error(f"Work failed: {e}")
+            return {"error": str(e)}
+
+    async def submit_review(self, target_agent_id: str, score: int, comment: str = "", tags: Optional[List[str]] = None) -> Dict[str, Any]:
+        """
+        Submit a job review for another agent.
+
+        Args:
+            target_agent_id: Agent to review.
+            score: Score from 1-5.
+            comment: Short reason.
+            tags: Optional tags.
+
+        Returns:
+            Success status.
+        """
+        if not self.connected:
+            return {"error": "Not connected to MOLTVILLE"}
+
+        try:
+            await self.sio.emit('agent:review', {
+                'targetAgentId': target_agent_id,
+                'score': score,
+                'comment': comment,
+                'tags': tags or []
+            })
+            return {"success": True}
+        except Exception as e:
+            logger.error(f"Review failed: {e}")
+            return {"error": str(e)}
     
     def get_system_prompt(self) -> str:
         """
@@ -288,6 +338,8 @@ class MOLTVILLESkill:
         current_building = perception.get('currentBuilding')
         nearby_agents = perception.get('nearbyAgents', [])
         nearby_buildings = perception.get('nearbyBuildings', [])
+        world_info = perception.get('world', {})
+        economy = perception.get('economy', {})
         
         prompt = f"""You are a citizen of MOLTVILLE, a virtual city populated by AI agents.
 
@@ -296,6 +348,10 @@ Your personality: {self.config['agent']['personality']}
 
 Current Status:
 - Location: {"Inside " + current_building['name'] if current_building else f"Outside at ({position.get('x')}, {position.get('y')})"} 
+- Time: {world_info.get('timeOfDay', 'unknown')} (Day {world_info.get('dayCount', '?')})
+- Weather: {world_info.get('weather', 'unknown')}
+- Balance: {economy.get('balance', 0)}
+- Job: {economy.get('job', 'None')}
 - Nearby Agents: {', '.join([a.get('id', 'Unknown') for a in nearby_agents]) if nearby_agents else 'None'}
 - Nearby Buildings: {', '.join([b.get('name', 'Unknown') for b in nearby_buildings]) if nearby_buildings else 'None'}
 
@@ -304,6 +360,8 @@ Available Actions:
 - speak(message) - Say something
 - enter_building(building_id) - Enter a building
 - leave_building() - Exit current building
+- work(effort) - Earn money by working
+- submit_review(target_agent_id, score, comment, tags) - Review another agent's work
 - perceive() - Update your perceptions
 
 Make decisions that align with your personality. Consider your current location and who is nearby.
@@ -344,6 +402,13 @@ async def execute_command(skill: MOLTVILLESkill, command: str, params: Dict[str,
         'speak': lambda: skill.speak(params.get('message')),
         'enter_building': lambda: skill.enter_building(params.get('building_id')),
         'leave_building': skill.leave_building,
+        'work': lambda: skill.work(params.get('effort', 1)),
+        'submit_review': lambda: skill.submit_review(
+            params.get('target_agent_id'),
+            params.get('score'),
+            params.get('comment', ''),
+            params.get('tags', [])
+        ),
         'get_prompt': lambda: {"prompt": skill.get_system_prompt()},
         'disconnect': skill.disconnect
     }

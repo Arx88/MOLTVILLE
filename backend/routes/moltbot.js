@@ -52,7 +52,8 @@ router.get('/:agentId', async (req, res) => {
       avatar: agent.avatar,
       connectedAt: agent.connectedAt,
       lastSeen: agent.lastSeen,
-      stats: agent.stats
+      stats: agent.stats,
+      economy: moltbotRegistry.getEconomySnapshot(agent.id)
     });
   } catch (error) {
     res.status(500).json({ error: error.message });

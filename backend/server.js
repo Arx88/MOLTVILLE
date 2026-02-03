@@ -45,7 +45,12 @@ const limiter = rateLimit({
 app.use('/api/', limiter);
 
 // Initialize core systems
-const worldState = new WorldStateManager();
+const tickRateMs = parseInt(process.env.WORLD_TICK_RATE) || 100;
+const worldState = new WorldStateManager({
+  tickRateMs,
+  dayLengthMs: parseInt(process.env.DAY_LENGTH_MS) || 2 * 60 * 60 * 1000,
+  weatherChangeMs: parseInt(process.env.WEATHER_CHANGE_MS) || 6 * 60 * 60 * 1000
+});
 const moltbotRegistry = new MoltbotRegistry();
 const actionQueue = new ActionQueue(worldState, moltbotRegistry);
 const interactionEngine = new InteractionEngine(worldState, moltbotRegistry);
@@ -107,7 +112,8 @@ io.on('connection', (socket) => {
       socket.emit('agent:registered', {
         agentId: agent.id,
         position: spawnPosition,
-        worldState: worldState.getAgentView(agent.id)
+        worldState: worldState.getAgentView(agent.id),
+        economy: moltbotRegistry.getEconomySnapshot(agent.id)
       });
 
       io.emit('agent:spawned', {
@@ -183,6 +189,45 @@ io.on('connection', (socket) => {
     }
   });
 
+  socket.on('agent:work', async (data) => {
+    try {
+      if (!socket.agentId) { socket.emit('error', { message: 'Not authenticated' }); return; }
+      const { effort = 1 } = data || {};
+      const reward = Math.max(1, Math.min(10, Math.round(effort))) * 5;
+      const balance = moltbotRegistry.creditBalance(socket.agentId, reward, 'work');
+      socket.emit('economy:balance_update', { balance, delta: reward, reason: 'work' });
+    } catch (error) {
+      logger.error('Work error:', error);
+      socket.emit('error', { message: error.message });
+    }
+  });
+
+  socket.on('agent:review', async (data) => {
+    try {
+      if (!socket.agentId) { socket.emit('error', { message: 'Not authenticated' }); return; }
+      const { targetAgentId, score, comment, tags } = data || {};
+      if (!targetAgentId || typeof score !== 'number') {
+        socket.emit('error', { message: 'Invalid review payload' });
+        return;
+      }
+      const clampedScore = Math.max(1, Math.min(5, Math.round(score)));
+      const summary = moltbotRegistry.addJobReview(targetAgentId, {
+        score: clampedScore,
+        reviewerId: socket.agentId,
+        comment,
+        tags
+      });
+      const targetSocket = moltbotRegistry.getAgentSocket(targetAgentId);
+      if (targetSocket) {
+        io.to(targetSocket).emit('economy:review_update', summary);
+      }
+      socket.emit('economy:review_submitted', { targetAgentId, score: clampedScore });
+    } catch (error) {
+      logger.error('Review error:', error);
+      socket.emit('error', { message: error.message });
+    }
+  });
+
   socket.on('agent:action', async (data) => {
     try {
       if (!socket.agentId) { socket.emit('error', { message: 'Not authenticated' }); return; }
@@ -200,7 +245,10 @@ io.on('connection', (socket) => {
   socket.on('agent:perceive', (data) => {
     try {
       if (!socket.agentId) { socket.emit('error', { message: 'Not authenticated' }); return; }
-      socket.emit('perception:update', worldState.getAgentView(socket.agentId));
+      socket.emit('perception:update', {
+        ...worldState.getAgentView(socket.agentId),
+        economy: moltbotRegistry.getEconomySnapshot(socket.agentId)
+      });
     } catch (error) {
       logger.error('Perceive error:', error);
       socket.emit('error', { message: error.message });
@@ -223,16 +271,37 @@ io.on('connection', (socket) => {
 
 // ── World Update Loop ──
 // Now broadcasts interpolated positions for smooth client rendering
+let lastPassiveIncomeMs = Date.now();
+const passiveIncomeIntervalMs = parseInt(process.env.PASSIVE_INCOME_INTERVAL_MS) || 60 * 1000;
+const passiveIncomeAmount = parseInt(process.env.PASSIVE_INCOME_AMOUNT) || 2;
+
 setInterval(() => {
   worldState.tick();
   actionQueue.processQueue();
 
+  const now = Date.now();
+  if (now - lastPassiveIncomeMs >= passiveIncomeIntervalMs) {
+    const updates = moltbotRegistry.creditAllAgents(passiveIncomeAmount, 'presence');
+    updates.forEach(update => {
+      const socketId = moltbotRegistry.getAgentSocket(update.agentId);
+      if (socketId) {
+        io.to(socketId).emit('economy:balance_update', {
+          balance: update.balance,
+          delta: passiveIncomeAmount,
+          reason: 'presence'
+        });
+      }
+    });
+    lastPassiveIncomeMs = now;
+  }
+
   // Broadcast interpolated agent positions to viewers
   io.to('viewers').emit('world:tick', {
     tick: worldState.getCurrentTick(),
-    agents: worldState.getAllAgentPositions() // includes interpolated x,y
+    agents: worldState.getAllAgentPositions(), // includes interpolated x,y
+    world: worldState.getFullState().world
   });
-}, parseInt(process.env.WORLD_TICK_RATE) || 100);
+}, tickRateMs);
 
 // Error handling
 app.use((err, req, res, next) => {
