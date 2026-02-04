@@ -233,7 +233,8 @@ const WORLD_CONTEXT = {
   agentCount: 0,
   economy: {
     jobs: [],
-    balance: null
+    balance: null,
+    properties: []
   }
 };
 const STORAGE_KEYS = {
@@ -700,17 +701,24 @@ function updateEconomyPanel(economy) {
   const uiState = getUiState();
   const jobs = economy?.jobs || [];
   const openJobs = jobs.filter(job => !job.assignedTo);
+  const properties = economy?.properties || [];
+  const propertiesForSale = properties.filter(property => property.forSale);
   const actionsLabel = uiState.economyActionsOpen ? 'Cerrar acciones' : 'Gestionar';
   const balanceLabel = economy?.balance !== null ? `$${economy.balance.toFixed(2)}` : '—';
   const jobRows = openJobs.slice(0, 4).map(job => (
     `<div class="panel-row">${job.role} <span class="panel-muted">@${job.buildingName}</span></div>`
   )).join('') || '<div class="panel-row panel-muted">No hay vacantes abiertas</div>';
+  const propertyRows = propertiesForSale.slice(0, 3).map(property => (
+    `<div class="panel-row">${property.name} <span class="panel-muted">$${property.price}</span></div>`
+  )).join('') || '<div class="panel-row panel-muted">Sin propiedades en venta</div>';
 
   panel.innerHTML = `
     <div class="panel-title">Economía</div>
     <div class="panel-row">Saldo: <span class="panel-pill">${balanceLabel}</span></div>
     <div class="panel-row panel-meta">Vacantes abiertas: ${openJobs.length}</div>
     ${jobRows}
+    <div class="panel-row panel-meta">Propiedades en venta: ${propertiesForSale.length}</div>
+    ${propertyRows}
     <div class="panel-divider"></div>
     <button id="economy-toggle" class="secondary">${actionsLabel}</button>
     <div class="panel-actions ${uiState.economyActionsOpen ? '' : 'is-collapsed'}">
@@ -720,6 +728,7 @@ function updateEconomyPanel(economy) {
       <div style="display:flex; gap:6px;">
         <button id="economy-mode-jobs" class="${uiState.economyMode === 'jobs' ? '' : 'secondary'}">Trabajo</button>
         <button id="economy-mode-review" class="${uiState.economyMode === 'review' ? '' : 'secondary'}">Review</button>
+        <button id="economy-mode-properties" class="${uiState.economyMode === 'properties' ? '' : 'secondary'}">Propiedades</button>
       </div>
       <div id="economy-jobs-fields" class="${uiState.economyMode === 'jobs' ? '' : 'is-collapsed'}">
         <label for="economy-job-select">Aplicar a vacante</label>
@@ -740,6 +749,18 @@ function updateEconomyPanel(economy) {
         <textarea id="economy-review-reason" placeholder="Breve motivo"></textarea>
         <button id="economy-review-submit">Enviar review</button>
       </div>
+      <div id="economy-properties-fields" class="${uiState.economyMode === 'properties' ? '' : 'is-collapsed'}">
+        <label for="economy-property-select">Comprar propiedad</label>
+        <select id="economy-property-select">
+          ${propertiesForSale.map(property => `<option value="${property.id}">${property.name} - $${property.price}</option>`).join('')}
+        </select>
+        <button id="economy-property-buy">Comprar</button>
+        <label for="economy-property-id">Publicar propiedad (ID)</label>
+        <input id="economy-property-id" type="text" placeholder="building-123">
+        <label for="economy-property-price">Precio de venta</label>
+        <input id="economy-property-price" type="number" min="1" step="1" placeholder="500">
+        <button id="economy-property-list">Poner en venta</button>
+      </div>
       <div class="panel-feedback" id="economy-feedback"></div>
     </div>
   `;
@@ -758,13 +779,22 @@ function updateEconomyPanel(economy) {
 
   const modeJobs = panel.querySelector('#economy-mode-jobs');
   const modeReview = panel.querySelector('#economy-mode-review');
-  if (modeJobs && modeReview) {
+  const modeProperties = panel.querySelector('#economy-mode-properties');
+  if (modeJobs) {
     modeJobs.addEventListener('click', () => {
       setUiState({ economyMode: 'jobs' });
       updateEconomyPanel({ ...economy });
     });
+  }
+  if (modeReview) {
     modeReview.addEventListener('click', () => {
       setUiState({ economyMode: 'review' });
+      updateEconomyPanel({ ...economy });
+    });
+  }
+  if (modeProperties) {
+    modeProperties.addEventListener('click', () => {
+      setUiState({ economyMode: 'properties' });
       updateEconomyPanel({ ...economy });
     });
   }
@@ -862,6 +892,61 @@ function updateEconomyPanel(economy) {
           throw new Error(data.error || 'No se pudo enviar review.');
         }
         setFeedback('✅ Review enviada.', false);
+      } catch (error) {
+        setFeedback(error.message, true);
+      }
+    });
+  }
+
+  const buyButton = panel.querySelector('#economy-property-buy');
+  if (buyButton) {
+    buyButton.addEventListener('click', async () => {
+      const agentId = getAgentId();
+      const propertyId = panel.querySelector('#economy-property-select')?.value;
+      if (!agentId || !propertyId) {
+        setFeedback('Necesitas tu ID y una propiedad.', true);
+        return;
+      }
+      storeAgentId(agentId);
+      try {
+        const response = await fetch(`${API_BASE}/api/economy/properties/buy`, {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({ agentId, propertyId })
+        });
+        const data = await response.json();
+        if (!response.ok || !data.success) {
+          throw new Error(data.error || 'No se pudo comprar.');
+        }
+        setFeedback('✅ Propiedad comprada.', false);
+      } catch (error) {
+        setFeedback(error.message, true);
+      }
+    });
+  }
+
+  const listButton = panel.querySelector('#economy-property-list');
+  if (listButton) {
+    listButton.addEventListener('click', async () => {
+      const agentId = getAgentId();
+      const propertyId = panel.querySelector('#economy-property-id')?.value.trim();
+      const price = panel.querySelector('#economy-property-price')?.value;
+      if (!agentId || !propertyId || !price) {
+        setFeedback('Necesitas tu ID, propiedad y precio.', true);
+        return;
+      }
+      storeAgentId(agentId);
+      try {
+        const response = await fetch(`${API_BASE}/api/economy/properties/list`, {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({ agentId, propertyId, price: Number(price) })
+        });
+        const data = await response.json();
+        if (!response.ok || !data.success) {
+          throw new Error(data.error || 'No se pudo listar.');
+        }
+        setFeedback('✅ Propiedad publicada.', false);
       } catch (error) {
         setFeedback(error.message, true);
       }
@@ -1003,6 +1088,14 @@ async function refreshWorldData(scene) {
     WORLD_CONTEXT.economy.jobs = jobsData.jobs || [];
   } catch (error) {
     console.warn('Failed to fetch economy jobs', error);
+  }
+
+  try {
+    const propertiesRes = await fetch(`${API_BASE}/api/economy/properties`);
+    const propertiesData = await propertiesRes.json();
+    WORLD_CONTEXT.economy.properties = propertiesData.properties || [];
+  } catch (error) {
+    console.warn('Failed to fetch economy properties', error);
   }
 
   const timeDisplay = formatServerTime(WORLD_CONTEXT.worldTime);
