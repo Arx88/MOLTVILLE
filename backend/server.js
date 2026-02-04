@@ -101,9 +101,22 @@ io.on('connection', (socket) => {
         socket.emit('error', { message: 'Invalid API key' });
         return;
       }
+      if (typeof agentName !== 'string' || agentName.trim().length === 0) {
+        socket.emit('error', { message: 'Agent name is required' });
+        return;
+      }
+      if (moltbotRegistry.isApiKeyIssued && !moltbotRegistry.isApiKeyIssued(apiKey)) {
+        socket.emit('error', { message: 'Unknown API key' });
+        return;
+      }
+      const existingAgent = agentId ? moltbotRegistry.getAgent(agentId) : null;
+      if (existingAgent && existingAgent.apiKey && existingAgent.apiKey !== apiKey) {
+        socket.emit('error', { message: 'API key mismatch' });
+        return;
+      }
 
       const agent = await moltbotRegistry.registerAgent({
-        id: agentId, name: agentName,
+        id: agentId, name: agentName.trim(),
         avatar: avatar || 'char1',
         socketId: socket.id, apiKey
       });
@@ -138,6 +151,10 @@ io.on('connection', (socket) => {
     try {
       if (!socket.agentId) { socket.emit('error', { message: 'Not authenticated' }); return; }
       const { targetX, targetY } = data;
+      if (!Number.isFinite(targetX) || !Number.isFinite(targetY)) {
+        socket.emit('error', { message: 'Invalid move target' });
+        return;
+      }
       await actionQueue.enqueue({
         type: 'MOVE', agentId: socket.agentId,
         targetX, targetY, timestamp: Date.now()
@@ -153,6 +170,10 @@ io.on('connection', (socket) => {
     try {
       if (!socket.agentId) { socket.emit('error', { message: 'Not authenticated' }); return; }
       const { targetX, targetY } = data;
+      if (!Number.isFinite(targetX) || !Number.isFinite(targetY)) {
+        socket.emit('error', { message: 'Invalid move target' });
+        return;
+      }
       await actionQueue.enqueue({
         type: 'MOVE_TO', agentId: socket.agentId,
         targetX, targetY, timestamp: Date.now()
@@ -167,6 +188,10 @@ io.on('connection', (socket) => {
     try {
       if (!socket.agentId) { socket.emit('error', { message: 'Not authenticated' }); return; }
       const { message } = data;
+      if (typeof message !== 'string' || message.trim().length === 0) {
+        socket.emit('error', { message: 'Message required' });
+        return;
+      }
       const agent = moltbotRegistry.getAgent(socket.agentId);
       const position = worldState.getAgentPosition(socket.agentId);
 
@@ -198,6 +223,10 @@ io.on('connection', (socket) => {
     try {
       if (!socket.agentId) { socket.emit('error', { message: 'Not authenticated' }); return; }
       const { actionType, target, params } = data;
+      if (!actionType) {
+        socket.emit('error', { message: 'actionType is required' });
+        return;
+      }
       await actionQueue.enqueue({
         type: 'ACTION', agentId: socket.agentId,
         actionType, target, params, timestamp: Date.now()
@@ -211,6 +240,11 @@ io.on('connection', (socket) => {
   socket.on('agent:perceive', (data) => {
     try {
       if (!socket.agentId) { socket.emit('error', { message: 'Not authenticated' }); return; }
+      const now = Date.now();
+      if (socket.lastPerceiveAt && now - socket.lastPerceiveAt < 250) {
+        return;
+      }
+      socket.lastPerceiveAt = now;
       socket.emit('perception:update', worldState.getAgentView(socket.agentId));
     } catch (error) {
       logger.error('Perceive error:', error);
@@ -239,6 +273,7 @@ setInterval(() => {
   actionQueue.processQueue();
   economyManager.tick();
   votingManager.tick();
+  interactionEngine.cleanupOldConversations();
 
   // Broadcast interpolated agent positions to viewers
   io.to('viewers').emit('world:tick', {

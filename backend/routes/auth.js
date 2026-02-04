@@ -6,9 +6,12 @@ const router = express.Router();
 router.post('/verify', async (req, res) => {
   try {
     const { apiKey } = req.body;
+    if (typeof apiKey !== 'string' || apiKey.trim().length === 0) {
+      return res.status(400).json({ error: 'API key is required' });
+    }
     const { moltbotRegistry } = req.app.locals;
     
-    const agent = moltbotRegistry.getAgentByApiKey(apiKey);
+    const agent = moltbotRegistry.getAgentByApiKey(apiKey.trim());
     
     if (!agent) {
       return res.status(401).json({ error: 'Invalid API key' });
