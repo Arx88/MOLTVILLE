@@ -121,7 +121,7 @@ io.on('connection', (socket) => {
     try {
       const { apiKey, agentId, agentName, avatar } = data;
 
-      if (!apiKey || apiKey.length < 32) {
+      if (typeof apiKey !== 'string' || apiKey.trim().length < 32) {
         socket.emit('error', { message: 'Invalid API key' });
         return;
       }
@@ -129,8 +129,13 @@ io.on('connection', (socket) => {
         socket.emit('error', { message: 'Agent name is required' });
         return;
       }
+      const normalizedApiKey = apiKey.trim();
       const existingAgent = agentId ? moltbotRegistry.getAgent(agentId) : null;
-      if (existingAgent && existingAgent.apiKey && existingAgent.apiKey !== apiKey) {
+      if (!existingAgent && !moltbotRegistry.isApiKeyIssued(normalizedApiKey)) {
+        socket.emit('error', { message: 'API key not issued' });
+        return;
+      }
+      if (existingAgent && existingAgent.apiKey && existingAgent.apiKey !== normalizedApiKey) {
         socket.emit('error', { message: 'API key mismatch' });
         return;
       }
@@ -138,7 +143,7 @@ io.on('connection', (socket) => {
       const agent = await moltbotRegistry.registerAgent({
         id: agentId, name: agentName.trim(),
         avatar: avatar || 'char1',
-        socketId: socket.id, apiKey
+        socketId: socket.id, apiKey: normalizedApiKey
       });
       economyManager.registerAgent(agent.id);
 
