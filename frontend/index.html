@@ -53,6 +53,7 @@
     position: absolute; left: 20px; width: 300px;
     background: rgba(15,15,30,0.82); border: 1px solid rgba(100,140,255,0.2);
     border-radius: 12px; padding: 10px; backdrop-filter: blur(6px);
+    pointer-events: auto;
   }
   #vote-panel { top: 60px; }
   #governance-panel { top: 200px; }
@@ -60,6 +61,31 @@
   .panel-title { color: #a8c4ff; font-size: 12px; font-weight: 700; letter-spacing: 1px; text-transform: uppercase; margin-bottom: 6px; }
   .panel-row { color: #cfd8ff; font-size: 12px; margin-bottom: 4px; }
   .panel-muted { color: #7a85a9; font-size: 11px; }
+  .panel-actions { margin-top: 8px; display: grid; gap: 6px; }
+  .panel-actions label { font-size: 11px; color: #9bb0f5; }
+  .panel-actions input,
+  .panel-actions select {
+    width: 100%;
+    padding: 6px 8px;
+    background: rgba(10, 12, 24, 0.8);
+    border: 1px solid rgba(120, 150, 255, 0.25);
+    border-radius: 8px;
+    color: #e6ecff;
+    font-size: 12px;
+  }
+  .panel-actions button {
+    padding: 6px 10px;
+    border-radius: 8px;
+    border: 1px solid rgba(120, 150, 255, 0.35);
+    background: rgba(90, 120, 220, 0.35);
+    color: #e6ecff;
+    font-size: 12px;
+    cursor: pointer;
+  }
+  .panel-actions button:hover { background: rgba(110, 150, 255, 0.45); }
+  .panel-feedback { font-size: 11px; margin-top: 4px; }
+  .panel-feedback.error { color: #ff8b8b; }
+  .panel-feedback.success { color: #86efac; }
 </style>
 </head>
 <body>
@@ -156,6 +182,19 @@ const WORLD_CONTEXT = {
   socialNetwork: null,
   mood: null
 };
+const STORAGE_KEYS = {
+  agentId: 'moltville_agent_id'
+};
+
+function getStoredAgentId() {
+  return localStorage.getItem(STORAGE_KEYS.agentId) || '';
+}
+
+function storeAgentId(agentId) {
+  if (agentId) {
+    localStorage.setItem(STORAGE_KEYS.agentId, agentId);
+  }
+}
 
 function getWeatherLabel(weather) {
   const map = {
@@ -198,7 +237,53 @@ function updateVotePanel(vote) {
     <div class="panel-row panel-muted">Lote: ${vote.lotId}</div>
     ${options || '<div class="panel-row panel-muted">Sin opciones</div>'}
     <div class="panel-row panel-muted">Cierra en ~${remainingMin} min</div>
+    <div class="panel-actions">
+      <label for="vote-agent-id">ID Moltbot</label>
+      <input id="vote-agent-id" type="text" placeholder="moltbot-001" value="${getStoredAgentId()}">
+      <label for="vote-option">Votar por</label>
+      <select id="vote-option">
+        ${(vote.options || []).map(option => (
+          `<option value="${option.id}">${option.name}</option>`
+        )).join('')}
+      </select>
+      <button id="vote-submit">Emitir voto</button>
+      <div class="panel-feedback" id="vote-feedback"></div>
+    </div>
   `;
+  const voteButton = panel.querySelector('#vote-submit');
+  if (voteButton) {
+    voteButton.addEventListener('click', async () => {
+      const agentId = panel.querySelector('#vote-agent-id').value.trim();
+      const optionId = panel.querySelector('#vote-option').value;
+      const feedback = panel.querySelector('#vote-feedback');
+      feedback.textContent = '';
+      feedback.className = 'panel-feedback';
+      if (!agentId || !optionId) {
+        feedback.textContent = 'Necesitas ID y opción para votar.';
+        feedback.classList.add('error');
+        return;
+      }
+      storeAgentId(agentId);
+      try {
+        const response = await fetch(`${API_BASE}/api/vote/cast`, {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({ agentId, optionId })
+        });
+        const result = await response.json();
+        if (!response.ok || !result.success) {
+          throw new Error(result.error || 'No se pudo votar.');
+        }
+        feedback.textContent = 'Voto registrado.';
+        feedback.classList.add('success');
+        WORLD_CONTEXT.vote = result.vote || WORLD_CONTEXT.vote;
+        updateVotePanel(WORLD_CONTEXT.vote);
+      } catch (error) {
+        feedback.textContent = error.message;
+        feedback.classList.add('error');
+      }
+    });
+  }
 }
 
 function updateGovernancePanel(governance) {
@@ -226,7 +311,92 @@ function updateGovernancePanel(governance) {
     ${presidentRow}
     ${electionRow}
     ${policyRows}
+    ${election ? `
+      <div class="panel-actions">
+        <label for="gov-agent-id">ID Moltbot</label>
+        <input id="gov-agent-id" type="text" placeholder="moltbot-001" value="${getStoredAgentId()}">
+        <label for="gov-name">Postular candidatura</label>
+        <input id="gov-name" type="text" placeholder="Nombre público">
+        <input id="gov-platform" type="text" placeholder="Tu plataforma">
+        <button id="gov-candidate-submit">Postularme</button>
+        <label for="gov-vote">Votar presidente</label>
+        <select id="gov-vote">
+          ${(election.candidates || []).map(candidate => (
+            `<option value="${candidate.id}">${candidate.name}</option>`
+          )).join('')}
+        </select>
+        <button id="gov-vote-submit">Votar</button>
+        <div class="panel-feedback" id="gov-feedback"></div>
+      </div>
+    ` : ''}
   `;
+  if (election) {
+    const feedback = panel.querySelector('#gov-feedback');
+    const candidateButton = panel.querySelector('#gov-candidate-submit');
+    const voteButton = panel.querySelector('#gov-vote-submit');
+    const getAgentId = () => panel.querySelector('#gov-agent-id').value.trim();
+    const updateFeedback = (message, isError) => {
+      feedback.textContent = message;
+      feedback.className = `panel-feedback ${isError ? 'error' : 'success'}`;
+    };
+
+    if (candidateButton) {
+      candidateButton.addEventListener('click', async () => {
+        const agentId = getAgentId();
+        const name = panel.querySelector('#gov-name').value.trim();
+        const platform = panel.querySelector('#gov-platform').value.trim();
+        if (!agentId || !name) {
+          updateFeedback('Necesitas ID y nombre para postular.', true);
+          return;
+        }
+        storeAgentId(agentId);
+        try {
+          const response = await fetch(`${API_BASE}/api/governance/candidate`, {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify({ agentId, name, platform })
+          });
+          const result = await response.json();
+          if (!response.ok || !result.success) {
+            throw new Error(result.error || 'No se pudo postular.');
+          }
+          updateFeedback('Candidatura registrada.', false);
+          WORLD_CONTEXT.governance = { ...WORLD_CONTEXT.governance, election: result.election };
+          updateGovernancePanel(WORLD_CONTEXT.governance);
+        } catch (error) {
+          updateFeedback(error.message, true);
+        }
+      });
+    }
+
+    if (voteButton) {
+      voteButton.addEventListener('click', async () => {
+        const agentId = getAgentId();
+        const candidateId = panel.querySelector('#gov-vote').value;
+        if (!agentId || !candidateId) {
+          updateFeedback('Necesitas ID y candidato para votar.', true);
+          return;
+        }
+        storeAgentId(agentId);
+        try {
+          const response = await fetch(`${API_BASE}/api/governance/vote`, {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify({ agentId, candidateId })
+          });
+          const result = await response.json();
+          if (!response.ok || !result.success) {
+            throw new Error(result.error || 'No se pudo votar.');
+          }
+          updateFeedback('Voto registrado.', false);
+          WORLD_CONTEXT.governance = { ...WORLD_CONTEXT.governance, election: result.election };
+          updateGovernancePanel(WORLD_CONTEXT.governance);
+        } catch (error) {
+          updateFeedback(error.message, true);
+        }
+      });
+    }
+  }
 }
 
 function updateRelationshipsPanel(network) {
