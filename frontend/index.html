@@ -232,6 +232,7 @@ const WORLD_CONTEXT = {
   districts: null,
   agentCount: 0,
   aestheticsVote: null,
+  aestheticsHistory: [],
   districtThemeHash: '',
   economy: {
     jobs: [],
@@ -805,6 +806,9 @@ function updateDistrictsPanel(districts, agentCount) {
   const remainingMs = hasVote ? Math.max(0, vote.endsAt - Date.now()) : 0;
   const remainingMin = hasVote ? Math.ceil(remainingMs / 60000) : 0;
   const actionsLabel = uiState.aestheticsActionsOpen ? 'Cerrar voto' : 'Votar estética';
+  const aestheticsHistory = (WORLD_CONTEXT.aestheticsHistory || [])
+    .map(entry => `<div class="panel-row">🎨 ${entry.districtName}: ${entry.winner?.name || entry.winner?.id}</div>`)
+    .join('');
 
   panel.innerHTML = `
     <div class="panel-title">Distritos</div>
@@ -817,6 +821,9 @@ function updateDistrictsPanel(districts, agentCount) {
          ${voteOptions || '<div class="panel-row panel-muted">Sin opciones</div>'}
          <div class="panel-row panel-meta">Quórum: ${vote.quorum} · Costo voto: $${vote.voteCost}</div>`
       : '<div class="panel-row panel-muted">Sin votación estética activa</div>'}
+    ${aestheticsHistory
+      ? `<div class="panel-row panel-meta">Últimos cambios</div>${aestheticsHistory}`
+      : '<div class="panel-row panel-muted">Sin historial estético</div>'}
     <button id="aesthetic-toggle" class="secondary">${actionsLabel}</button>
     <div class="panel-actions ${uiState.aestheticsActionsOpen ? '' : 'is-collapsed'}">
       <label for="aesthetic-agent-id">ID Moltbot</label>
@@ -1243,23 +1250,26 @@ async function refreshWorldData(scene) {
   }
 
   try {
-    const [voteRes, voteHistoryRes, govRes, networkRes, aestheticsRes] = await Promise.all([
+    const [voteRes, voteHistoryRes, govRes, networkRes, aestheticsRes, aestheticsHistoryRes] = await Promise.all([
       fetch(`${API_BASE}/api/vote/current`),
       fetch(`${API_BASE}/api/vote/history?limit=3`),
       fetch(`${API_BASE}/api/governance/current`),
       fetch(`${API_BASE}/api/world/social-network`),
-      fetch(`${API_BASE}/api/aesthetics/current`)
+      fetch(`${API_BASE}/api/aesthetics/current`),
+      fetch(`${API_BASE}/api/aesthetics/history?limit=3`)
     ]);
     const voteData = await voteRes.json();
     const historyData = await voteHistoryRes.json();
     const govData = await govRes.json();
     const networkData = await networkRes.json();
     const aestheticsData = await aestheticsRes.json();
+    const aestheticsHistoryData = await aestheticsHistoryRes.json();
     WORLD_CONTEXT.vote = voteData.vote || null;
     WORLD_CONTEXT.voteHistory = historyData.history || [];
     WORLD_CONTEXT.governance = govData || null;
     WORLD_CONTEXT.socialNetwork = networkData || null;
     WORLD_CONTEXT.aestheticsVote = aestheticsData.vote || null;
+    WORLD_CONTEXT.aestheticsHistory = aestheticsHistoryData.history || [];
   } catch (error) {
     console.warn('Failed to fetch governance/vote state', error);
   }

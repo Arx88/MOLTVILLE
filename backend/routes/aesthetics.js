@@ -20,5 +20,10 @@ export function createAestheticsRouter({ aestheticsManager }) {
     }
   });
 
+  router.get('/history', (req, res) => {
+    const limit = req.query.limit ? Number(req.query.limit) : undefined;
+    res.json({ history: aestheticsManager.getHistory(limit) });
+  });
+
   return router;
 }

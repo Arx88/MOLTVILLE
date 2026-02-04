@@ -21,6 +21,8 @@ export class AestheticsManager {
     this.voteCost = parseFloat(process.env.AESTHETIC_VOTE_COST || '1');
     this.minVotes = parseInt(process.env.AESTHETIC_MIN_VOTES, 10) || 3;
     this.quorumRatio = parseFloat(process.env.AESTHETIC_QUORUM_RATIO || '0.15');
+    this.history = [];
+    this.historyLimit = parseInt(process.env.AESTHETIC_HISTORY_LIMIT, 10) || 10;
   }
 
   tick(population) {
@@ -119,6 +121,7 @@ export class AestheticsManager {
     if (winner) {
       this.worldState.setDistrictTheme(vote.districtId, winner.id);
       logger.info(`District theme updated: ${vote.districtId} -> ${winner.id}`);
+      this.recordHistory({ ...vote, totalVotes, winner });
       if (this.io) {
         this.io.emit('aesthetics:theme_applied', { districtId: vote.districtId, theme: winner.id });
       }
@@ -146,5 +149,22 @@ export class AestheticsManager {
       quorum: this.currentVote.quorum,
       voteCost: this.currentVote.voteCost
     };
+  }
+
+  recordHistory(entry) {
+    this.history.unshift({
+      districtId: entry.districtId,
+      districtName: entry.districtName,
+      winner: entry.winner,
+      totalVotes: entry.totalVotes,
+      endsAt: entry.endsAt
+    });
+    if (this.history.length > this.historyLimit) {
+      this.history.length = this.historyLimit;
+    }
+  }
+
+  getHistory(limit = this.historyLimit) {
+    return this.history.slice(0, limit);
   }
 }
