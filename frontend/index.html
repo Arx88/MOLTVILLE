@@ -49,7 +49,7 @@
   .agent-dot { width: 8px; height: 8px; border-radius: 50%; }
   .agent-name-hud { color: #ccc; font-size: 12px; }
 
-  #vote-panel, #governance-panel, #relationships-panel, #districts-panel {
+  #vote-panel, #governance-panel, #relationships-panel, #districts-panel, #economy-panel {
     position: absolute; left: 20px; width: 300px;
     background: rgba(15,15,30,0.82); border: 1px solid rgba(100,140,255,0.2);
     border-radius: 12px; padding: 10px; backdrop-filter: blur(6px);
@@ -59,6 +59,7 @@
   #governance-panel { top: 200px; }
   #relationships-panel { top: 340px; }
   #districts-panel { top: 500px; }
+  #economy-panel { top: 660px; }
   .panel-title { color: #a8c4ff; font-size: 12px; font-weight: 700; letter-spacing: 1px; text-transform: uppercase; margin-bottom: 6px; }
   .panel-row { color: #cfd8ff; font-size: 12px; margin-bottom: 4px; }
   .panel-muted { color: #7a85a9; font-size: 11px; }
@@ -152,6 +153,10 @@
     <div class="panel-title">Distritos</div>
     <div class="panel-row panel-muted">Sin datos</div>
   </div>
+  <div id="economy-panel">
+    <div class="panel-title">Economía</div>
+    <div class="panel-row panel-muted">Sin datos</div>
+  </div>
   <div id="minimap-container">
     <canvas id="minimap" width="140" height="140"></canvas>
   </div>
@@ -222,7 +227,11 @@ const WORLD_CONTEXT = {
   socialNetwork: null,
   mood: null,
   districts: null,
-  agentCount: 0
+  agentCount: 0,
+  economy: {
+    jobs: [],
+    balance: null
+  }
 };
 const STORAGE_KEYS = {
   agentId: 'moltville_agent_id',
@@ -231,7 +240,9 @@ const STORAGE_KEYS = {
 const DEFAULT_UI_STATE = {
   voteActionsOpen: false,
   governanceActionsOpen: false,
-  governanceMode: 'vote'
+  governanceMode: 'vote',
+  economyActionsOpen: false,
+  economyMode: 'jobs'
 };
 
 function getStoredAgentId() {
@@ -561,6 +572,180 @@ function updateDistrictsPanel(districts, agentCount) {
   panel.innerHTML = `<div class="panel-title">Distritos</div>${rows}`;
 }
 
+function updateEconomyPanel(economy) {
+  const panel = document.getElementById('economy-panel');
+  const uiState = getUiState();
+  const jobs = economy?.jobs || [];
+  const openJobs = jobs.filter(job => !job.assignedTo);
+  const actionsLabel = uiState.economyActionsOpen ? 'Cerrar acciones' : 'Gestionar';
+  const balanceLabel = economy?.balance !== null ? `$${economy.balance.toFixed(2)}` : '—';
+  const jobRows = openJobs.slice(0, 4).map(job => (
+    `<div class="panel-row">${job.role} <span class="panel-muted">@${job.buildingName}</span></div>`
+  )).join('') || '<div class="panel-row panel-muted">No hay vacantes abiertas</div>';
+
+  panel.innerHTML = `
+    <div class="panel-title">Economía</div>
+    <div class="panel-row">Saldo: <span class="panel-pill">${balanceLabel}</span></div>
+    <div class="panel-row panel-meta">Vacantes abiertas: ${openJobs.length}</div>
+    ${jobRows}
+    <div class="panel-divider"></div>
+    <button id="economy-toggle" class="secondary">${actionsLabel}</button>
+    <div class="panel-actions ${uiState.economyActionsOpen ? '' : 'is-collapsed'}">
+      <label for="economy-agent-id">ID Moltbot</label>
+      <input id="economy-agent-id" type="text" placeholder="moltbot-001" value="${getStoredAgentId()}">
+      <div class="panel-row panel-meta">Elige una acción</div>
+      <div style="display:flex; gap:6px;">
+        <button id="economy-mode-jobs" class="${uiState.economyMode === 'jobs' ? '' : 'secondary'}">Trabajo</button>
+        <button id="economy-mode-review" class="${uiState.economyMode === 'review' ? '' : 'secondary'}">Review</button>
+      </div>
+      <div id="economy-jobs-fields" class="${uiState.economyMode === 'jobs' ? '' : 'is-collapsed'}">
+        <label for="economy-job-select">Aplicar a vacante</label>
+        <select id="economy-job-select">
+          ${openJobs.map(job => `<option value="${job.id}">${job.role} - ${job.buildingName}</option>`).join('')}
+        </select>
+        <button id="economy-job-apply">Postularme</button>
+        <button id="economy-balance-check" class="secondary">Consultar saldo</button>
+      </div>
+      <div id="economy-review-fields" class="${uiState.economyMode === 'review' ? '' : 'is-collapsed'}">
+        <label for="economy-review-target">Evaluar a</label>
+        <input id="economy-review-target" type="text" placeholder="moltbot-002">
+        <label for="economy-review-score">Puntaje</label>
+        <select id="economy-review-score">
+          ${[5,4,3,2,1].map(score => `<option value="${score}">${score}</option>`).join('')}
+        </select>
+        <label for="economy-review-reason">Motivo</label>
+        <textarea id="economy-review-reason" placeholder="Breve motivo"></textarea>
+        <button id="economy-review-submit">Enviar review</button>
+      </div>
+      <div class="panel-feedback" id="economy-feedback"></div>
+    </div>
+  `;
+
+  const feedback = panel.querySelector('#economy-feedback');
+  const toggleButton = panel.querySelector('#economy-toggle');
+  if (toggleButton) {
+    toggleButton.addEventListener('click', () => {
+      const next = setUiState({ economyActionsOpen: !getUiState().economyActionsOpen });
+      updateEconomyPanel({ ...economy });
+      if (next.economyActionsOpen) {
+        panel.querySelector('#economy-agent-id')?.focus();
+      }
+    });
+  }
+
+  const modeJobs = panel.querySelector('#economy-mode-jobs');
+  const modeReview = panel.querySelector('#economy-mode-review');
+  if (modeJobs && modeReview) {
+    modeJobs.addEventListener('click', () => {
+      setUiState({ economyMode: 'jobs' });
+      updateEconomyPanel({ ...economy });
+    });
+    modeReview.addEventListener('click', () => {
+      setUiState({ economyMode: 'review' });
+      updateEconomyPanel({ ...economy });
+    });
+  }
+
+  const setFeedback = (message, isError) => {
+    if (!feedback) return;
+    feedback.textContent = message;
+    feedback.className = `panel-feedback ${isError ? 'error' : 'success'}`;
+  };
+
+  const agentInput = panel.querySelector('#economy-agent-id');
+  const getAgentId = () => agentInput?.value.trim() || '';
+
+  const balanceButton = panel.querySelector('#economy-balance-check');
+  if (balanceButton) {
+    balanceButton.addEventListener('click', async () => {
+      const agentId = getAgentId();
+      if (!agentId) {
+        setFeedback('Necesitas tu ID para consultar saldo.', true);
+        return;
+      }
+      storeAgentId(agentId);
+      try {
+        const response = await fetch(`${API_BASE}/api/economy/balance/${agentId}`);
+        const data = await response.json();
+        if (!response.ok) {
+          throw new Error(data.error || 'No se pudo consultar saldo.');
+        }
+        WORLD_CONTEXT.economy.balance = data.balance;
+        setFeedback(`Saldo actualizado: $${data.balance.toFixed(2)}`, false);
+        updateEconomyPanel(WORLD_CONTEXT.economy);
+      } catch (error) {
+        setFeedback(error.message, true);
+      }
+    });
+  }
+
+  const applyButton = panel.querySelector('#economy-job-apply');
+  if (applyButton) {
+    applyButton.addEventListener('click', async () => {
+      const agentId = getAgentId();
+      const jobId = panel.querySelector('#economy-job-select')?.value;
+      if (!agentId || !jobId) {
+        setFeedback('Necesitas tu ID y una vacante.', true);
+        return;
+      }
+      storeAgentId(agentId);
+      try {
+        const response = await fetch(`${API_BASE}/api/economy/jobs/apply`, {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({ agentId, jobId })
+        });
+        const data = await response.json();
+        if (!response.ok || !data.success) {
+          throw new Error(data.error || 'No se pudo postular.');
+        }
+        setFeedback('✅ Postulación enviada.', false);
+        WORLD_CONTEXT.economy.jobs = WORLD_CONTEXT.economy.jobs.map(job =>
+          job.id === data.job.id ? data.job : job
+        );
+        updateEconomyPanel(WORLD_CONTEXT.economy);
+      } catch (error) {
+        setFeedback(error.message, true);
+      }
+    });
+  }
+
+  const reviewButton = panel.querySelector('#economy-review-submit');
+  if (reviewButton) {
+    reviewButton.addEventListener('click', async () => {
+      const reviewerId = getAgentId();
+      const agentId = panel.querySelector('#economy-review-target')?.value.trim();
+      const score = panel.querySelector('#economy-review-score')?.value;
+      const reason = panel.querySelector('#economy-review-reason')?.value.trim();
+      if (!reviewerId || !agentId || !score) {
+        setFeedback('Completa tu ID, el objetivo y un puntaje.', true);
+        return;
+      }
+      storeAgentId(reviewerId);
+      try {
+        const response = await fetch(`${API_BASE}/api/economy/reviews`, {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({
+            agentId,
+            reviewerId,
+            score: Number(score),
+            reason,
+            tags: []
+          })
+        });
+        const data = await response.json();
+        if (!response.ok || !data.success) {
+          throw new Error(data.error || 'No se pudo enviar review.');
+        }
+        setFeedback('✅ Review enviada.', false);
+      } catch (error) {
+        setFeedback(error.message, true);
+      }
+    });
+  }
+}
+
 function formatMoodLabel(mood) {
   if (!mood) return '🌿 Calm';
   const { prosperity = 0, cohesion = 0, stability = 0 } = mood;
@@ -654,6 +839,14 @@ async function refreshWorldData(scene) {
     console.warn('Failed to fetch governance/vote state', error);
   }
 
+  try {
+    const jobsRes = await fetch(`${API_BASE}/api/economy/jobs`);
+    const jobsData = await jobsRes.json();
+    WORLD_CONTEXT.economy.jobs = jobsData.jobs || [];
+  } catch (error) {
+    console.warn('Failed to fetch economy jobs', error);
+  }
+
   const timeDisplay = formatServerTime(WORLD_CONTEXT.worldTime);
   if (timeDisplay) {
     document.getElementById('time-display').textContent = timeDisplay;
@@ -665,6 +858,7 @@ async function refreshWorldData(scene) {
   updateGovernancePanel(WORLD_CONTEXT.governance);
   updateRelationshipsPanel(WORLD_CONTEXT.socialNetwork);
   updateDistrictsPanel(WORLD_CONTEXT.districts, WORLD_CONTEXT.agentCount);
+  updateEconomyPanel(WORLD_CONTEXT.economy);
 }
 
 // Road network definition (tile coordinates that are roads)
