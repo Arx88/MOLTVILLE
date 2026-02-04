@@ -9,10 +9,13 @@ export class EconomyManager {
     this.reviews = new Map();
     this.properties = new Map();
     this.transactions = new Map();
+    this.treasury = 0;
+    this.treasuryTransactions = [];
     this.lastIncomeAt = Date.now();
     this.incomeIntervalMs = parseInt(process.env.INCOME_INTERVAL_MS, 10) || 60000;
     this.baseIncome = parseFloat(process.env.BASE_INCOME || '2');
     this.reviewThreshold = parseFloat(process.env.REVIEW_THRESHOLD || '2.5');
+    this.taxRate = parseFloat(process.env.TAX_RATE || '0.05');
     this.initializeJobs();
     this.initializeProperties();
   }
@@ -101,9 +104,13 @@ export class EconomyManager {
 
   incrementBalance(agentId, amount, reason) {
     const current = this.getBalance(agentId);
-    this.balances.set(agentId, current + amount);
-    this.recordTransaction(agentId, amount, reason);
-    logger.debug(`Economy: ${agentId} +${amount} (${reason})`);
+    const { netAmount, taxAmount } = this.applyTax(amount, reason, agentId);
+    this.balances.set(agentId, current + netAmount);
+    this.recordTransaction(agentId, netAmount, reason);
+    logger.debug(`Economy: ${agentId} +${netAmount} (${reason})`);
+    if (taxAmount > 0) {
+      logger.debug(`Economy: treasury +${taxAmount} (tax:${reason})`);
+    }
   }
 
   decrementBalance(agentId, amount, reason) {
@@ -122,6 +129,15 @@ export class EconomyManager {
     this.transactions.get(agentId).push({
       amount,
       reason,
+      timestamp: Date.now()
+    });
+  }
+
+  recordTreasuryTransaction(amount, reason, sourceAgentId) {
+    this.treasuryTransactions.push({
+      amount,
+      reason,
+      sourceAgentId,
       timestamp: Date.now()
     });
   }
@@ -198,6 +214,20 @@ export class EconomyManager {
     return this.transactions.get(agentId) || [];
   }
 
+  getTreasuryTransactions() {
+    return this.treasuryTransactions;
+  }
+
+  getSummary() {
+    return {
+      treasury: this.treasury,
+      taxRate: this.taxRate,
+      baseIncome: this.baseIncome,
+      reviewThreshold: this.reviewThreshold,
+      incomeIntervalMs: this.incomeIntervalMs
+    };
+  }
+
   getAverageReviewScore(agentId) {
     const reviews = this.reviews.get(agentId);
     if (!reviews || reviews.length === 0) return null;
@@ -215,5 +245,29 @@ export class EconomyManager {
     this.jobAssignments.delete(agentId);
     logger.info(`Economy: Agent ${agentId} was removed from job ${jobId}`);
     return job;
+  }
+
+  applyTax(amount, reason, agentId) {
+    if (amount <= 0 || this.taxRate <= 0) {
+      return { netAmount: amount, taxAmount: 0 };
+    }
+    const taxAmount = amount * this.taxRate;
+    const netAmount = amount - taxAmount;
+    this.treasury += taxAmount;
+    this.recordTreasuryTransaction(taxAmount, `tax:${reason}`, agentId);
+    return { netAmount, taxAmount };
+  }
+
+  setTaxRate(rate) {
+    const safeRate = Math.max(0, Math.min(rate, 0.5));
+    this.taxRate = safeRate;
+  }
+
+  setReviewThreshold(threshold) {
+    this.reviewThreshold = threshold;
+  }
+
+  setBaseIncome(amount) {
+    this.baseIncome = amount;
   }
 }
