@@ -62,9 +62,12 @@
   .panel-row { color: #cfd8ff; font-size: 12px; margin-bottom: 4px; }
   .panel-muted { color: #7a85a9; font-size: 11px; }
   .panel-actions { margin-top: 8px; display: grid; gap: 6px; }
+  .panel-actions.is-collapsed { display: none; }
+  .is-collapsed { display: none !important; }
   .panel-actions label { font-size: 11px; color: #9bb0f5; }
   .panel-actions input,
-  .panel-actions select {
+  .panel-actions select,
+  .panel-actions textarea {
     width: 100%;
     padding: 6px 8px;
     background: rgba(10, 12, 24, 0.8);
@@ -73,6 +76,7 @@
     color: #e6ecff;
     font-size: 12px;
   }
+  .panel-actions textarea { min-height: 60px; resize: vertical; }
   .panel-actions button {
     padding: 6px 10px;
     border-radius: 8px;
@@ -83,9 +87,38 @@
     cursor: pointer;
   }
   .panel-actions button:hover { background: rgba(110, 150, 255, 0.45); }
+  .panel-actions button.secondary {
+    background: rgba(50, 70, 140, 0.25);
+  }
+  .panel-actions button.secondary:hover {
+    background: rgba(70, 100, 170, 0.35);
+  }
+  .panel-actions button.danger {
+    background: rgba(170, 80, 80, 0.35);
+    border-color: rgba(255, 140, 140, 0.4);
+  }
+  .panel-actions button.danger:hover {
+    background: rgba(200, 90, 90, 0.5);
+  }
   .panel-feedback { font-size: 11px; margin-top: 4px; }
   .panel-feedback.error { color: #ff8b8b; }
   .panel-feedback.success { color: #86efac; }
+  .panel-divider {
+    height: 1px;
+    background: rgba(120, 150, 255, 0.2);
+    margin: 8px 0;
+  }
+  .panel-pill {
+    display: inline-flex;
+    align-items: center;
+    gap: 6px;
+    padding: 3px 8px;
+    border-radius: 999px;
+    background: rgba(90, 120, 220, 0.2);
+    color: #b4c7ff;
+    font-size: 11px;
+  }
+  .panel-meta { color: #9aa6c7; font-size: 11px; }
 </style>
 </head>
 <body>
@@ -183,7 +216,13 @@ const WORLD_CONTEXT = {
   mood: null
 };
 const STORAGE_KEYS = {
-  agentId: 'moltville_agent_id'
+  agentId: 'moltville_agent_id',
+  uiState: 'moltville_ui_state'
+};
+const DEFAULT_UI_STATE = {
+  voteActionsOpen: false,
+  governanceActionsOpen: false,
+  governanceMode: 'vote'
 };
 
 function getStoredAgentId() {
@@ -194,6 +233,22 @@ function storeAgentId(agentId) {
   if (agentId) {
     localStorage.setItem(STORAGE_KEYS.agentId, agentId);
   }
+}
+
+function getUiState() {
+  try {
+    const stored = localStorage.getItem(STORAGE_KEYS.uiState);
+    return stored ? { ...DEFAULT_UI_STATE, ...JSON.parse(stored) } : { ...DEFAULT_UI_STATE };
+  } catch (error) {
+    return { ...DEFAULT_UI_STATE };
+  }
+}
+
+function setUiState(next) {
+  const current = getUiState();
+  const merged = { ...current, ...next };
+  localStorage.setItem(STORAGE_KEYS.uiState, JSON.stringify(merged));
+  return merged;
 }
 
 function getWeatherLabel(weather) {
@@ -227,29 +282,44 @@ function updateVotePanel(vote) {
     panel.innerHTML = '<div class="panel-title">Votación diaria</div><div class="panel-row panel-muted">Sin votación activa</div>';
     return;
   }
+  const uiState = getUiState();
   const options = vote.options
     .map(o => `<div class="panel-row">${o.name} <span class="panel-muted">(${o.votes})</span></div>`)
     .join('');
   const remainingMs = Math.max(0, vote.endsAt - Date.now());
   const remainingMin = Math.ceil(remainingMs / 60000);
+  const actionsLabel = uiState.voteActionsOpen ? 'Cerrar acciones' : 'Votar';
   panel.innerHTML = `
     <div class="panel-title">Votación diaria</div>
     <div class="panel-row panel-muted">Lote: ${vote.lotId}</div>
+    <div class="panel-row panel-meta">Opciones disponibles: ${vote.options?.length || 0}</div>
     ${options || '<div class="panel-row panel-muted">Sin opciones</div>'}
     <div class="panel-row panel-muted">Cierra en ~${remainingMin} min</div>
-    <div class="panel-actions">
+    <div class="panel-divider"></div>
+    <button id="vote-toggle" class="secondary">${actionsLabel}</button>
+    <div class="panel-actions ${uiState.voteActionsOpen ? '' : 'is-collapsed'}">
       <label for="vote-agent-id">ID Moltbot</label>
       <input id="vote-agent-id" type="text" placeholder="moltbot-001" value="${getStoredAgentId()}">
-      <label for="vote-option">Votar por</label>
+      <label for="vote-option">Selecciona el edificio</label>
       <select id="vote-option">
         ${(vote.options || []).map(option => (
           `<option value="${option.id}">${option.name}</option>`
         )).join('')}
       </select>
-      <button id="vote-submit">Emitir voto</button>
+      <button id="vote-submit">Confirmar voto</button>
       <div class="panel-feedback" id="vote-feedback"></div>
     </div>
   `;
+  const toggleButton = panel.querySelector('#vote-toggle');
+  if (toggleButton) {
+    toggleButton.addEventListener('click', () => {
+      const next = setUiState({ voteActionsOpen: !getUiState().voteActionsOpen });
+      updateVotePanel({ ...vote });
+      if (next.voteActionsOpen) {
+        panel.querySelector('#vote-agent-id')?.focus();
+      }
+    });
+  }
   const voteButton = panel.querySelector('#vote-submit');
   if (voteButton) {
     voteButton.addEventListener('click', async () => {
@@ -259,7 +329,7 @@ function updateVotePanel(vote) {
       feedback.textContent = '';
       feedback.className = 'panel-feedback';
       if (!agentId || !optionId) {
-        feedback.textContent = 'Necesitas ID y opción para votar.';
+        feedback.textContent = 'Necesitas tu ID y una opción para votar.';
         feedback.classList.add('error');
         return;
       }
@@ -274,7 +344,7 @@ function updateVotePanel(vote) {
         if (!response.ok || !result.success) {
           throw new Error(result.error || 'No se pudo votar.');
         }
-        feedback.textContent = 'Voto registrado.';
+        feedback.textContent = '✅ Voto registrado. Gracias por participar.';
         feedback.classList.add('success');
         WORLD_CONTEXT.vote = result.vote || WORLD_CONTEXT.vote;
         updateVotePanel(WORLD_CONTEXT.vote);
@@ -292,6 +362,7 @@ function updateGovernancePanel(governance) {
     panel.innerHTML = '<div class="panel-title">Presidencia</div><div class="panel-row panel-muted">Sin presidente actual</div>';
     return;
   }
+  const uiState = getUiState();
   const president = governance.president;
   const election = governance.election;
   const presidentRow = president
@@ -306,26 +377,40 @@ function updateGovernancePanel(governance) {
       `<div class="panel-row">📜 ${formatPolicyLabel(policy)}</div>`
     )).join('')
     : '<div class="panel-row panel-muted">Sin políticas activas</div>';
+  const actionsLabel = uiState.governanceActionsOpen ? 'Cerrar acciones' : 'Participar';
   panel.innerHTML = `
     <div class="panel-title">Presidencia</div>
     ${presidentRow}
     ${electionRow}
     ${policyRows}
     ${election ? `
-      <div class="panel-actions">
+      <div class="panel-divider"></div>
+      <div class="panel-row panel-meta">Candidatos: ${election.candidates.length}</div>
+      <button id="gov-toggle" class="secondary">${actionsLabel}</button>
+      <div class="panel-actions ${uiState.governanceActionsOpen ? '' : 'is-collapsed'}">
         <label for="gov-agent-id">ID Moltbot</label>
         <input id="gov-agent-id" type="text" placeholder="moltbot-001" value="${getStoredAgentId()}">
-        <label for="gov-name">Postular candidatura</label>
-        <input id="gov-name" type="text" placeholder="Nombre público">
-        <input id="gov-platform" type="text" placeholder="Tu plataforma">
-        <button id="gov-candidate-submit">Postularme</button>
-        <label for="gov-vote">Votar presidente</label>
-        <select id="gov-vote">
-          ${(election.candidates || []).map(candidate => (
-            `<option value="${candidate.id}">${candidate.name}</option>`
-          )).join('')}
-        </select>
-        <button id="gov-vote-submit">Votar</button>
+        <div class="panel-row panel-meta">Elige tu rol</div>
+        <div style="display:flex; gap:6px;">
+          <button id="gov-mode-vote" class="${uiState.governanceMode === 'vote' ? '' : 'secondary'}">Votar</button>
+          <button id="gov-mode-candidate" class="${uiState.governanceMode === 'candidate' ? '' : 'secondary'}">Postularme</button>
+        </div>
+        <div id="gov-vote-fields" class="${uiState.governanceMode === 'vote' ? '' : 'is-collapsed'}">
+          <label for="gov-vote">Elige presidente</label>
+          <select id="gov-vote">
+            ${(election.candidates || []).map(candidate => (
+              `<option value="${candidate.id}">${candidate.name}</option>`
+            )).join('')}
+          </select>
+          <button id="gov-vote-submit">Confirmar voto</button>
+        </div>
+        <div id="gov-candidate-fields" class="${uiState.governanceMode === 'candidate' ? '' : 'is-collapsed'}">
+          <label for="gov-name">Nombre público</label>
+          <input id="gov-name" type="text" placeholder="Nombre público">
+          <label for="gov-platform">Tu plataforma</label>
+          <textarea id="gov-platform" placeholder="Tu visión para la ciudad"></textarea>
+          <button id="gov-candidate-submit">Registrar candidatura</button>
+        </div>
         <div class="panel-feedback" id="gov-feedback"></div>
       </div>
     ` : ''}
@@ -339,6 +424,28 @@ function updateGovernancePanel(governance) {
       feedback.textContent = message;
       feedback.className = `panel-feedback ${isError ? 'error' : 'success'}`;
     };
+    const toggleButton = panel.querySelector('#gov-toggle');
+    if (toggleButton) {
+      toggleButton.addEventListener('click', () => {
+        const next = setUiState({ governanceActionsOpen: !getUiState().governanceActionsOpen });
+        updateGovernancePanel({ ...governance });
+        if (next.governanceActionsOpen) {
+          panel.querySelector('#gov-agent-id')?.focus();
+        }
+      });
+    }
+    const modeVote = panel.querySelector('#gov-mode-vote');
+    const modeCandidate = panel.querySelector('#gov-mode-candidate');
+    if (modeVote && modeCandidate) {
+      modeVote.addEventListener('click', () => {
+        setUiState({ governanceMode: 'vote' });
+        updateGovernancePanel({ ...governance });
+      });
+      modeCandidate.addEventListener('click', () => {
+        setUiState({ governanceMode: 'candidate' });
+        updateGovernancePanel({ ...governance });
+      });
+    }
 
     if (candidateButton) {
       candidateButton.addEventListener('click', async () => {
@@ -346,7 +453,7 @@ function updateGovernancePanel(governance) {
         const name = panel.querySelector('#gov-name').value.trim();
         const platform = panel.querySelector('#gov-platform').value.trim();
         if (!agentId || !name) {
-          updateFeedback('Necesitas ID y nombre para postular.', true);
+          updateFeedback('Necesitas tu ID y un nombre para postular.', true);
           return;
         }
         storeAgentId(agentId);
@@ -360,7 +467,7 @@ function updateGovernancePanel(governance) {
           if (!response.ok || !result.success) {
             throw new Error(result.error || 'No se pudo postular.');
           }
-          updateFeedback('Candidatura registrada.', false);
+          updateFeedback('✅ Candidatura registrada. ¡Suerte en campaña!', false);
           WORLD_CONTEXT.governance = { ...WORLD_CONTEXT.governance, election: result.election };
           updateGovernancePanel(WORLD_CONTEXT.governance);
         } catch (error) {
@@ -374,7 +481,7 @@ function updateGovernancePanel(governance) {
         const agentId = getAgentId();
         const candidateId = panel.querySelector('#gov-vote').value;
         if (!agentId || !candidateId) {
-          updateFeedback('Necesitas ID y candidato para votar.', true);
+          updateFeedback('Necesitas tu ID y un candidato para votar.', true);
           return;
         }
         storeAgentId(agentId);
@@ -388,7 +495,7 @@ function updateGovernancePanel(governance) {
           if (!response.ok || !result.success) {
             throw new Error(result.error || 'No se pudo votar.');
           }
-          updateFeedback('Voto registrado.', false);
+          updateFeedback('✅ Voto registrado.', false);
           WORLD_CONTEXT.governance = { ...WORLD_CONTEXT.governance, election: result.election };
           updateGovernancePanel(WORLD_CONTEXT.governance);
         } catch (error) {
