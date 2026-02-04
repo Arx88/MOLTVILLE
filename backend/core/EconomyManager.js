@@ -119,11 +119,15 @@ export class EconomyManager {
     if (!this.transactions.has(agentId)) {
       this.transactions.set(agentId, []);
     }
-    this.transactions.get(agentId).push({
+    const ledger = this.transactions.get(agentId);
+    ledger.push({
       amount,
       reason,
       timestamp: Date.now()
     });
+    if (ledger.length > 500) {
+      ledger.splice(0, ledger.length - 500);
+    }
   }
 
   listJobs() {
@@ -139,6 +143,8 @@ export class EconomyManager {
   }
 
   listPropertyForSale(agentId, propertyId, price) {
+    this.registerAgent(agentId);
+    if (price <= 0) throw new Error('Price must be positive');
     const property = this.getProperty(propertyId);
     if (!property) throw new Error('Property not found');
     if (property.ownerId !== agentId) throw new Error('Not the property owner');
@@ -148,6 +154,7 @@ export class EconomyManager {
   }
 
   buyProperty(agentId, propertyId) {
+    this.registerAgent(agentId);
     const property = this.getProperty(propertyId);
     if (!property) throw new Error('Property not found');
     if (!property.forSale) throw new Error('Property not for sale');
@@ -162,6 +169,10 @@ export class EconomyManager {
   }
 
   applyForJob(agentId, jobId) {
+    this.registerAgent(agentId);
+    if (this.jobAssignments.has(agentId)) {
+      throw new Error('Agent already employed');
+    }
     const job = this.jobs.get(jobId);
     if (!job) throw new Error('Job not found');
     if (job.assignedTo) throw new Error('Job already filled');
@@ -171,6 +182,11 @@ export class EconomyManager {
   }
 
   submitReview({ agentId, reviewerId, score, tags = [], reason = '' }) {
+    this.registerAgent(agentId);
+    this.registerAgent(reviewerId);
+    if (!Number.isFinite(score) || score < 0 || score > 5) {
+      throw new Error('Score must be between 0 and 5');
+    }
     if (!this.reviews.has(agentId)) {
       this.reviews.set(agentId, []);
     }

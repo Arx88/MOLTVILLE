@@ -4,12 +4,12 @@ export class WorldStateManager {
   constructor() {
     this.tickCount = 0;
     this.agents = new Map();
-    this.buildings = this.initializeBuildings();
-    this.lots = this.initializeLots();
-    this.tiles = this.initializeTiles();
     this.width = 64;
     this.height = 64;
     this.tileSize = 32;
+    this.buildings = this.initializeBuildings();
+    this.lots = this.initializeLots();
+    this.tiles = this.initializeTiles();
     this.dayLengthMs = parseInt(process.env.DAY_LENGTH_MS, 10) || 7200000;
     this.weatherChangeMs = parseInt(process.env.WEATHER_CHANGE_MS, 10) || 3600000;
     this.worldStart = Date.now();
@@ -137,6 +137,12 @@ export class WorldStateManager {
     this.updateWeather();
     // Progress all active movements
     this.movementState.forEach((state, agentId) => {
+      if (state.fullPath && (!Array.isArray(state.fullPath) || typeof state.currentStep !== 'number')) {
+        const agent = this.agents.get(agentId);
+        if (agent) agent.state = 'idle';
+        this.movementState.delete(agentId);
+        return;
+      }
       if (state.progress < 1) {
         state.progress += 0.05; // ~20 ticks per tile at 100ms tick = 2 seconds per tile
         if (state.progress >= 1) {
@@ -146,6 +152,23 @@ export class WorldStateManager {
             agent.x = state.toX;
             agent.y = state.toY;
             this.updateBuildingOccupancy(agentId, agent);
+            if (state.fullPath && state.currentStep < state.fullPath.length - 1) {
+              const nextStep = state.fullPath[state.currentStep + 1];
+              state.fromX = agent.x;
+              state.fromY = agent.y;
+              state.toX = nextStep.x;
+              state.toY = nextStep.y;
+              state.progress = 0;
+              state.currentStep += 1;
+
+              const dx = state.toX - state.fromX;
+              const dy = state.toY - state.fromY;
+              if (Math.abs(dx) > Math.abs(dy)) agent.facing = dx > 0 ? 'right' : 'left';
+              else agent.facing = dy > 0 ? 'down' : 'up';
+            } else {
+              agent.state = 'idle';
+              this.movementState.delete(agentId);
+            }
           }
         }
       }
@@ -264,6 +287,11 @@ export class WorldStateManager {
         if (!this.isWalkable(nx, ny)) continue;
 
         const isDiagonal = dir.x !== 0 && dir.y !== 0;
+        if (isDiagonal) {
+          const sideA = this.isWalkable(current.x + dir.x, current.y);
+          const sideB = this.isWalkable(current.x, current.y + dir.y);
+          if (!sideA || !sideB) continue;
+        }
         const moveCost = isDiagonal ? 1.414 : 1;
         const g = current.g + moveCost;
         const h = heuristic(nx, ny);
@@ -288,6 +316,9 @@ export class WorldStateManager {
     const agent = this.agents.get(agentId);
     if (!agent) throw new Error(`Agent ${agentId} not found`);
     if (!this.isWalkable(targetX, targetY)) throw new Error(`Target (${targetX}, ${targetY}) is not walkable`);
+    if (this.isOccupied(targetX, targetY, agentId)) {
+      return { success: false, reason: 'Target occupied' };
+    }
 
     const path = this.findPath(agent.x, agent.y, targetX, targetY);
     if (!path || path.length < 2) return { success: false, reason: 'No path found' };

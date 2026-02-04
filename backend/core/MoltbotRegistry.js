@@ -6,6 +6,15 @@ export class MoltbotRegistry {
     this.agents = new Map(); // agentId -> agent data
     this.apiKeys = new Map(); // apiKey -> agentId
     this.sockets = new Map(); // agentId -> socketId
+    this.issuedApiKeys = new Set();
+  }
+
+  issueApiKey(apiKey) {
+    this.issuedApiKeys.add(apiKey);
+  }
+
+  isApiKeyIssued(apiKey) {
+    return this.issuedApiKeys.has(apiKey);
   }
 
   async registerAgent(data) {
@@ -15,6 +24,9 @@ export class MoltbotRegistry {
     if (this.agents.has(id)) {
       // Update socket if reconnecting
       const existing = this.agents.get(id);
+      if (existing.apiKey && existing.apiKey !== apiKey) {
+        throw new Error('API key mismatch for agent');
+      }
       existing.socketId = socketId;
       existing.lastSeen = Date.now();
       this.sockets.set(id, socketId);
