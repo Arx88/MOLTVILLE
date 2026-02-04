@@ -23,6 +23,17 @@ router.post('/cast', (req, res) => {
   }
 });
 
+router.get('/history', async (req, res) => {
+  const { votingManager } = req.app.locals;
+  const limit = parseInt(req.query.limit, 10) || 5;
+  try {
+    const history = await votingManager.getVoteHistory(limit);
+    res.json({ history });
+  } catch (error) {
+    res.status(500).json({ error: error.message });
+  }
+});
+
 router.post('/propose', (req, res) => {
   const { agentId, templateId, customName, districtId, type } = req.body;
   const { votingManager } = req.app.locals;

@@ -225,6 +225,7 @@ const WORLD_CONTEXT = {
   vote: null,
   voteCatalog: [],
   voteCatalogLoaded: false,
+  voteHistory: [],
   governance: null,
   socialNetwork: null,
   mood: null,
@@ -320,6 +321,10 @@ function updateVotePanel(vote) {
     .sort()
     .map(type => `<option value="${type}">${type}</option>`)
     .join('');
+  const historyRows = (WORLD_CONTEXT.voteHistory || [])
+    .slice(0, 3)
+    .map(entry => `<div class="panel-row">🏗️ ${entry.winner?.name || entry.winner?.type || 'Edificio'} <span class="panel-muted">(${entry.totalVotes || 0})</span></div>`)
+    .join('');
   panel.innerHTML = `
     <div class="panel-title">Votación diaria</div>
     ${hasVote
@@ -344,6 +349,9 @@ function updateVotePanel(vote) {
       <button id="vote-submit" ${hasVote ? '' : 'disabled'}>Confirmar voto</button>
       <div class="panel-feedback" id="vote-feedback"></div>
     </div>
+    <div class="panel-divider"></div>
+    <div class="panel-row panel-meta">Últimas construcciones</div>
+    ${historyRows || '<div class="panel-row panel-muted">Sin historial</div>'}
     <div class="panel-divider"></div>
     <button id="vote-proposal-toggle" class="secondary">${proposalLabel}</button>
     <div class="panel-actions ${uiState.voteProposalOpen ? '' : 'is-collapsed'}">
@@ -960,15 +968,18 @@ async function refreshWorldData(scene) {
   }
 
   try {
-    const [voteRes, govRes, networkRes] = await Promise.all([
+    const [voteRes, voteHistoryRes, govRes, networkRes] = await Promise.all([
       fetch(`${API_BASE}/api/vote/current`),
+      fetch(`${API_BASE}/api/vote/history?limit=3`),
       fetch(`${API_BASE}/api/governance/current`),
       fetch(`${API_BASE}/api/world/social-network`)
     ]);
     const voteData = await voteRes.json();
+    const historyData = await voteHistoryRes.json();
     const govData = await govRes.json();
     const networkData = await networkRes.json();
     WORLD_CONTEXT.vote = voteData.vote || null;
+    WORLD_CONTEXT.voteHistory = historyData.history || [];
     WORLD_CONTEXT.governance = govData || null;
     WORLD_CONTEXT.socialNetwork = networkData || null;
   } catch (error) {

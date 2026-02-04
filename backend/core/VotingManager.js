@@ -14,6 +14,7 @@ export class VotingManager {
     this.proposalTtlMs = parseInt(process.env.BUILDING_PROPOSAL_TTL_MS, 10) || 604800000;
     this.currentVote = null;
     this.pendingProposals = [];
+    this.voteHistory = [];
   }
 
   async initializeFromDb() {
@@ -221,6 +222,7 @@ export class VotingManager {
     this.io.emit('building:constructed', building);
     logger.info(`Voting: closed ${vote.id} winner ${winningOption.id}`);
     this.persistVote('closed', winningOption);
+    this.trackHistory(result);
     this.currentVote = null;
     return result;
   }
@@ -246,6 +248,35 @@ export class VotingManager {
       startsAt: this.currentVote.startsAt,
       endsAt: this.currentVote.endsAt
     };
+  }
+
+  trackHistory(result) {
+    if (!result) return;
+    const entry = {
+      voteId: result.voteId,
+      lotId: result.lotId,
+      winner: result.winner,
+      totalVotes: result.totalVotes,
+      closedAt: Date.now()
+    };
+    this.voteHistory.unshift(entry);
+    this.voteHistory = this.voteHistory.slice(0, 20);
+  }
+
+  async getVoteHistory(limit = 5) {
+    if (!this.db) {
+      return this.voteHistory.slice(0, limit);
+    }
+    const result = await this.db.query(
+      "SELECT vote_id, lot_id, winner, ends_at FROM vote_state WHERE status = 'closed' ORDER BY ends_at DESC LIMIT $1",
+      [limit]
+    );
+    return result.rows.map(row => ({
+      voteId: row.vote_id,
+      lotId: row.lot_id,
+      winner: row.winner,
+      closedAt: Number(row.ends_at)
+    }));
   }
 
   persistProposal(proposal) {
