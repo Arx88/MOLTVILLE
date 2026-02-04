@@ -5,6 +5,7 @@ export class VotingManager {
     this.worldState = worldState;
     this.io = io;
     this.db = options.db || null;
+    this.economyManager = options.economyManager || null;
     this.voteDurationMs = parseInt(process.env.BUILDING_VOTE_DURATION_MS, 10) || 86400000;
     this.currentVote = null;
   }
@@ -95,6 +96,9 @@ export class VotingManager {
       type: winningOption.type,
       lotId: vote.lotId
     });
+    if (this.economyManager) {
+      this.economyManager.registerBuilding(building);
+    }
     const result = {
       voteId: vote.id,
       lotId: vote.lotId,

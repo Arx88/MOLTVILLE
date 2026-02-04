@@ -20,6 +20,7 @@ export class EconomyManager {
     this.incomeIntervalMs = parseInt(process.env.INCOME_INTERVAL_MS, 10) || 60000;
     this.baseIncome = parseFloat(process.env.BASE_INCOME || '2');
     this.reviewThreshold = parseFloat(process.env.REVIEW_THRESHOLD || '2.5');
+    this.jobTemplates = this.initializeJobTemplates();
     this.initializeJobs();
     this.initializeProperties();
   }
@@ -50,8 +51,8 @@ export class EconomyManager {
     }
   }
 
-  initializeJobs() {
-    const jobTemplates = {
+  initializeJobTemplates() {
+    return {
       cafe: [
         { role: 'Barista', salary: 8 },
         { role: 'Host', salary: 6 }
@@ -65,41 +66,23 @@ export class EconomyManager {
       ],
       market: [
         { role: 'Vendor', salary: 7 }
+      ],
+      gallery: [
+        { role: 'Curator', salary: 7 },
+        { role: 'Guide', salary: 5 }
       ]
     };
+  }
 
+  initializeJobs() {
     this.worldState.buildings.forEach(building => {
-      const templates = jobTemplates[building.type] || [];
-      templates.forEach((template, index) => {
-        const jobId = `${building.id}:${template.role.toLowerCase().replace(/\s+/g, '-')}:${index}`;
-        this.jobs.set(jobId, {
-          id: jobId,
-          buildingId: building.id,
-          buildingName: building.name,
-          role: template.role,
-          salary: template.salary,
-          assignedTo: null
-        });
-      });
+      this.addJobsForBuilding(building);
     });
   }
 
   initializeProperties() {
-    const propertyTypes = new Set(['house', 'apartment']);
     this.worldState.buildings.forEach(building => {
-      if (!propertyTypes.has(building.type)) return;
-      const area = building.width * building.height;
-      const basePrice = building.type === 'apartment' ? 300 : 200;
-      const price = basePrice + area * 25;
-      this.properties.set(building.id, {
-        id: building.id,
-        name: building.name,
-        type: building.type,
-        buildingId: building.id,
-        price,
-        ownerId: null,
-        forSale: true
-      });
+      this.addPropertyForBuilding(building);
     });
   }
 
@@ -224,6 +207,47 @@ export class EconomyManager {
 
   listJobs() {
     return Array.from(this.jobs.values());
+  }
+
+  addJobsForBuilding(building) {
+    const templates = this.jobTemplates[building.type] || [];
+    templates.forEach((template, index) => {
+      const jobId = `${building.id}:${template.role.toLowerCase().replace(/\s+/g, '-')}:${index}`;
+      if (this.jobs.has(jobId)) return;
+      this.jobs.set(jobId, {
+        id: jobId,
+        buildingId: building.id,
+        buildingName: building.name,
+        role: template.role,
+        salary: template.salary,
+        assignedTo: null
+      });
+    });
+  }
+
+  addPropertyForBuilding(building) {
+    const propertyTypes = new Set(['house', 'apartment']);
+    if (!propertyTypes.has(building.type)) return;
+    if (this.properties.has(building.id)) return;
+    const area = building.width * building.height;
+    const basePrice = building.type === 'apartment' ? 300 : 200;
+    const price = basePrice + area * 25;
+    const property = {
+      id: building.id,
+      name: building.name,
+      type: building.type,
+      buildingId: building.id,
+      price,
+      ownerId: null,
+      forSale: true
+    };
+    this.properties.set(building.id, property);
+    this.persistProperty(property);
+  }
+
+  registerBuilding(building) {
+    this.addJobsForBuilding(building);
+    this.addPropertyForBuilding(building);
   }
 
   listProperties() {

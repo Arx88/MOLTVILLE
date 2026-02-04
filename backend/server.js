@@ -58,7 +58,7 @@ const moltbotRegistry = new MoltbotRegistry({ db });
 const actionQueue = new ActionQueue(worldState, moltbotRegistry);
 const interactionEngine = new InteractionEngine(worldState, moltbotRegistry);
 const economyManager = new EconomyManager(worldState, { db });
-const votingManager = new VotingManager(worldState, io, { db });
+const votingManager = new VotingManager(worldState, io, { db, economyManager });
 const governanceManager = new GovernanceManager(io, { db });
 const cityMoodManager = new CityMoodManager(economyManager, interactionEngine);
 
