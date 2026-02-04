@@ -15,6 +15,7 @@ import { EconomyManager } from './core/EconomyManager.js';
 import { VotingManager } from './core/VotingManager.js';
 import { GovernanceManager } from './core/GovernanceManager.js';
 import { db } from './utils/db.js';
+import { CityMoodManager } from './core/CityMoodManager.js';
 
 import authRoutes from './routes/auth.js';
 import moltbotRoutes from './routes/moltbot.js';
@@ -59,6 +60,7 @@ const interactionEngine = new InteractionEngine(worldState, moltbotRegistry);
 const economyManager = new EconomyManager(worldState, { db });
 const votingManager = new VotingManager(worldState, io, { db });
 const governanceManager = new GovernanceManager(io, { db });
+const cityMoodManager = new CityMoodManager(economyManager, interactionEngine);
 
 app.locals.worldState = worldState;
 app.locals.moltbotRegistry = moltbotRegistry;
@@ -67,6 +69,7 @@ app.locals.interactionEngine = interactionEngine;
 app.locals.economyManager = economyManager;
 app.locals.votingManager = votingManager;
 app.locals.governanceManager = governanceManager;
+app.locals.cityMoodManager = cityMoodManager;
 app.locals.io = io;
 
 if (db) {
@@ -101,7 +104,8 @@ io.on('connection', (socket) => {
     socket.join('viewers');
     socket.emit('world:state', {
       ...worldState.getFullState(),
-      governance: governanceManager.getSummary()
+      governance: governanceManager.getSummary(),
+      mood: cityMoodManager.getSummary()
     });
     socket.emit('agents:list', moltbotRegistry.getAllAgents());
     logger.info(`Viewer joined: ${socket.id}`);
@@ -135,7 +139,8 @@ io.on('connection', (socket) => {
         position: spawnPosition,
         worldState: {
           ...worldState.getAgentView(agent.id),
-          governance: governanceManager.getSummary()
+          governance: governanceManager.getSummary(),
+          mood: cityMoodManager.getSummary()
         }
       });
 
@@ -231,7 +236,8 @@ io.on('connection', (socket) => {
       if (!socket.agentId) { socket.emit('error', { message: 'Not authenticated' }); return; }
       socket.emit('perception:update', {
         ...worldState.getAgentView(socket.agentId),
-        governance: governanceManager.getSummary()
+        governance: governanceManager.getSummary(),
+        mood: cityMoodManager.getSummary()
       });
     } catch (error) {
       logger.error('Perceive error:', error);
@@ -262,6 +268,7 @@ setInterval(() => {
   economyManager.tick();
   votingManager.tick();
   governanceManager.tick();
+  cityMoodManager.tick();
 
   // Broadcast interpolated agent positions to viewers
   io.to('viewers').emit('world:tick', {
@@ -270,7 +277,8 @@ setInterval(() => {
     worldTime: worldState.getTimeState(),
     weather: worldState.getWeatherState(),
     vote: votingManager.getVoteSummary(),
-    governance: governanceManager.getSummary()
+    governance: governanceManager.getSummary(),
+    mood: cityMoodManager.getSummary()
   });
 }, parseInt(process.env.WORLD_TICK_RATE) || 100);
 

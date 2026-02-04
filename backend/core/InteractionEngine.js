@@ -237,6 +237,35 @@ export class InteractionEngine {
     return network;
   }
 
+  getSocialStats() {
+    const network = this.getSocialNetwork();
+    const totalAgents = network.nodes.length;
+    const activeEdges = network.edges.length;
+    if (!activeEdges) {
+      return {
+        totalAgents,
+        activeEdges,
+        averageAffinity: 0,
+        averageTrust: 0,
+        averageRespect: 0
+      };
+    }
+    const totals = network.edges.reduce((acc, edge) => {
+      acc.affinity += edge.affinity || 0;
+      acc.trust += edge.trust || 0;
+      acc.respect += edge.respect || 0;
+      return acc;
+    }, { affinity: 0, trust: 0, respect: 0 });
+
+    return {
+      totalAgents,
+      activeEdges,
+      averageAffinity: totals.affinity / activeEdges,
+      averageTrust: totals.trust / activeEdges,
+      averageRespect: totals.respect / activeEdges
+    };
+  }
+
   cleanupOldConversations(maxAge = 3600000) {
     // Remove conversations older than maxAge (default 1 hour)
     const now = Date.now();

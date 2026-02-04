@@ -22,6 +22,7 @@
   #top-bar .time-display { color: #7faaee; font-size: 13px; }
   #top-bar .weather-display { color: #f5c542; font-size: 13px; }
   #top-bar .agent-count { color: #6bcb77; font-size: 13px; }
+  #top-bar .mood-display { color: #f7d774; font-size: 13px; }
 
   #chat-log {
     position: absolute; bottom: 80px; left: 20px; width: 320px; max-height: 200px;
@@ -68,6 +69,7 @@
     <span class="city-name">🏙️ Moltville</span>
     <span class="time-display" id="time-display">☀️ 10:00 AM</span>
     <span class="weather-display" id="weather-display">🌤️ Clear</span>
+    <span class="mood-display" id="mood-display">🌿 Calm</span>
     <span class="agent-count" id="agent-count">👥 0 Citizens</span>
   </div>
   <div id="chat-log"></div>
@@ -151,7 +153,8 @@ const WORLD_CONTEXT = {
   weather: null,
   vote: null,
   governance: null,
-  socialNetwork: null
+  socialNetwork: null,
+  mood: null
 };
 
 function getWeatherLabel(weather) {
@@ -246,6 +249,16 @@ function updateRelationshipsPanel(network) {
   panel.innerHTML = `<div class="panel-title">Relaciones</div>${edges}`;
 }
 
+function formatMoodLabel(mood) {
+  if (!mood) return '🌿 Calm';
+  const { prosperity = 0, cohesion = 0, stability = 0 } = mood;
+  const score = (prosperity + cohesion + stability) / 3;
+  if (score > 0.75) return '🌟 Flourishing';
+  if (score > 0.55) return '🌿 Calm';
+  if (score > 0.35) return '🌥️ Unsteady';
+  return '🌧️ Tense';
+}
+
 function formatPolicyLabel(policy) {
   switch (policy.type) {
     case 'citizen_stipend':
@@ -298,6 +311,7 @@ async function refreshWorldData(scene) {
     const state = await stateRes.json();
     WORLD_CONTEXT.worldTime = state.worldTime || null;
     WORLD_CONTEXT.weather = state.weather || null;
+    WORLD_CONTEXT.mood = state.mood || null;
     LOTS = state.lots || [];
     const newBuildings = mergeBuildingVisuals(state.buildings || []);
     if (scene && newBuildings.length) {
@@ -332,6 +346,7 @@ async function refreshWorldData(scene) {
   }
   const weatherLabel = getWeatherLabel(WORLD_CONTEXT.weather?.current);
   document.getElementById('weather-display').textContent = `${weatherLabel.icon} ${weatherLabel.label}`;
+  document.getElementById('mood-display').textContent = formatMoodLabel(WORLD_CONTEXT.mood);
   updateVotePanel(WORLD_CONTEXT.vote);
   updateGovernancePanel(WORLD_CONTEXT.governance);
   updateRelationshipsPanel(WORLD_CONTEXT.socialNetwork);

@@ -116,6 +116,12 @@ export class EconomyManager {
     return this.balances.get(agentId) ?? 0;
   }
 
+  getAverageBalance() {
+    if (this.balances.size === 0) return 0;
+    const total = Array.from(this.balances.values()).reduce((sum, value) => sum + value, 0);
+    return total / this.balances.size;
+  }
+
   tick() {
     const now = Date.now();
     if (now - this.lastIncomeAt < this.incomeIntervalMs) return;
