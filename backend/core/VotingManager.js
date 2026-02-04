@@ -106,19 +106,30 @@ export class VotingManager {
     return options.slice(0, this.voteOptionsCount);
   }
 
-  proposeBuilding({ agentId, templateId, customName = '', districtId = null }) {
+  proposeBuilding({ agentId, templateId = null, customName = '', districtId = null, type = null }) {
     if (!agentId) throw new Error('Agent ID required');
-    if (!templateId) throw new Error('Template ID required');
-    const template = this.catalog.find(entry => entry.id === templateId);
-    if (!template) throw new Error('Template not found');
     const sanitizedName = customName.trim();
-    const name = sanitizedName ? sanitizedName.slice(0, 60) : template.name;
+    let resolvedType = type;
+    let resolvedName = sanitizedName;
+    let resolvedTemplateId = templateId;
+
+    if (templateId) {
+      const template = this.catalog.find(entry => entry.id === templateId);
+      if (!template) throw new Error('Template not found');
+      resolvedType = template.type;
+      resolvedName = sanitizedName ? sanitizedName.slice(0, 60) : template.name;
+    } else {
+      if (!resolvedType) throw new Error('Building type required');
+      if (!resolvedName) throw new Error('Custom name required');
+      resolvedTemplateId = null;
+      resolvedName = resolvedName.slice(0, 60);
+    }
     const proposal = {
       id: `proposal-${Date.now()}-${Math.floor(Math.random() * 1000)}`,
       agentId,
-      templateId,
-      name,
-      type: template.type,
+      templateId: resolvedTemplateId,
+      name: resolvedName,
+      type: resolvedType,
       district: districtId,
       createdAt: Date.now()
     };

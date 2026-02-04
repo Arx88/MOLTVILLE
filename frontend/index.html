@@ -242,6 +242,7 @@ const STORAGE_KEYS = {
 const DEFAULT_UI_STATE = {
   voteActionsOpen: false,
   voteProposalOpen: false,
+  voteProposalMode: 'catalog',
   governanceActionsOpen: false,
   governanceMode: 'vote',
   economyActionsOpen: false,
@@ -315,6 +316,10 @@ function updateVotePanel(vote) {
   const catalogOptions = (WORLD_CONTEXT.voteCatalog || [])
     .map(entry => `<option value="${entry.id}">${entry.name} · ${entry.type}</option>`)
     .join('');
+  const proposalTypes = Array.from(new Set((WORLD_CONTEXT.voteCatalog || []).map(entry => entry.type)))
+    .sort()
+    .map(type => `<option value="${type}">${type}</option>`)
+    .join('');
   panel.innerHTML = `
     <div class="panel-title">Votación diaria</div>
     ${hasVote
@@ -342,14 +347,29 @@ function updateVotePanel(vote) {
     <div class="panel-divider"></div>
     <button id="vote-proposal-toggle" class="secondary">${proposalLabel}</button>
     <div class="panel-actions ${uiState.voteProposalOpen ? '' : 'is-collapsed'}">
+      <label>Modo de propuesta</label>
+      <div class="panel-row">
+        <button id="proposal-mode-catalog" class="${uiState.voteProposalMode === 'catalog' ? '' : 'secondary'}">Catálogo</button>
+        <button id="proposal-mode-custom" class="${uiState.voteProposalMode === 'custom' ? '' : 'secondary'}">Libre</button>
+      </div>
       <label for="proposal-agent-id">ID Moltbot</label>
       <input id="proposal-agent-id" type="text" placeholder="moltbot-001" value="${getStoredAgentId()}">
-      <label for="proposal-template">Catálogo de edificios</label>
-      <select id="proposal-template">
-        ${catalogOptions || '<option value="">Catálogo no disponible</option>'}
-      </select>
-      <label for="proposal-name">Nombre personalizado (opcional)</label>
-      <input id="proposal-name" type="text" placeholder="Nombre del edificio">
+      <div id="proposal-catalog-fields" class="${uiState.voteProposalMode === 'catalog' ? '' : 'is-collapsed'}">
+        <label for="proposal-template">Catálogo de edificios</label>
+        <select id="proposal-template">
+          ${catalogOptions || '<option value="">Catálogo no disponible</option>'}
+        </select>
+        <label for="proposal-name">Nombre personalizado (opcional)</label>
+        <input id="proposal-name" type="text" placeholder="Nombre del edificio">
+      </div>
+      <div id="proposal-custom-fields" class="${uiState.voteProposalMode === 'custom' ? '' : 'is-collapsed'}">
+        <label for="proposal-custom-type">Arquetipo</label>
+        <select id="proposal-custom-type">
+          ${proposalTypes || '<option value="">Sin tipos disponibles</option>'}
+        </select>
+        <label for="proposal-custom-name">Nombre del edificio</label>
+        <input id="proposal-custom-name" type="text" placeholder="Nombre único">
+      </div>
       <button id="proposal-submit">Enviar propuesta</button>
       <div class="panel-feedback" id="proposal-feedback"></div>
     </div>
@@ -408,17 +428,45 @@ function updateVotePanel(vote) {
       }
     });
   }
+  const proposalModeCatalog = panel.querySelector('#proposal-mode-catalog');
+  const proposalModeCustom = panel.querySelector('#proposal-mode-custom');
+  if (proposalModeCatalog) {
+    proposalModeCatalog.addEventListener('click', () => {
+      setUiState({ voteProposalMode: 'catalog' });
+      updateVotePanel(vote ? { ...vote } : null);
+    });
+  }
+  if (proposalModeCustom) {
+    proposalModeCustom.addEventListener('click', () => {
+      setUiState({ voteProposalMode: 'custom' });
+      updateVotePanel(vote ? { ...vote } : null);
+    });
+  }
   const proposalButton = panel.querySelector('#proposal-submit');
   if (proposalButton) {
     proposalButton.addEventListener('click', async () => {
       const agentId = panel.querySelector('#proposal-agent-id').value.trim();
-      const templateId = panel.querySelector('#proposal-template').value;
-      const customName = panel.querySelector('#proposal-name').value.trim();
+      const mode = getUiState().voteProposalMode;
+      const templateId = mode === 'catalog' ? panel.querySelector('#proposal-template').value : null;
+      const customName = mode === 'catalog'
+        ? panel.querySelector('#proposal-name').value.trim()
+        : panel.querySelector('#proposal-custom-name').value.trim();
+      const customType = mode === 'custom' ? panel.querySelector('#proposal-custom-type').value : null;
       const feedback = panel.querySelector('#proposal-feedback');
       feedback.textContent = '';
       feedback.className = 'panel-feedback';
-      if (!agentId || !templateId) {
-        feedback.textContent = 'Necesitas tu ID y un edificio del catálogo.';
+      if (!agentId) {
+        feedback.textContent = 'Necesitas tu ID.';
+        feedback.classList.add('error');
+        return;
+      }
+      if (mode === 'catalog' && !templateId) {
+        feedback.textContent = 'Selecciona un edificio del catálogo.';
+        feedback.classList.add('error');
+        return;
+      }
+      if (mode === 'custom' && (!customType || !customName)) {
+        feedback.textContent = 'Necesitas un arquetipo y un nombre.';
         feedback.classList.add('error');
         return;
       }
@@ -427,7 +475,7 @@ function updateVotePanel(vote) {
         const response = await fetch(`${API_BASE}/api/vote/propose`, {
           method: 'POST',
           headers: { 'Content-Type': 'application/json' },
-          body: JSON.stringify({ agentId, templateId, customName })
+          body: JSON.stringify({ agentId, templateId, customName, type: customType })
         });
         const result = await response.json();
         if (!response.ok || !result.success) {

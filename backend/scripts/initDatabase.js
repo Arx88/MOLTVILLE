@@ -42,7 +42,7 @@ CREATE TABLE IF NOT EXISTS vote_state (
 CREATE TABLE IF NOT EXISTS vote_proposals (
   proposal_id TEXT PRIMARY KEY,
   agent_id TEXT NOT NULL,
-  template_id TEXT NOT NULL,
+  template_id TEXT,
   name TEXT NOT NULL,
   type TEXT NOT NULL,
   district_id TEXT,

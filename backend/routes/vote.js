@@ -24,10 +24,10 @@ router.post('/cast', (req, res) => {
 });
 
 router.post('/propose', (req, res) => {
-  const { agentId, templateId, customName, districtId } = req.body;
+  const { agentId, templateId, customName, districtId, type } = req.body;
   const { votingManager } = req.app.locals;
   try {
-    const proposal = votingManager.proposeBuilding({ agentId, templateId, customName, districtId });
+    const proposal = votingManager.proposeBuilding({ agentId, templateId, customName, districtId, type });
     res.json({ success: true, proposal });
   } catch (error) {
     res.status(400).json({ success: false, error: error.message });
