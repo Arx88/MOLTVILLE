@@ -210,7 +210,7 @@ export class WorldStateManager {
               state.currentStep += 1;
 
               const dx = state.toX - state.fromX;
-              const dy = state.toY - state.fromY;
+              const dy = state.toX - state.fromY;
               if (Math.abs(dx) > Math.abs(dy)) agent.facing = dx > 0 ? 'right' : 'left';
               else agent.facing = dy > 0 ? 'down' : 'up';
             } else {

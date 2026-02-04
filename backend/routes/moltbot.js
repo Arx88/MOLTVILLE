@@ -8,16 +8,19 @@ router.post('/generate-key', async (req, res) => {
   try {
     const { moltbotName } = req.body;
     
-    if (!moltbotName) {
+    if (typeof moltbotName !== 'string' || moltbotName.trim().length === 0) {
       return res.status(400).json({ error: 'Moltbot name is required' });
     }
 
+    const trimmedName = moltbotName.trim();
     const apiKey = `moltville_${uuidv4().replace(/-/g, '')}`;
-    
+    const { moltbotRegistry } = req.app.locals;
+    moltbotRegistry.issueApiKey(apiKey);
+
     // In production, store this in database
     res.json({
       apiKey,
-      moltbotName,
+      moltbotName: trimmedName,
       createdAt: Date.now(),
       instructions: {
         websocket: `ws://localhost:${process.env.PORT || 3001}`,
@@ -25,7 +28,7 @@ router.post('/generate-key', async (req, res) => {
         payload: {
           apiKey,
           agentId: uuidv4(),
-          agentName: moltbotName,
+          agentName: trimmedName,
           avatar: 'char1'
         }
       }
