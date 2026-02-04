@@ -8,16 +8,19 @@ router.post('/generate-key', async (req, res) => {
   try {
     const { moltbotName } = req.body;
     
-    if (!moltbotName) {
+    if (typeof moltbotName !== 'string' || moltbotName.trim().length === 0) {
       return res.status(400).json({ error: 'Moltbot name is required' });
     }
 
+    const trimmedName = moltbotName.trim();
     const apiKey = `moltville_${uuidv4().replace(/-/g, '')}`;
-    
+    const { moltbotRegistry } = req.app.locals;
+    moltbotRegistry.issueApiKey(apiKey);
+
     // In production, store this in database
     res.json({
       apiKey,
-      moltbotName,
+      moltbotName: trimmedName,
       createdAt: Date.now(),
       instructions: {
         websocket: `ws://localhost:${process.env.PORT || 3001}`,
@@ -25,7 +28,7 @@ router.post('/generate-key', async (req, res) => {
         payload: {
           apiKey,
           agentId: uuidv4(),
-          agentName: moltbotName,
+          agentName: trimmedName,
           avatar: 'char1'
         }
       }
@@ -40,8 +43,11 @@ router.get('/:agentId', async (req, res) => {
   try {
     const { agentId } = req.params;
     const { moltbotRegistry } = req.app.locals;
+    if (typeof agentId !== 'string' || agentId.trim().length === 0) {
+      return res.status(400).json({ error: 'Agent not found' });
+    }
     
-    const agent = moltbotRegistry.getAgent(agentId);
+    const agent = moltbotRegistry.getAgent(agentId.trim());
     if (!agent) {
       return res.status(404).json({ error: 'Agent not found' });
     }
@@ -65,11 +71,14 @@ router.get('/:agentId/memory', async (req, res) => {
     const { agentId } = req.params;
     const { type, limit } = req.query;
     const { moltbotRegistry } = req.app.locals;
+    if (typeof agentId !== 'string' || agentId.trim().length === 0) {
+      return res.status(400).json({ error: 'agentId is required' });
+    }
     
     const memory = moltbotRegistry.getAgentMemory(
-      agentId,
+      agentId.trim(),
       type || null,
-      parseInt(limit) || 10
+      Math.max(parseInt(limit) || 10, 1)
     );
     
     if (!memory) {
@@ -87,8 +96,11 @@ router.get('/:agentId/relationships', async (req, res) => {
   try {
     const { agentId } = req.params;
     const { moltbotRegistry } = req.app.locals;
+    if (typeof agentId !== 'string' || agentId.trim().length === 0) {
+      return res.status(400).json({ error: 'Agent not found' });
+    }
     
-    const agent = moltbotRegistry.getAgent(agentId);
+    const agent = moltbotRegistry.getAgent(agentId.trim());
     if (!agent) {
       return res.status(404).json({ error: 'Agent not found' });
     }

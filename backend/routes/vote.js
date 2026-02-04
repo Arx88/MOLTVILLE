@@ -10,6 +10,16 @@ router.get('/current', (req, res) => {
 router.post('/cast', (req, res) => {
   const { agentId, optionId } = req.body;
   const { votingManager } = req.app.locals;
+  const { moltbotRegistry } = req.app.locals;
+  if (!agentId || !optionId) {
+    return res.status(400).json({ success: false, error: 'agentId and optionId are required' });
+  }
+  if (typeof optionId !== 'string' || optionId.trim().length === 0) {
+    return res.status(400).json({ success: false, error: 'optionId must be a string' });
+  }
+  if (!moltbotRegistry.getAgent(agentId)) {
+    return res.status(400).json({ success: false, error: 'Agent not found' });
+  }
   try {
     const summary = votingManager.castVote(agentId, optionId);
     res.json({ success: true, vote: summary });

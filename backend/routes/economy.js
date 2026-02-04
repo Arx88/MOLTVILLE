@@ -4,9 +4,13 @@ const router = express.Router();
 
 router.get('/balance/:agentId', (req, res) => {
   const { agentId } = req.params;
+  if (typeof agentId !== 'string' || agentId.trim().length === 0) {
+    return res.status(400).json({ error: 'agentId is required' });
+  }
   const economy = req.app.locals.economyManager;
-  const balance = economy.getBalance(agentId);
-  res.json({ agentId, balance });
+  const trimmedId = agentId.trim();
+  const balance = economy.getBalance(trimmedId);
+  res.json({ agentId: trimmedId, balance });
 });
 
 router.get('/jobs', (req, res) => {
@@ -17,6 +21,9 @@ router.get('/jobs', (req, res) => {
 router.post('/jobs/apply', (req, res) => {
   const { agentId, jobId } = req.body;
   const economy = req.app.locals.economyManager;
+  if (!agentId || !jobId) {
+    return res.status(400).json({ success: false, error: 'agentId and jobId are required' });
+  }
   try {
     const job = economy.applyForJob(agentId, jobId);
     res.json({ success: true, job });
@@ -28,11 +35,21 @@ router.post('/jobs/apply', (req, res) => {
 router.post('/reviews', (req, res) => {
   const { agentId, reviewerId, score, tags, reason } = req.body;
   const economy = req.app.locals.economyManager;
+  if (!agentId || !reviewerId || score === undefined) {
+    return res.status(400).json({ success: false, error: 'agentId, reviewerId, and score are required' });
+  }
+  const numericScore = parseFloat(score);
+  if (Number.isNaN(numericScore)) {
+    return res.status(400).json({ success: false, error: 'score must be a number' });
+  }
+  if (numericScore < 0 || numericScore > 5) {
+    return res.status(400).json({ success: false, error: 'score must be between 0 and 5' });
+  }
   try {
     const result = economy.submitReview({
       agentId,
       reviewerId,
-      score: parseFloat(score),
+      score: numericScore,
       tags,
       reason
     });
@@ -56,6 +73,9 @@ router.get('/properties', (req, res) => {
 router.post('/properties/buy', (req, res) => {
   const { agentId, propertyId } = req.body;
   const economy = req.app.locals.economyManager;
+  if (!agentId || !propertyId) {
+    return res.status(400).json({ success: false, error: 'agentId and propertyId are required' });
+  }
   try {
     const property = economy.buyProperty(agentId, propertyId);
     res.json({ success: true, property });
@@ -67,8 +87,18 @@ router.post('/properties/buy', (req, res) => {
 router.post('/properties/list', (req, res) => {
   const { agentId, propertyId, price } = req.body;
   const economy = req.app.locals.economyManager;
+  if (!agentId || !propertyId || price === undefined) {
+    return res.status(400).json({ success: false, error: 'agentId, propertyId, and price are required' });
+  }
+  const numericPrice = parseFloat(price);
+  if (Number.isNaN(numericPrice)) {
+    return res.status(400).json({ success: false, error: 'price must be a number' });
+  }
+  if (numericPrice <= 0) {
+    return res.status(400).json({ success: false, error: 'price must be positive' });
+  }
   try {
-    const property = economy.listPropertyForSale(agentId, propertyId, parseFloat(price));
+    const property = economy.listPropertyForSale(agentId, propertyId, numericPrice);
     res.json({ success: true, property });
   } catch (error) {
     res.status(400).json({ success: false, error: error.message });
@@ -77,8 +107,12 @@ router.post('/properties/list', (req, res) => {
 
 router.get('/transactions/:agentId', (req, res) => {
   const { agentId } = req.params;
+  if (typeof agentId !== 'string' || agentId.trim().length === 0) {
+    return res.status(400).json({ error: 'agentId is required' });
+  }
   const economy = req.app.locals.economyManager;
-  res.json({ agentId, transactions: economy.getTransactions(agentId) });
+  const trimmedId = agentId.trim();
+  res.json({ agentId: trimmedId, transactions: economy.getTransactions(trimmedId) });
 });
 
 export default router;
