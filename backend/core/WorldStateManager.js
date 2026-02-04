@@ -5,10 +5,11 @@ export class WorldStateManager {
     this.tickCount = 0;
     this.agents = new Map();
     this.buildings = this.initializeBuildings();
-    this.lots = this.initializeLots();
-    this.tiles = this.initializeTiles();
     this.width = 64;
     this.height = 64;
+    this.districts = this.initializeDistricts();
+    this.lots = this.initializeLots();
+    this.tiles = this.initializeTiles();
     this.tileSize = 32;
     this.dayLengthMs = parseInt(process.env.DAY_LENGTH_MS, 10) || 7200000;
     this.weatherChangeMs = parseInt(process.env.WEATHER_CHANGE_MS, 10) || 3600000;
@@ -17,6 +18,7 @@ export class WorldStateManager {
       current: 'clear',
       lastChange: Date.now()
     };
+    this.lastExpansionCheck = 0;
     // Movement interpolation state per agent
     this.movementState = new Map(); // agentId -> { fromX, fromY, toX, toY, progress, path }
   }
@@ -112,13 +114,50 @@ export class WorldStateManager {
     return tiles;
   }
 
-  initializeLots() {
+  initializeDistricts() {
     return [
-      { id: 'lot-1', x: 6, y: 18, width: 3, height: 3, district: 'central' },
-      { id: 'lot-2', x: 22, y: 30, width: 3, height: 3, district: 'north' },
-      { id: 'lot-3', x: 46, y: 12, width: 3, height: 3, district: 'east' },
-      { id: 'lot-4', x: 32, y: 46, width: 3, height: 3, district: 'south' }
+      {
+        id: 'central',
+        name: 'Distrito Central',
+        bounds: { minX: 2, minY: 2, maxX: 34, maxY: 34 },
+        unlocked: true,
+        unlockAtPopulation: 0,
+        lotTarget: 4
+      },
+      {
+        id: 'east',
+        name: 'Distrito Este',
+        bounds: { minX: 35, minY: 2, maxX: 62, maxY: 26 },
+        unlocked: false,
+        unlockAtPopulation: 6,
+        lotTarget: 3
+      },
+      {
+        id: 'south',
+        name: 'Distrito Sur',
+        bounds: { minX: 20, minY: 35, maxX: 62, maxY: 62 },
+        unlocked: false,
+        unlockAtPopulation: 10,
+        lotTarget: 4
+      },
+      {
+        id: 'west',
+        name: 'Distrito Oeste',
+        bounds: { minX: 2, minY: 30, maxX: 19, maxY: 62 },
+        unlocked: false,
+        unlockAtPopulation: 14,
+        lotTarget: 3
+      }
     ];
+  }
+
+  initializeLots() {
+    const lots = [];
+    const central = this.districts.find(d => d.id === 'central');
+    if (central) {
+      lots.push(...this.generateLotsForDistrict(central, central.lotTarget));
+    }
+    return lots;
   }
 
   markBuildingFootprint(tiles, building) {
@@ -135,6 +174,7 @@ export class WorldStateManager {
     this.tickCount++;
     this.updateWorldTime();
     this.updateWeather();
+    this.expandCityIfNeeded();
     // Progress all active movements
     this.movementState.forEach((state, agentId) => {
       if (state.progress < 1) {
@@ -150,6 +190,62 @@ export class WorldStateManager {
         }
       }
     });
+  }
+
+  expandCityIfNeeded() {
+    const now = this.tickCount;
+    if (now - this.lastExpansionCheck < 50) return;
+    this.lastExpansionCheck = now;
+    const population = this.agents.size;
+    const lockedDistrict = this.districts.find(d => !d.unlocked && population >= d.unlockAtPopulation);
+    if (!lockedDistrict) return;
+
+    lockedDistrict.unlocked = true;
+    const newLots = this.generateLotsForDistrict(lockedDistrict, lockedDistrict.lotTarget);
+    if (newLots.length) {
+      this.lots.push(...newLots);
+      logger.info(`District unlocked: ${lockedDistrict.id} with ${newLots.length} new lots`);
+    }
+  }
+
+  generateLotsForDistrict(district, count) {
+    const lots = [];
+    let attempts = 0;
+    while (lots.length < count && attempts < 200) {
+      attempts++;
+      const width = 3;
+      const height = 3;
+      const x = this.randomInRange(district.bounds.minX, district.bounds.maxX - width);
+      const y = this.randomInRange(district.bounds.minY, district.bounds.maxY - height);
+      if (!this.isLotAreaAvailable(x, y, width, height)) continue;
+      const lot = {
+        id: `lot-${district.id}-${Date.now()}-${Math.floor(Math.random() * 1000)}`,
+        x,
+        y,
+        width,
+        height,
+        district: district.id
+      };
+      lots.push(lot);
+    }
+    return lots;
+  }
+
+  isLotAreaAvailable(x, y, width, height) {
+    for (let bx = x; bx < x + width; bx++) {
+      for (let by = y; by < y + height; by++) {
+        if (!this.isWalkable(bx, by)) return false;
+        if (this.getBuildingAt(bx, by)) return false;
+        if (this.lots.some(lot => bx >= lot.x && bx < lot.x + lot.width && by >= lot.y && by < lot.y + lot.height)) {
+          return false;
+        }
+      }
+    }
+    return true;
+  }
+
+  randomInRange(min, max) {
+    return Math.floor(Math.random() * (max - min + 1)) + min;
   }
 
   getCurrentTick() {
@@ -480,6 +576,7 @@ export class WorldStateManager {
       width: this.width, height: this.height, tileSize: this.tileSize,
       buildings: this.buildings,
       lots: this.lots,
+      districts: this.districts,
       agents: this.getAllAgentPositions(),
       tick: this.tickCount,
       worldTime: this.getTimeState(),
