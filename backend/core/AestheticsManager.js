@@ -151,6 +151,17 @@ export class AestheticsManager {
     };
   }
 
+  getMeta() {
+    return {
+      voteDurationMs: this.voteDurationMs,
+      cooldownMs: this.cooldownMs,
+      voteCost: this.voteCost,
+      minVotes: this.minVotes,
+      quorumRatio: this.quorumRatio,
+      themes: this.themes
+    };
+  }
+
   recordHistory(entry) {
     this.history.unshift({
       districtId: entry.districtId,

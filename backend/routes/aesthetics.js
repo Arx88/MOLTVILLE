@@ -25,5 +25,9 @@ export function createAestheticsRouter({ aestheticsManager }) {
     res.json({ history: aestheticsManager.getHistory(limit) });
   });
 
+  router.get('/meta', (req, res) => {
+    res.json({ meta: aestheticsManager.getMeta() });
+  });
+
   return router;
 }

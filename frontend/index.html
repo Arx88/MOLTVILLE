@@ -233,6 +233,7 @@ const WORLD_CONTEXT = {
   agentCount: 0,
   aestheticsVote: null,
   aestheticsHistory: [],
+  aestheticsMeta: null,
   districtThemeHash: '',
   economy: {
     jobs: [],
@@ -780,13 +781,19 @@ function updateDistrictsPanel(districts, agentCount) {
     return;
   }
   const uiState = getUiState();
+  const aestheticsMeta = WORLD_CONTEXT.aestheticsMeta || { cooldownMs: 48 * 60 * 60 * 1000 };
   const rows = districts.map(district => {
     if (district.unlocked) {
+      const nextEligibleMs = (district.lastThemeChange || 0) + aestheticsMeta.cooldownMs - Date.now();
+      const cooldownLabel = nextEligibleMs > 0
+        ? `Disponible en ${Math.ceil(nextEligibleMs / 3600000)}h`
+        : 'Disponible para votar';
       return `
         <div class="panel-row">
           ${district.name} <span class="panel-pill success">Activo</span>
           <div class="panel-meta">Lotes objetivo: ${district.lotTarget}</div>
           <div class="panel-meta">Tema: ${district.theme || 'classic'}</div>
+          <div class="panel-meta">${cooldownLabel}</div>
         </div>
       `;
     }
@@ -1166,6 +1173,8 @@ function formatPolicyLabel(policy) {
       return `Impuesto ingreso ${Number(policy.value || 0) * 100}%`;
     case 'housing_tax':
       return `Impuesto vivienda ${Number(policy.value || 0) * 100}%`;
+    case 'urban_design_program':
+      return 'Programa de diseño urbano';
     default:
       return `${policy.type}: ${policy.value}`;
   }
@@ -1250,13 +1259,14 @@ async function refreshWorldData(scene) {
   }
 
   try {
-    const [voteRes, voteHistoryRes, govRes, networkRes, aestheticsRes, aestheticsHistoryRes] = await Promise.all([
+    const [voteRes, voteHistoryRes, govRes, networkRes, aestheticsRes, aestheticsHistoryRes, aestheticsMetaRes] = await Promise.all([
       fetch(`${API_BASE}/api/vote/current`),
       fetch(`${API_BASE}/api/vote/history?limit=3`),
       fetch(`${API_BASE}/api/governance/current`),
       fetch(`${API_BASE}/api/world/social-network`),
       fetch(`${API_BASE}/api/aesthetics/current`),
-      fetch(`${API_BASE}/api/aesthetics/history?limit=3`)
+      fetch(`${API_BASE}/api/aesthetics/history?limit=3`),
+      fetch(`${API_BASE}/api/aesthetics/meta`)
     ]);
     const voteData = await voteRes.json();
     const historyData = await voteHistoryRes.json();
@@ -1264,12 +1274,14 @@ async function refreshWorldData(scene) {
     const networkData = await networkRes.json();
     const aestheticsData = await aestheticsRes.json();
     const aestheticsHistoryData = await aestheticsHistoryRes.json();
+    const aestheticsMetaData = await aestheticsMetaRes.json();
     WORLD_CONTEXT.vote = voteData.vote || null;
     WORLD_CONTEXT.voteHistory = historyData.history || [];
     WORLD_CONTEXT.governance = govData || null;
     WORLD_CONTEXT.socialNetwork = networkData || null;
     WORLD_CONTEXT.aestheticsVote = aestheticsData.vote || null;
     WORLD_CONTEXT.aestheticsHistory = aestheticsHistoryData.history || [];
+    WORLD_CONTEXT.aestheticsMeta = aestheticsMetaData.meta || null;
   } catch (error) {
     console.warn('Failed to fetch governance/vote state', error);
   }
