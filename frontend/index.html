@@ -49,7 +49,7 @@
   .agent-dot { width: 8px; height: 8px; border-radius: 50%; }
   .agent-name-hud { color: #ccc; font-size: 12px; }
 
-  #vote-panel, #governance-panel, #relationships-panel {
+  #vote-panel, #governance-panel, #relationships-panel, #districts-panel {
     position: absolute; left: 20px; width: 300px;
     background: rgba(15,15,30,0.82); border: 1px solid rgba(100,140,255,0.2);
     border-radius: 12px; padding: 10px; backdrop-filter: blur(6px);
@@ -58,6 +58,7 @@
   #vote-panel { top: 60px; }
   #governance-panel { top: 200px; }
   #relationships-panel { top: 340px; }
+  #districts-panel { top: 500px; }
   .panel-title { color: #a8c4ff; font-size: 12px; font-weight: 700; letter-spacing: 1px; text-transform: uppercase; margin-bottom: 6px; }
   .panel-row { color: #cfd8ff; font-size: 12px; margin-bottom: 4px; }
   .panel-muted { color: #7a85a9; font-size: 11px; }
@@ -118,6 +119,8 @@
     color: #b4c7ff;
     font-size: 11px;
   }
+  .panel-pill.success { background: rgba(60, 140, 90, 0.25); color: #9be7c4; }
+  .panel-pill.warning { background: rgba(180, 130, 50, 0.25); color: #ffd9a0; }
   .panel-meta { color: #9aa6c7; font-size: 11px; }
 </style>
 </head>
@@ -143,6 +146,10 @@
   </div>
   <div id="relationships-panel">
     <div class="panel-title">Relaciones</div>
+    <div class="panel-row panel-muted">Sin datos</div>
+  </div>
+  <div id="districts-panel">
+    <div class="panel-title">Distritos</div>
     <div class="panel-row panel-muted">Sin datos</div>
   </div>
   <div id="minimap-container">
@@ -213,7 +220,9 @@ const WORLD_CONTEXT = {
   vote: null,
   governance: null,
   socialNetwork: null,
-  mood: null
+  mood: null,
+  districts: null,
+  agentCount: 0
 };
 const STORAGE_KEYS = {
   agentId: 'moltville_agent_id',
@@ -526,6 +535,32 @@ function updateRelationshipsPanel(network) {
   panel.innerHTML = `<div class="panel-title">Relaciones</div>${edges}`;
 }
 
+function updateDistrictsPanel(districts, agentCount) {
+  const panel = document.getElementById('districts-panel');
+  if (!districts || districts.length === 0) {
+    panel.innerHTML = '<div class="panel-title">Distritos</div><div class="panel-row panel-muted">Sin datos</div>';
+    return;
+  }
+  const rows = districts.map(district => {
+    if (district.unlocked) {
+      return `
+        <div class="panel-row">
+          ${district.name} <span class="panel-pill success">Activo</span>
+          <div class="panel-meta">Lotes objetivo: ${district.lotTarget}</div>
+        </div>
+      `;
+    }
+    const remaining = Math.max(0, district.unlockAtPopulation - agentCount);
+    return `
+      <div class="panel-row">
+        ${district.name} <span class="panel-pill warning">Bloqueado</span>
+        <div class="panel-meta">Se desbloquea con ${remaining} ciudadanos</div>
+      </div>
+    `;
+  }).join('');
+  panel.innerHTML = `<div class="panel-title">Distritos</div>${rows}`;
+}
+
 function formatMoodLabel(mood) {
   if (!mood) return '🌿 Calm';
   const { prosperity = 0, cohesion = 0, stability = 0 } = mood;
@@ -589,6 +624,8 @@ async function refreshWorldData(scene) {
     WORLD_CONTEXT.worldTime = state.worldTime || null;
     WORLD_CONTEXT.weather = state.weather || null;
     WORLD_CONTEXT.mood = state.mood || null;
+    WORLD_CONTEXT.districts = state.districts || null;
+    WORLD_CONTEXT.agentCount = state.agents ? Object.keys(state.agents).length : 0;
     LOTS = state.lots || [];
     const newBuildings = mergeBuildingVisuals(state.buildings || []);
     if (scene && newBuildings.length) {
@@ -627,6 +664,7 @@ async function refreshWorldData(scene) {
   updateVotePanel(WORLD_CONTEXT.vote);
   updateGovernancePanel(WORLD_CONTEXT.governance);
   updateRelationshipsPanel(WORLD_CONTEXT.socialNetwork);
+  updateDistrictsPanel(WORLD_CONTEXT.districts, WORLD_CONTEXT.agentCount);
 }
 
 // Road network definition (tile coordinates that are roads)
