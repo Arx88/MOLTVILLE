@@ -16,6 +16,7 @@ import { VotingManager } from './core/VotingManager.js';
 import { GovernanceManager } from './core/GovernanceManager.js';
 import { db } from './utils/db.js';
 import { CityMoodManager } from './core/CityMoodManager.js';
+import { AestheticsManager } from './core/AestheticsManager.js';
 
 import authRoutes from './routes/auth.js';
 import moltbotRoutes from './routes/moltbot.js';
@@ -23,6 +24,7 @@ import worldRoutes from './routes/world.js';
 import economyRoutes from './routes/economy.js';
 import voteRoutes from './routes/vote.js';
 import governanceRoutes from './routes/governance.js';
+import { createAestheticsRouter } from './routes/aesthetics.js';
 
 dotenv.config();
 
@@ -61,6 +63,7 @@ const economyManager = new EconomyManager(worldState, { db });
 const votingManager = new VotingManager(worldState, io, { db, economyManager });
 const governanceManager = new GovernanceManager(io, { db });
 const cityMoodManager = new CityMoodManager(economyManager, interactionEngine);
+const aestheticsManager = new AestheticsManager({ worldStateManager: worldState, economyManager, governanceManager, io });
 
 app.locals.worldState = worldState;
 app.locals.moltbotRegistry = moltbotRegistry;
@@ -70,6 +73,7 @@ app.locals.economyManager = economyManager;
 app.locals.votingManager = votingManager;
 app.locals.governanceManager = governanceManager;
 app.locals.cityMoodManager = cityMoodManager;
+app.locals.aestheticsManager = aestheticsManager;
 app.locals.io = io;
 
 if (db) {
@@ -85,6 +89,7 @@ app.use('/api/world', worldRoutes);
 app.use('/api/economy', economyRoutes);
 app.use('/api/vote', voteRoutes);
 app.use('/api/governance', governanceRoutes);
+app.use('/api/aesthetics', createAestheticsRouter({ aestheticsManager }));
 
 app.get('/api/health', (req, res) => {
   res.json({
@@ -269,6 +274,7 @@ setInterval(() => {
   votingManager.tick();
   governanceManager.tick();
   cityMoodManager.tick();
+  aestheticsManager.tick(moltbotRegistry.getAgentCount());
 
   // Broadcast interpolated agent positions to viewers
   io.to('viewers').emit('world:tick', {
@@ -278,7 +284,8 @@ setInterval(() => {
     weather: worldState.getWeatherState(),
     vote: votingManager.getVoteSummary(),
     governance: governanceManager.getSummary(),
-    mood: cityMoodManager.getSummary()
+    mood: cityMoodManager.getSummary(),
+    aesthetics: aestheticsManager.getVoteSummary()
   });
 }, parseInt(process.env.WORLD_TICK_RATE) || 100);
 

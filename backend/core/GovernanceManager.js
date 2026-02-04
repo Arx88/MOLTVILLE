@@ -154,6 +154,10 @@ export class GovernanceManager {
     };
   }
 
+  hasActivePolicy(type) {
+    return this.policies.some(policy => policy.type === type);
+  }
+
   setPolicy({ type, value, durationMs, description }) {
     const now = Date.now();
     const policy = {

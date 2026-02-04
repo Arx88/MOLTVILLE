@@ -120,6 +120,8 @@ export class WorldStateManager {
         id: 'central',
         name: 'Distrito Central',
         bounds: { minX: 2, minY: 2, maxX: 34, maxY: 34 },
+        theme: 'classic',
+        lastThemeChange: 0,
         unlocked: true,
         unlockAtPopulation: 0,
         lotTarget: 4
@@ -128,6 +130,8 @@ export class WorldStateManager {
         id: 'east',
         name: 'Distrito Este',
         bounds: { minX: 35, minY: 2, maxX: 62, maxY: 26 },
+        theme: 'classic',
+        lastThemeChange: 0,
         unlocked: false,
         unlockAtPopulation: 6,
         lotTarget: 3
@@ -136,6 +140,8 @@ export class WorldStateManager {
         id: 'south',
         name: 'Distrito Sur',
         bounds: { minX: 20, minY: 35, maxX: 62, maxY: 62 },
+        theme: 'classic',
+        lastThemeChange: 0,
         unlocked: false,
         unlockAtPopulation: 10,
         lotTarget: 4
@@ -144,6 +150,8 @@ export class WorldStateManager {
         id: 'west',
         name: 'Distrito Oeste',
         bounds: { minX: 2, minY: 30, maxX: 19, maxY: 62 },
+        theme: 'classic',
+        lastThemeChange: 0,
         unlocked: false,
         unlockAtPopulation: 14,
         lotTarget: 3
@@ -612,5 +620,15 @@ export class WorldStateManager {
       agent.state = state;
       agent.lastUpdate = Date.now();
     }
+  }
+
+  setDistrictTheme(districtId, theme) {
+    const district = this.districts.find(entry => entry.id === districtId);
+    if (!district) {
+      throw new Error(`District not found: ${districtId}`);
+    }
+    district.theme = theme;
+    district.lastThemeChange = Date.now();
+    return district;
   }
 }

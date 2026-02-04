@@ -231,6 +231,8 @@ const WORLD_CONTEXT = {
   mood: null,
   districts: null,
   agentCount: 0,
+  aestheticsVote: null,
+  districtThemeHash: '',
   economy: {
     jobs: [],
     balance: null,
@@ -248,7 +250,8 @@ const DEFAULT_UI_STATE = {
   governanceActionsOpen: false,
   governanceMode: 'vote',
   economyActionsOpen: false,
-  economyMode: 'jobs'
+  economyMode: 'jobs',
+  aestheticsActionsOpen: false
 };
 
 function getStoredAgentId() {
@@ -300,6 +303,105 @@ function formatServerTime(worldTime) {
   if (worldTime.phase === 'evening') icon = '🌆';
   if (worldTime.phase === 'morning') icon = '🌅';
   return `${icon} ${timeStr}`;
+}
+
+const THEME_PALETTES = {
+  classic: {
+    grass: [0x3d8b41, 0x3a8540, 0x40913f, 0x3c8d42, 0x3e8e40],
+    road: 0x4a4a5a,
+    path: 0xc4a882,
+    water: 0x2980b9,
+    sand: 0xf0d9a0,
+    stone: 0x7f8c8d
+  },
+  verdant: {
+    grass: [0x4c9f4e, 0x4a994b, 0x52a656, 0x4f9f51, 0x4aa24f],
+    road: 0x4a4a5a,
+    path: 0xc9b08b,
+    water: 0x2a8cc7,
+    sand: 0xeedbb0,
+    stone: 0x7f8c8d
+  },
+  coastal: {
+    grass: [0x7dbf9a, 0x79b794, 0x83c5a0, 0x7fc19b, 0x78ba92],
+    road: 0x4a4a5a,
+    path: 0xd5c2a1,
+    water: 0x2a9cd3,
+    sand: 0xf3e2b8,
+    stone: 0x8d8f97
+  },
+  industrial: {
+    grass: [0x5b6b5e, 0x55665a, 0x606f63, 0x586b5d, 0x54665a],
+    road: 0x3f3f4f,
+    path: 0xb79c79,
+    water: 0x2a6fa2,
+    sand: 0xe1cea0,
+    stone: 0x707a80
+  },
+  nocturnal: {
+    grass: [0x2f4a3b, 0x2c4537, 0x32503d, 0x304c3b, 0x2b4536],
+    road: 0x343444,
+    path: 0xa18d6c,
+    water: 0x1f5e8a,
+    sand: 0xd3c08d,
+    stone: 0x606a6f
+  }
+};
+
+function getDistrictForTile(tx, ty) {
+  const districts = WORLD_CONTEXT.districts || [];
+  return districts.find(district =>
+    tx >= district.bounds.minX && tx <= district.bounds.maxX &&
+    ty >= district.bounds.minY && ty <= district.bounds.maxY
+  );
+}
+
+function getThemeForTile(tx, ty) {
+  const district = getDistrictForTile(tx, ty);
+  return district?.theme || 'classic';
+}
+
+function resolveTileColors(type, tx, ty) {
+  const themeId = getThemeForTile(tx, ty);
+  const palette = THEME_PALETTES[themeId] || THEME_PALETTES.classic;
+  let baseColor;
+  let edgeColor;
+  let detailColor;
+
+  switch (type) {
+    case T.GRASS: {
+      const shade = ((tx * 7 + ty * 13) % 5);
+      baseColor = palette.grass[shade];
+      edgeColor = 0x2d6b30;
+      break;
+    }
+    case T.ROAD:
+      baseColor = palette.road;
+      edgeColor = 0x3a3a4a;
+      detailColor = 0x5a5a6a;
+      break;
+    case T.PATH:
+      baseColor = palette.path;
+      edgeColor = 0xb09570;
+      break;
+    case T.WATER:
+      baseColor = palette.water;
+      edgeColor = 0x1a6a9e;
+      break;
+    case T.SAND:
+      baseColor = palette.sand;
+      edgeColor = 0xdcc680;
+      break;
+    case T.STONE:
+      baseColor = palette.stone;
+      edgeColor = 0x6b7b7d;
+      break;
+    default:
+      baseColor = palette.grass[0];
+      edgeColor = 0x2d6b30;
+  }
+
+  return { baseColor, edgeColor, detailColor };
 }
 
 function updateVotePanel(vote) {
@@ -676,12 +778,14 @@ function updateDistrictsPanel(districts, agentCount) {
     panel.innerHTML = '<div class="panel-title">Distritos</div><div class="panel-row panel-muted">Sin datos</div>';
     return;
   }
+  const uiState = getUiState();
   const rows = districts.map(district => {
     if (district.unlocked) {
       return `
         <div class="panel-row">
           ${district.name} <span class="panel-pill success">Activo</span>
           <div class="panel-meta">Lotes objetivo: ${district.lotTarget}</div>
+          <div class="panel-meta">Tema: ${district.theme || 'classic'}</div>
         </div>
       `;
     }
@@ -693,7 +797,88 @@ function updateDistrictsPanel(districts, agentCount) {
       </div>
     `;
   }).join('');
-  panel.innerHTML = `<div class="panel-title">Distritos</div>${rows}`;
+  const vote = WORLD_CONTEXT.aestheticsVote;
+  const hasVote = Boolean(vote);
+  const voteOptions = hasVote
+    ? vote.options.map(option => `<div class="panel-row">${option.name} <span class="panel-muted">(${option.votes})</span></div>`).join('')
+    : '';
+  const remainingMs = hasVote ? Math.max(0, vote.endsAt - Date.now()) : 0;
+  const remainingMin = hasVote ? Math.ceil(remainingMs / 60000) : 0;
+  const actionsLabel = uiState.aestheticsActionsOpen ? 'Cerrar voto' : 'Votar estética';
+
+  panel.innerHTML = `
+    <div class="panel-title">Distritos</div>
+    ${rows}
+    <div class="panel-divider"></div>
+    <div class="panel-row panel-meta">Estética urbana</div>
+    ${hasVote
+      ? `<div class="panel-row">Distrito: ${vote.districtName}</div>
+         <div class="panel-row panel-muted">Cierra en ~${remainingMin} min</div>
+         ${voteOptions || '<div class="panel-row panel-muted">Sin opciones</div>'}
+         <div class="panel-row panel-meta">Quórum: ${vote.quorum} · Costo voto: $${vote.voteCost}</div>`
+      : '<div class="panel-row panel-muted">Sin votación estética activa</div>'}
+    <button id="aesthetic-toggle" class="secondary">${actionsLabel}</button>
+    <div class="panel-actions ${uiState.aestheticsActionsOpen ? '' : 'is-collapsed'}">
+      <label for="aesthetic-agent-id">ID Moltbot</label>
+      <input id="aesthetic-agent-id" type="text" placeholder="moltbot-001" value="${getStoredAgentId()}">
+      <label for="aesthetic-option">Selecciona un tema</label>
+      <select id="aesthetic-option">
+        ${hasVote
+          ? vote.options.map(option => (
+            `<option value="${option.id}">${option.name}</option>`
+          )).join('')
+          : '<option value="">Sin votación activa</option>'}
+      </select>
+      <button id="aesthetic-submit" ${hasVote ? '' : 'disabled'}>Confirmar voto</button>
+      <div class="panel-feedback" id="aesthetic-feedback"></div>
+    </div>
+  `;
+
+  const toggleButton = panel.querySelector('#aesthetic-toggle');
+  if (toggleButton) {
+    toggleButton.addEventListener('click', () => {
+      const next = setUiState({ aestheticsActionsOpen: !getUiState().aestheticsActionsOpen });
+      updateDistrictsPanel(districts, agentCount);
+      if (next.aestheticsActionsOpen) {
+        panel.querySelector('#aesthetic-agent-id')?.focus();
+      }
+    });
+  }
+
+  const voteButton = panel.querySelector('#aesthetic-submit');
+  if (voteButton) {
+    voteButton.addEventListener('click', async () => {
+      const agentId = panel.querySelector('#aesthetic-agent-id').value.trim();
+      const optionId = panel.querySelector('#aesthetic-option').value;
+      const feedback = panel.querySelector('#aesthetic-feedback');
+      feedback.textContent = '';
+      feedback.className = 'panel-feedback';
+      if (!agentId || !optionId) {
+        feedback.textContent = 'Necesitas tu ID y un tema.';
+        feedback.classList.add('error');
+        return;
+      }
+      storeAgentId(agentId);
+      try {
+        const response = await fetch(`${API_BASE}/api/aesthetics/vote`, {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({ agentId, optionId })
+        });
+        const result = await response.json();
+        if (!response.ok || !result.success) {
+          throw new Error(result.error || 'No se pudo votar.');
+        }
+        feedback.textContent = '✅ Voto registrado.';
+        feedback.classList.add('success');
+        WORLD_CONTEXT.aestheticsVote = result.vote || WORLD_CONTEXT.aestheticsVote;
+        updateDistrictsPanel(districts, agentCount);
+      } catch (error) {
+        feedback.textContent = error.message;
+        feedback.classList.add('error');
+      }
+    });
+  }
 }
 
 function updateEconomyPanel(economy) {
@@ -1040,6 +1225,11 @@ async function refreshWorldData(scene) {
     WORLD_CONTEXT.mood = state.mood || null;
     WORLD_CONTEXT.districts = state.districts || null;
     WORLD_CONTEXT.agentCount = state.agents ? Object.keys(state.agents).length : 0;
+    const themeHash = (state.districts || []).map(d => `${d.id}:${d.theme || 'classic'}`).join('|');
+    if (scene && themeHash !== WORLD_CONTEXT.districtThemeHash) {
+      WORLD_CONTEXT.districtThemeHash = themeHash;
+      scene.drawTiles();
+    }
     LOTS = state.lots || [];
     const newBuildings = mergeBuildingVisuals(state.buildings || []);
     if (scene && newBuildings.length) {
@@ -1053,20 +1243,23 @@ async function refreshWorldData(scene) {
   }
 
   try {
-    const [voteRes, voteHistoryRes, govRes, networkRes] = await Promise.all([
+    const [voteRes, voteHistoryRes, govRes, networkRes, aestheticsRes] = await Promise.all([
       fetch(`${API_BASE}/api/vote/current`),
       fetch(`${API_BASE}/api/vote/history?limit=3`),
       fetch(`${API_BASE}/api/governance/current`),
-      fetch(`${API_BASE}/api/world/social-network`)
+      fetch(`${API_BASE}/api/world/social-network`),
+      fetch(`${API_BASE}/api/aesthetics/current`)
     ]);
     const voteData = await voteRes.json();
     const historyData = await voteHistoryRes.json();
     const govData = await govRes.json();
     const networkData = await networkRes.json();
+    const aestheticsData = await aestheticsRes.json();
     WORLD_CONTEXT.vote = voteData.vote || null;
     WORLD_CONTEXT.voteHistory = historyData.history || [];
     WORLD_CONTEXT.governance = govData || null;
     WORLD_CONTEXT.socialNetwork = networkData || null;
+    WORLD_CONTEXT.aestheticsVote = aestheticsData.vote || null;
   } catch (error) {
     console.warn('Failed to fetch governance/vote state', error);
   }
@@ -1365,8 +1558,12 @@ class MoltivilleScene extends Phaser.Scene {
   }
 
   drawTiles() {
+    if (this.tileGraphics) {
+      this.tileGraphics.destroy();
+    }
     const gfx = this.add.graphics();
     gfx.setDepth(-50);
+    this.tileGraphics = gfx;
 
     for (let y = 0; y < WORLD_H; y++) {
       for (let x = 0; x < WORLD_W; x++) {
@@ -1391,39 +1588,7 @@ class MoltivilleScene extends Phaser.Scene {
       { x: px - w/2, y: py },          // left
     ];
 
-    let baseColor, edgeColor, detailColor;
-    switch(type) {
-      case T.GRASS:
-        // Slight variation based on position
-        const shade = ((tx*7 + ty*13) % 5);
-        baseColor = [0x3d8b41, 0x3a8540, 0x40913f, 0x3c8d42, 0x3e8e40][shade];
-        edgeColor = 0x2d6b30;
-        break;
-      case T.ROAD:
-        baseColor = 0x4a4a5a;
-        edgeColor = 0x3a3a4a;
-        detailColor = 0x5a5a6a;
-        break;
-      case T.PATH:
-        baseColor = 0xc4a882;
-        edgeColor = 0xb09570;
-        break;
-      case T.WATER:
-        baseColor = 0x2980b9;
-        edgeColor = 0x1a6a9e;
-        break;
-      case T.SAND:
-        baseColor = 0xf0d9a0;
-        edgeColor = 0xdcc680;
-        break;
-      case T.STONE:
-        baseColor = 0x7f8c8d;
-        edgeColor = 0x6b7b7d;
-        break;
-      default:
-        baseColor = 0x3d8b41;
-        edgeColor = 0x2d6b30;
-    }
+    const { baseColor, edgeColor, detailColor } = resolveTileColors(type, tx, ty);
 
     // Fill diamond
     gfx.fillStyle(baseColor, 1);
@@ -1974,15 +2139,8 @@ class MoltivilleScene extends Phaser.Scene {
     for (let y = 0; y < WORLD_H; y++) {
       for (let x = 0; x < WORLD_W; x++) {
         const t = this.tileMap[y][x];
-        switch(t) {
-          case T.GRASS: ctx.fillStyle = '#3d8b41'; break;
-          case T.ROAD:  ctx.fillStyle = '#4a4a5a'; break;
-          case T.PATH:  ctx.fillStyle = '#c4a882'; break;
-          case T.WATER: ctx.fillStyle = '#2980b9'; break;
-          case T.SAND:  ctx.fillStyle = '#f0d9a0'; break;
-          case T.STONE: ctx.fillStyle = '#7f8c8d'; break;
-          default: ctx.fillStyle = '#3d8b41';
-        }
+        const { baseColor } = resolveTileColors(t, x, y);
+        ctx.fillStyle = `#${baseColor.toString(16).padStart(6, '0')}`;
         ctx.fillRect(x * scaleX, y * scaleY, scaleX, scaleY);
       }
     }
