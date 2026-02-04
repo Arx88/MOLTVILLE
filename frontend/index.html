@@ -46,6 +46,30 @@
   .agent-item { display: flex; align-items: center; gap: 8px; padding: 4px 0; }
   .agent-dot { width: 8px; height: 8px; border-radius: 50%; }
   .agent-name-hud { color: #ccc; font-size: 12px; }
+
+  .hud-panel {
+    position: absolute;
+    background: rgba(15,15,30,0.8);
+    border: 1px solid rgba(100,140,255,0.2);
+    border-radius: 12px;
+    padding: 10px;
+    backdrop-filter: blur(6px);
+    color: #c9d4ff;
+    font-size: 12px;
+    width: 220px;
+  }
+  .panel-title {
+    color: #7faaee;
+    font-size: 11px;
+    font-weight: 600;
+    margin-bottom: 6px;
+    letter-spacing: 1px;
+  }
+  .panel-row { display: flex; justify-content: space-between; margin-bottom: 4px; }
+  .panel-muted { color: #777; font-size: 11px; }
+  #economy-panel { top: 70px; left: 20px; }
+  #governance-panel { top: 210px; left: 20px; }
+  #vote-panel { top: 350px; left: 20px; }
 </style>
 </head>
 <body>
@@ -58,6 +82,18 @@
   </div>
   <div id="chat-log"></div>
   <div id="agents-panel"></div>
+  <div id="economy-panel" class="hud-panel">
+    <div class="panel-title">ECONOMÍA</div>
+    <div id="economy-status" class="panel-muted">Conectando...</div>
+  </div>
+  <div id="governance-panel" class="hud-panel">
+    <div class="panel-title">GOBERNANZA</div>
+    <div id="governance-status" class="panel-muted">Conectando...</div>
+  </div>
+  <div id="vote-panel" class="hud-panel">
+    <div class="panel-title">VOTACIÓN ACTIVA</div>
+    <div id="vote-status" class="panel-muted">Sin votaciones activas.</div>
+  </div>
   <div id="minimap-container">
     <canvas id="minimap" width="140" height="140"></canvas>
   </div>
@@ -287,6 +323,9 @@ class MoltivilleScene extends Phaser.Scene {
     this.chatLog = [];
     this.gameTime = 600; // minutes from midnight (10:00)
     this.clouds = [];
+    this.economyState = { status: 'offline', summary: null };
+    this.governanceState = { status: 'offline', proposal: null, policies: null };
+    this.voteState = null;
   }
 
   preload() {
@@ -354,6 +393,13 @@ class MoltivilleScene extends Phaser.Scene {
     // Zoom
     this.input.on('wheel', (p, dx, dy) => {
       // Simple: don't zoom for now, just allow scrolling nuance
+    });
+
+    this.fetchCivicStatus();
+    this.time.addEvent({
+      delay: 10000,
+      loop: true,
+      callback: () => this.fetchCivicStatus()
     });
   }
 
@@ -1287,6 +1333,46 @@ class MoltivilleScene extends Phaser.Scene {
   // ============================================================
   // HUD
   // ============================================================
+  formatCurrency(value) {
+    return `₡${Math.round(value).toLocaleString('es-ES')}`;
+  }
+
+  formatPercent(value) {
+    return `${Math.round(value * 100)}%`;
+  }
+
+  async fetchCivicStatus() {
+    try {
+      const [economyRes, voteRes, governanceRes] = await Promise.all([
+        fetch('/api/economy/summary'),
+        fetch('/api/vote/current'),
+        fetch('/api/governance/current')
+      ]);
+
+      if (economyRes.ok) {
+        const economyData = await economyRes.json();
+        this.economyState = { status: 'online', summary: economyData.summary };
+      }
+
+      if (voteRes.ok) {
+        const voteData = await voteRes.json();
+        this.voteState = voteData.vote;
+      }
+
+      if (governanceRes.ok) {
+        const governanceData = await governanceRes.json();
+        this.governanceState = {
+          status: 'online',
+          proposal: governanceData.proposal,
+          policies: governanceData.policies
+        };
+      }
+    } catch (error) {
+      this.economyState.status = 'offline';
+      this.governanceState.status = 'offline';
+    }
+  }
+
   updateHUD() {
     document.getElementById('agent-count').textContent = `👥 ${this.agents.length} Citizens`;
 
@@ -1295,6 +1381,47 @@ class MoltivilleScene extends Phaser.Scene {
       this.agents.map(a =>
         `<div class="agent-item"><span class="agent-dot" style="background:${a.color}"></span><span class="agent-name-hud">${a.name} <span style="color:#555;font-size:10px">${a.state}</span></span></div>`
       ).join('');
+
+    const economyStatus = document.getElementById('economy-status');
+    if (this.economyState.status !== 'online' || !this.economyState.summary) {
+      economyStatus.textContent = 'Economía fuera de línea.';
+    } else {
+      const summary = this.economyState.summary;
+      economyStatus.innerHTML = `
+        <div class="panel-row"><span>Tesoro</span><span>${this.formatCurrency(summary.treasury)}</span></div>
+        <div class="panel-row"><span>Impuesto</span><span>${this.formatPercent(summary.taxRate)}</span></div>
+        <div class="panel-row"><span>Ingreso base</span><span>${this.formatCurrency(summary.baseIncome)}</span></div>
+        <div class="panel-row"><span>Umbral reseñas</span><span>${summary.reviewThreshold.toFixed(1)}</span></div>
+      `;
+    }
+
+    const governanceStatus = document.getElementById('governance-status');
+    if (this.governanceState.status !== 'online') {
+      governanceStatus.textContent = 'Gobernanza fuera de línea.';
+    } else if (!this.governanceState.proposal) {
+      governanceStatus.innerHTML = `
+        <div class="panel-row"><span>Sin propuestas</span><span>✅</span></div>
+        <div class="panel-row"><span>Impuesto actual</span><span>${this.formatPercent(this.governanceState.policies?.taxRate ?? 0)}</span></div>
+      `;
+    } else {
+      const proposal = this.governanceState.proposal;
+      governanceStatus.innerHTML = `
+        <div style="font-weight:600;margin-bottom:4px;">${proposal.title}</div>
+        <div class="panel-row"><span>Sí</span><span>${proposal.votes.yes}</span></div>
+        <div class="panel-row"><span>No</span><span>${proposal.votes.no}</span></div>
+        <div class="panel-muted">Finaliza: ${new Date(proposal.endsAt).toLocaleTimeString('es-ES')}</div>
+      `;
+    }
+
+    const voteStatus = document.getElementById('vote-status');
+    if (!this.voteState) {
+      voteStatus.textContent = 'Sin votaciones activas.';
+    } else {
+      const options = this.voteState.options || [];
+      voteStatus.innerHTML = options.map(option =>
+        `<div class="panel-row"><span>${option.name}</span><span>${option.votes}</span></div>`
+      ).join('');
+    }
   }
 
   // ============================================================

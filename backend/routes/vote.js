@@ -7,6 +7,16 @@ router.get('/current', (req, res) => {
   res.json({ vote: votingManager.getVoteSummary() });
 });
 
+router.post('/start', (req, res) => {
+  const { votingManager } = req.app.locals;
+  try {
+    const vote = votingManager.startVote();
+    res.json({ success: true, vote: votingManager.getVoteSummary() || vote });
+  } catch (error) {
+    res.status(400).json({ success: false, error: error.message });
+  }
+});
+
 router.post('/cast', (req, res) => {
   const { agentId, optionId } = req.body;
   const { votingManager } = req.app.locals;

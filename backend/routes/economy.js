@@ -9,6 +9,11 @@ router.get('/balance/:agentId', (req, res) => {
   res.json({ agentId, balance });
 });
 
+router.get('/summary', (req, res) => {
+  const economy = req.app.locals.economyManager;
+  res.json({ summary: economy.getSummary() });
+});
+
 router.get('/jobs', (req, res) => {
   const economy = req.app.locals.economyManager;
   res.json({ jobs: economy.listJobs() });
