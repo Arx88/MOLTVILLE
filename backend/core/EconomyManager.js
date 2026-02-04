@@ -57,9 +57,33 @@ export class EconomyManager {
         { role: 'Barista', salary: 8 },
         { role: 'Host', salary: 6 }
       ],
+      bakery: [
+        { role: 'Baker', salary: 7 },
+        { role: 'Cashier', salary: 5 }
+      ],
+      restaurant: [
+        { role: 'Chef', salary: 10 },
+        { role: 'Server', salary: 7 }
+      ],
+      bar: [
+        { role: 'Bartender', salary: 8 },
+        { role: 'Host', salary: 6 }
+      ],
       library: [
         { role: 'Librarian', salary: 7 },
         { role: 'Mentor', salary: 5 }
+      ],
+      school: [
+        { role: 'Teacher', salary: 8 },
+        { role: 'Counselor', salary: 6 }
+      ],
+      clinic: [
+        { role: 'Nurse', salary: 8 },
+        { role: 'Receptionist', salary: 5 }
+      ],
+      hospital: [
+        { role: 'Doctor', salary: 12 },
+        { role: 'Nurse', salary: 8 }
       ],
       shop: [
         { role: 'Clerk', salary: 6 }
@@ -70,6 +94,47 @@ export class EconomyManager {
       gallery: [
         { role: 'Curator', salary: 7 },
         { role: 'Guide', salary: 5 }
+      ],
+      theater: [
+        { role: 'Stage Manager', salary: 8 },
+        { role: 'Performer', salary: 7 }
+      ],
+      museum: [
+        { role: 'Archivist', salary: 7 },
+        { role: 'Guide', salary: 6 }
+      ],
+      park: [
+        { role: 'Gardener', salary: 5 }
+      ],
+      garden: [
+        { role: 'Gardener', salary: 5 }
+      ],
+      gym: [
+        { role: 'Coach', salary: 7 },
+        { role: 'Trainer', salary: 6 }
+      ],
+      factory: [
+        { role: 'Operator', salary: 8 },
+        { role: 'Mechanic', salary: 7 }
+      ],
+      workshop: [
+        { role: 'Craftsperson', salary: 7 }
+      ],
+      lab: [
+        { role: 'Researcher', salary: 9 },
+        { role: 'Lab Assistant', salary: 6 }
+      ],
+      office: [
+        { role: 'Analyst', salary: 8 },
+        { role: 'Coordinator', salary: 7 }
+      ],
+      bank: [
+        { role: 'Teller', salary: 8 },
+        { role: 'Advisor', salary: 9 }
+      ],
+      hotel: [
+        { role: 'Receptionist', salary: 7 },
+        { role: 'Housekeeping', salary: 5 }
       ]
     };
   }

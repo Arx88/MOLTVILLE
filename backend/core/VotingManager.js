@@ -1,4 +1,5 @@
 import { logger } from '../utils/logger.js';
+import { BUILDING_CATALOG, filterCatalogByDistrict, getCatalogForPopulation } from './BuildingCatalog.js';
 
 export class VotingManager {
   constructor(worldState, io, options = {}) {
@@ -6,8 +7,13 @@ export class VotingManager {
     this.io = io;
     this.db = options.db || null;
     this.economyManager = options.economyManager || null;
+    this.catalog = options.catalog || BUILDING_CATALOG;
     this.voteDurationMs = parseInt(process.env.BUILDING_VOTE_DURATION_MS, 10) || 86400000;
+    this.voteOptionsCount = parseInt(process.env.BUILDING_VOTE_OPTIONS, 10) || 4;
+    this.maxProposalsPerVote = parseInt(process.env.BUILDING_VOTE_PROPOSALS, 10) || 1;
+    this.proposalTtlMs = parseInt(process.env.BUILDING_PROPOSAL_TTL_MS, 10) || 604800000;
     this.currentVote = null;
+    this.pendingProposals = [];
   }
 
   async initializeFromDb() {
@@ -26,6 +32,19 @@ export class VotingManager {
       startsAt: Number(row.starts_at),
       endsAt: Number(row.ends_at)
     };
+
+    const proposals = await this.db.query(
+      "SELECT * FROM vote_proposals WHERE status = 'pending' ORDER BY created_at ASC"
+    );
+    this.pendingProposals = proposals.rows.map(row => ({
+      id: row.proposal_id,
+      agentId: row.agent_id,
+      templateId: row.template_id,
+      name: row.name,
+      type: row.type,
+      district: row.district_id,
+      createdAt: Number(row.created_at)
+    }));
   }
 
   startVote() {
@@ -36,12 +55,9 @@ export class VotingManager {
       return null;
     }
     const lot = availableLots[Math.floor(Math.random() * availableLots.length)];
-    const options = [
-      { id: 'cafe', name: 'Nuevo Café', type: 'cafe' },
-      { id: 'library', name: 'Biblioteca Vecinal', type: 'library' },
-      { id: 'market', name: 'Mercado Local', type: 'market' },
-      { id: 'gallery', name: 'Galería Cultural', type: 'gallery' }
-    ];
+    const districtId = lot.district || 'central';
+    const population = this.worldState.agents?.size || 0;
+    const options = this.buildVoteOptions(districtId, population);
     const now = Date.now();
     this.currentVote = {
       id: `vote-${now}`,
@@ -56,6 +72,91 @@ export class VotingManager {
     this.io.emit('vote:started', this.getVoteSummary());
     logger.info(`Voting: started ${this.currentVote.id}`);
     return this.currentVote;
+  }
+
+  buildVoteOptions(districtId, population) {
+    const proposals = this.consumeProposals(districtId);
+    const baseCatalog = filterCatalogByDistrict(
+      getCatalogForPopulation(population),
+      districtId
+    );
+    const fallbackCatalog = this.catalog.length ? this.catalog : BUILDING_CATALOG;
+    const pool = baseCatalog.length ? baseCatalog : fallbackCatalog;
+    const options = proposals.map(proposal => ({
+      id: proposal.id,
+      name: proposal.name,
+      type: proposal.type,
+      source: 'proposal',
+      templateId: proposal.templateId
+    }));
+    const usedIds = new Set(options.map(option => option.templateId || option.id));
+
+    while (options.length < this.voteOptionsCount && pool.length) {
+      const candidate = pool[Math.floor(Math.random() * pool.length)];
+      if (usedIds.has(candidate.id)) continue;
+      options.push({
+        id: candidate.id,
+        name: candidate.name,
+        type: candidate.type,
+        source: 'catalog',
+        templateId: candidate.id
+      });
+      usedIds.add(candidate.id);
+    }
+    return options.slice(0, this.voteOptionsCount);
+  }
+
+  proposeBuilding({ agentId, templateId, customName = '', districtId = null }) {
+    if (!agentId) throw new Error('Agent ID required');
+    if (!templateId) throw new Error('Template ID required');
+    const template = this.catalog.find(entry => entry.id === templateId);
+    if (!template) throw new Error('Template not found');
+    const sanitizedName = customName.trim();
+    const name = sanitizedName ? sanitizedName.slice(0, 60) : template.name;
+    const proposal = {
+      id: `proposal-${Date.now()}-${Math.floor(Math.random() * 1000)}`,
+      agentId,
+      templateId,
+      name,
+      type: template.type,
+      district: districtId,
+      createdAt: Date.now()
+    };
+    this.pendingProposals.push(proposal);
+    this.persistProposal(proposal);
+    return proposal;
+  }
+
+  listCatalog() {
+    return this.catalog;
+  }
+
+  consumeProposals(districtId) {
+    const now = Date.now();
+    const active = [];
+    const expired = [];
+    this.pendingProposals.forEach(proposal => {
+      if (now - proposal.createdAt <= this.proposalTtlMs) {
+        active.push(proposal);
+      } else {
+        expired.push(proposal);
+      }
+    });
+    expired.forEach(proposal => this.persistProposalStatus(proposal.id, 'expired'));
+    const [matching, others] = active.reduce(
+      (acc, proposal) => {
+        const target = !proposal.district || proposal.district === districtId ? acc[0] : acc[1];
+        target.push(proposal);
+        return acc;
+      },
+      [[], []]
+    );
+    const selected = matching.slice(0, this.maxProposalsPerVote);
+    const selectedIds = new Set(selected.map(item => item.id));
+    const remaining = [...matching.slice(this.maxProposalsPerVote), ...others].filter(item => !selectedIds.has(item.id));
+    this.pendingProposals = remaining;
+    selected.forEach(proposal => this.persistProposalStatus(proposal.id, 'used'));
+    return selected;
   }
 
   castVote(agentId, optionId) {
@@ -134,6 +235,32 @@ export class VotingManager {
       startsAt: this.currentVote.startsAt,
       endsAt: this.currentVote.endsAt
     };
+  }
+
+  persistProposal(proposal) {
+    if (!this.db || !proposal) return;
+    this.db.query(
+      `INSERT INTO vote_proposals (proposal_id, agent_id, template_id, name, type, district_id, status, created_at)
+       VALUES ($1, $2, $3, $4, $5, $6, 'pending', $7)
+       ON CONFLICT (proposal_id) DO NOTHING`,
+      [
+        proposal.id,
+        proposal.agentId,
+        proposal.templateId,
+        proposal.name,
+        proposal.type,
+        proposal.district,
+        proposal.createdAt
+      ]
+    ).catch(error => logger.error('Vote proposal persist failed:', error));
+  }
+
+  persistProposalStatus(proposalId, status) {
+    if (!this.db || !proposalId) return;
+    this.db.query(
+      `UPDATE vote_proposals SET status = $2, used_at = NOW() WHERE proposal_id = $1`,
+      [proposalId, status]
+    ).catch(error => logger.error('Vote proposal update failed:', error));
   }
 
   persistVote(status, winner = null) {

@@ -39,6 +39,18 @@ CREATE TABLE IF NOT EXISTS vote_state (
   winner JSONB
 );
 
+CREATE TABLE IF NOT EXISTS vote_proposals (
+  proposal_id TEXT PRIMARY KEY,
+  agent_id TEXT NOT NULL,
+  template_id TEXT NOT NULL,
+  name TEXT NOT NULL,
+  type TEXT NOT NULL,
+  district_id TEXT,
+  status TEXT NOT NULL,
+  created_at BIGINT NOT NULL,
+  used_at TIMESTAMP
+);
+
 CREATE TABLE IF NOT EXISTS governance_elections (
   election_id TEXT PRIMARY KEY,
   candidates JSONB NOT NULL,

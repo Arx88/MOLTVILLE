@@ -223,6 +223,8 @@ const WORLD_CONTEXT = {
   worldTime: null,
   weather: null,
   vote: null,
+  voteCatalog: [],
+  voteCatalogLoaded: false,
   governance: null,
   socialNetwork: null,
   mood: null,
@@ -239,6 +241,7 @@ const STORAGE_KEYS = {
 };
 const DEFAULT_UI_STATE = {
   voteActionsOpen: false,
+  voteProposalOpen: false,
   governanceActionsOpen: false,
   governanceMode: 'vote',
   economyActionsOpen: false,
@@ -298,23 +301,28 @@ function formatServerTime(worldTime) {
 
 function updateVotePanel(vote) {
   const panel = document.getElementById('vote-panel');
-  if (!vote) {
-    panel.innerHTML = '<div class="panel-title">Votación diaria</div><div class="panel-row panel-muted">Sin votación activa</div>';
-    return;
-  }
+  const hasVote = Boolean(vote);
   const uiState = getUiState();
-  const options = vote.options
-    .map(o => `<div class="panel-row">${o.name} <span class="panel-muted">(${o.votes})</span></div>`)
-    .join('');
-  const remainingMs = Math.max(0, vote.endsAt - Date.now());
-  const remainingMin = Math.ceil(remainingMs / 60000);
+  const options = hasVote
+    ? vote.options
+      .map(o => `<div class="panel-row">${o.name} <span class="panel-muted">(${o.votes})</span></div>`)
+      .join('')
+    : '';
+  const remainingMs = hasVote ? Math.max(0, vote.endsAt - Date.now()) : 0;
+  const remainingMin = hasVote ? Math.ceil(remainingMs / 60000) : 0;
   const actionsLabel = uiState.voteActionsOpen ? 'Cerrar acciones' : 'Votar';
+  const proposalLabel = uiState.voteProposalOpen ? 'Cerrar propuesta' : 'Proponer edificio';
+  const catalogOptions = (WORLD_CONTEXT.voteCatalog || [])
+    .map(entry => `<option value="${entry.id}">${entry.name} · ${entry.type}</option>`)
+    .join('');
   panel.innerHTML = `
     <div class="panel-title">Votación diaria</div>
-    <div class="panel-row panel-muted">Lote: ${vote.lotId}</div>
-    <div class="panel-row panel-meta">Opciones disponibles: ${vote.options?.length || 0}</div>
-    ${options || '<div class="panel-row panel-muted">Sin opciones</div>'}
-    <div class="panel-row panel-muted">Cierra en ~${remainingMin} min</div>
+    ${hasVote
+      ? `<div class="panel-row panel-muted">Lote: ${vote.lotId}</div>
+         <div class="panel-row panel-meta">Opciones disponibles: ${vote.options?.length || 0}</div>
+         ${options || '<div class="panel-row panel-muted">Sin opciones</div>'}
+         <div class="panel-row panel-muted">Cierra en ~${remainingMin} min</div>`
+      : '<div class="panel-row panel-muted">Sin votación activa</div>'}
     <div class="panel-divider"></div>
     <button id="vote-toggle" class="secondary">${actionsLabel}</button>
     <div class="panel-actions ${uiState.voteActionsOpen ? '' : 'is-collapsed'}">
@@ -322,19 +330,35 @@ function updateVotePanel(vote) {
       <input id="vote-agent-id" type="text" placeholder="moltbot-001" value="${getStoredAgentId()}">
       <label for="vote-option">Selecciona el edificio</label>
       <select id="vote-option">
-        ${(vote.options || []).map(option => (
-          `<option value="${option.id}">${option.name}</option>`
-        )).join('')}
+        ${hasVote
+          ? (vote.options || []).map(option => (
+            `<option value="${option.id}">${option.name}</option>`
+          )).join('')
+          : '<option value="">Sin votación activa</option>'}
       </select>
-      <button id="vote-submit">Confirmar voto</button>
+      <button id="vote-submit" ${hasVote ? '' : 'disabled'}>Confirmar voto</button>
       <div class="panel-feedback" id="vote-feedback"></div>
+    </div>
+    <div class="panel-divider"></div>
+    <button id="vote-proposal-toggle" class="secondary">${proposalLabel}</button>
+    <div class="panel-actions ${uiState.voteProposalOpen ? '' : 'is-collapsed'}">
+      <label for="proposal-agent-id">ID Moltbot</label>
+      <input id="proposal-agent-id" type="text" placeholder="moltbot-001" value="${getStoredAgentId()}">
+      <label for="proposal-template">Catálogo de edificios</label>
+      <select id="proposal-template">
+        ${catalogOptions || '<option value="">Catálogo no disponible</option>'}
+      </select>
+      <label for="proposal-name">Nombre personalizado (opcional)</label>
+      <input id="proposal-name" type="text" placeholder="Nombre del edificio">
+      <button id="proposal-submit">Enviar propuesta</button>
+      <div class="panel-feedback" id="proposal-feedback"></div>
     </div>
   `;
   const toggleButton = panel.querySelector('#vote-toggle');
   if (toggleButton) {
     toggleButton.addEventListener('click', () => {
       const next = setUiState({ voteActionsOpen: !getUiState().voteActionsOpen });
-      updateVotePanel({ ...vote });
+      updateVotePanel(vote ? { ...vote } : null);
       if (next.voteActionsOpen) {
         panel.querySelector('#vote-agent-id')?.focus();
       }
@@ -368,6 +392,49 @@ function updateVotePanel(vote) {
         feedback.classList.add('success');
         WORLD_CONTEXT.vote = result.vote || WORLD_CONTEXT.vote;
         updateVotePanel(WORLD_CONTEXT.vote);
+      } catch (error) {
+        feedback.textContent = error.message;
+        feedback.classList.add('error');
+      }
+    });
+  }
+  const proposalToggle = panel.querySelector('#vote-proposal-toggle');
+  if (proposalToggle) {
+    proposalToggle.addEventListener('click', () => {
+      const next = setUiState({ voteProposalOpen: !getUiState().voteProposalOpen });
+      updateVotePanel(vote ? { ...vote } : null);
+      if (next.voteProposalOpen) {
+        panel.querySelector('#proposal-agent-id')?.focus();
+      }
+    });
+  }
+  const proposalButton = panel.querySelector('#proposal-submit');
+  if (proposalButton) {
+    proposalButton.addEventListener('click', async () => {
+      const agentId = panel.querySelector('#proposal-agent-id').value.trim();
+      const templateId = panel.querySelector('#proposal-template').value;
+      const customName = panel.querySelector('#proposal-name').value.trim();
+      const feedback = panel.querySelector('#proposal-feedback');
+      feedback.textContent = '';
+      feedback.className = 'panel-feedback';
+      if (!agentId || !templateId) {
+        feedback.textContent = 'Necesitas tu ID y un edificio del catálogo.';
+        feedback.classList.add('error');
+        return;
+      }
+      storeAgentId(agentId);
+      try {
+        const response = await fetch(`${API_BASE}/api/vote/propose`, {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({ agentId, templateId, customName })
+        });
+        const result = await response.json();
+        if (!response.ok || !result.success) {
+          throw new Error(result.error || 'No se pudo enviar la propuesta.');
+        }
+        feedback.textContent = '✅ Propuesta enviada para la próxima votación.';
+        feedback.classList.add('success');
       } catch (error) {
         feedback.textContent = error.message;
         feedback.classList.add('error');
@@ -778,9 +845,30 @@ function mergeBuildingVisuals(serverBuildings) {
     if (byId.has(b.id)) return;
     const palette = {
       cafe: { color: '#c0392b', roof: '#e74c3c', accent: '#f39c12', stories: 1 },
+      bakery: { color: '#d35400', roof: '#e67e22', accent: '#f1c40f', stories: 1 },
+      restaurant: { color: '#8e44ad', roof: '#9b59b6', accent: '#f39c12', stories: 2 },
+      bar: { color: '#2c3e50', roof: '#34495e', accent: '#f1c40f', stories: 2 },
       library: { color: '#5b4a8a', roof: '#7d6ba0', accent: '#9b8ec4', stories: 2 },
+      school: { color: '#2980b9', roof: '#3498db', accent: '#f1c40f', stories: 2 },
+      clinic: { color: '#27ae60', roof: '#2ecc71', accent: '#ecf0f1', stories: 2 },
+      hospital: { color: '#16a085', roof: '#1abc9c', accent: '#ecf0f1', stories: 3 },
       market: { color: '#16a085', roof: '#1abc9c', accent: '#f39c12', stories: 1 },
+      shop: { color: '#2980b9', roof: '#3498db', accent: '#f1c40f', stories: 1 },
       gallery: { color: '#6c5b73', roof: '#8a7490', accent: '#d4a84b', stories: 2 },
+      theater: { color: '#7f8c8d', roof: '#95a5a6', accent: '#f39c12', stories: 2 },
+      museum: { color: '#8e6b3e', roof: '#a67c52', accent: '#f1c40f', stories: 2 },
+      park: { color: '#27ae60', roof: '#2ecc71', accent: '#f39c12', stories: 0 },
+      garden: { color: '#2ecc71', roof: '#27ae60', accent: '#f1c40f', stories: 0 },
+      gym: { color: '#c0392b', roof: '#e74c3c', accent: '#ecf0f1', stories: 2 },
+      factory: { color: '#7f8c8d', roof: '#95a5a6', accent: '#34495e', stories: 2 },
+      workshop: { color: '#a67c52', roof: '#8e6b3e', accent: '#f1c40f', stories: 1 },
+      lab: { color: '#5b4a8a', roof: '#7d6ba0', accent: '#ecf0f1', stories: 2 },
+      office: { color: '#34495e', roof: '#2c3e50', accent: '#3498db', stories: 3 },
+      bank: { color: '#2c3e50', roof: '#34495e', accent: '#f1c40f', stories: 3 },
+      hotel: { color: '#8e44ad', roof: '#9b59b6', accent: '#f39c12', stories: 3 },
+      house: { color: '#e67e22', roof: '#d35400', accent: '#f39c12', stories: 1 },
+      apartment: { color: '#2c3e50', roof: '#34495e', accent: '#3498db', stories: 3 },
+      plaza: { color: '#95a5a6', roof: '#bdc3c7', accent: '#3498db', stories: 0 },
       civic: { color: '#34495e', roof: '#2c3e50', accent: '#3498db', stories: 3 }
     };
     const style = palette[b.type] || { color: '#7f8c8d', roof: '#95a5a6', accent: '#bdc3c7', stories: 1 };
@@ -837,6 +925,17 @@ async function refreshWorldData(scene) {
     WORLD_CONTEXT.socialNetwork = networkData || null;
   } catch (error) {
     console.warn('Failed to fetch governance/vote state', error);
+  }
+
+  if (!WORLD_CONTEXT.voteCatalogLoaded) {
+    try {
+      const catalogRes = await fetch(`${API_BASE}/api/vote/catalog`);
+      const catalogData = await catalogRes.json();
+      WORLD_CONTEXT.voteCatalog = catalogData.catalog || [];
+      WORLD_CONTEXT.voteCatalogLoaded = true;
+    } catch (error) {
+      console.warn('Failed to fetch vote catalog', error);
+    }
   }
 
   try {
