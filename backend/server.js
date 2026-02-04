@@ -13,12 +13,18 @@ import { InteractionEngine } from './core/InteractionEngine.js';
 import { ActionQueue } from './core/ActionQueue.js';
 import { EconomyManager } from './core/EconomyManager.js';
 import { VotingManager } from './core/VotingManager.js';
+import { GovernanceManager } from './core/GovernanceManager.js';
+import { db } from './utils/db.js';
+import { CityMoodManager } from './core/CityMoodManager.js';
+import { AestheticsManager } from './core/AestheticsManager.js';
 
 import authRoutes from './routes/auth.js';
 import moltbotRoutes from './routes/moltbot.js';
 import worldRoutes from './routes/world.js';
 import economyRoutes from './routes/economy.js';
 import voteRoutes from './routes/vote.js';
+import governanceRoutes from './routes/governance.js';
+import { createAestheticsRouter } from './routes/aesthetics.js';
 
 dotenv.config();
 
@@ -50,11 +56,14 @@ app.use('/api/', limiter);
 
 // Initialize core systems
 const worldState = new WorldStateManager();
-const moltbotRegistry = new MoltbotRegistry();
+const moltbotRegistry = new MoltbotRegistry({ db });
 const actionQueue = new ActionQueue(worldState, moltbotRegistry);
 const interactionEngine = new InteractionEngine(worldState, moltbotRegistry);
-const economyManager = new EconomyManager(worldState);
-const votingManager = new VotingManager(worldState, io);
+const economyManager = new EconomyManager(worldState, { db });
+const votingManager = new VotingManager(worldState, io, { db, economyManager });
+const governanceManager = new GovernanceManager(io, { db });
+const cityMoodManager = new CityMoodManager(economyManager, interactionEngine);
+const aestheticsManager = new AestheticsManager({ worldStateManager: worldState, economyManager, governanceManager, io });
 
 app.locals.worldState = worldState;
 app.locals.moltbotRegistry = moltbotRegistry;
@@ -62,7 +71,16 @@ app.locals.actionQueue = actionQueue;
 app.locals.interactionEngine = interactionEngine;
 app.locals.economyManager = economyManager;
 app.locals.votingManager = votingManager;
+app.locals.governanceManager = governanceManager;
+app.locals.cityMoodManager = cityMoodManager;
+app.locals.aestheticsManager = aestheticsManager;
 app.locals.io = io;
+
+if (db) {
+  economyManager.initializeFromDb().catch(error => logger.error('Economy init failed:', error));
+  votingManager.initializeFromDb().catch(error => logger.error('Voting init failed:', error));
+  governanceManager.initializeFromDb().catch(error => logger.error('Governance init failed:', error));
+}
 
 // Routes
 app.use('/api/auth', authRoutes);
@@ -70,6 +88,8 @@ app.use('/api/moltbot', moltbotRoutes);
 app.use('/api/world', worldRoutes);
 app.use('/api/economy', economyRoutes);
 app.use('/api/vote', voteRoutes);
+app.use('/api/governance', governanceRoutes);
+app.use('/api/aesthetics', createAestheticsRouter({ aestheticsManager }));
 
 app.get('/api/health', (req, res) => {
   res.json({
@@ -87,7 +107,11 @@ io.on('connection', (socket) => {
   // Viewer joins
   socket.on('viewer:join', () => {
     socket.join('viewers');
-    socket.emit('world:state', worldState.getFullState());
+    socket.emit('world:state', {
+      ...worldState.getFullState(),
+      governance: governanceManager.getSummary(),
+      mood: cityMoodManager.getSummary()
+    });
     socket.emit('agents:list', moltbotRegistry.getAllAgents());
     logger.info(`Viewer joined: ${socket.id}`);
   });
@@ -103,10 +127,6 @@ io.on('connection', (socket) => {
       }
       if (typeof agentName !== 'string' || agentName.trim().length === 0) {
         socket.emit('error', { message: 'Agent name is required' });
-        return;
-      }
-      if (moltbotRegistry.isApiKeyIssued && !moltbotRegistry.isApiKeyIssued(apiKey)) {
-        socket.emit('error', { message: 'Unknown API key' });
         return;
       }
       const existingAgent = agentId ? moltbotRegistry.getAgent(agentId) : null;
@@ -131,7 +151,11 @@ io.on('connection', (socket) => {
       socket.emit('agent:registered', {
         agentId: agent.id,
         position: spawnPosition,
-        worldState: worldState.getAgentView(agent.id)
+        worldState: {
+          ...worldState.getAgentView(agent.id),
+          governance: governanceManager.getSummary(),
+          mood: cityMoodManager.getSummary()
+        }
       });
 
       io.emit('agent:spawned', {
@@ -245,7 +269,11 @@ io.on('connection', (socket) => {
         return;
       }
       socket.lastPerceiveAt = now;
-      socket.emit('perception:update', worldState.getAgentView(socket.agentId));
+      socket.emit('perception:update', {
+        ...worldState.getAgentView(socket.agentId),
+        governance: governanceManager.getSummary(),
+        mood: cityMoodManager.getSummary()
+      });
     } catch (error) {
       logger.error('Perceive error:', error);
       socket.emit('error', { message: error.message });
@@ -271,8 +299,12 @@ io.on('connection', (socket) => {
 setInterval(() => {
   worldState.tick();
   actionQueue.processQueue();
+  economyManager.applyPolicies(governanceManager.getSummary().policies || []);
   economyManager.tick();
   votingManager.tick();
+  governanceManager.tick();
+  cityMoodManager.tick();
+  aestheticsManager.tick(moltbotRegistry.getAgentCount());
   interactionEngine.cleanupOldConversations();
 
   // Broadcast interpolated agent positions to viewers
@@ -281,7 +313,10 @@ setInterval(() => {
     agents: worldState.getAllAgentPositions(), // includes interpolated x,y
     worldTime: worldState.getTimeState(),
     weather: worldState.getWeatherState(),
-    vote: votingManager.getVoteSummary()
+    vote: votingManager.getVoteSummary(),
+    governance: governanceManager.getSummary(),
+    mood: cityMoodManager.getSummary(),
+    aesthetics: aestheticsManager.getVoteSummary()
   });
 }, parseInt(process.env.WORLD_TICK_RATE) || 100);
 

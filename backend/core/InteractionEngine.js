@@ -46,8 +46,8 @@ export class InteractionEngine {
     this.conversations.set(conversationId, conversation);
 
     // Update relationships
-    this.moltbotRegistry.updateRelationship(initiatorId, targetId, 2);
-    this.moltbotRegistry.updateRelationship(targetId, initiatorId, 2);
+    this.moltbotRegistry.updateRelationship(initiatorId, targetId, 2, { trust: 1 });
+    this.moltbotRegistry.updateRelationship(targetId, initiatorId, 2, { trust: 1 });
 
     // Add to memories
     this.moltbotRegistry.addMemory(initiatorId, 'interaction', {
@@ -88,7 +88,7 @@ export class InteractionEngine {
     conversation.lastActivity = Date.now();
 
     // Update relationship
-    this.moltbotRegistry.updateRelationship(fromId, toId, 1);
+    this.moltbotRegistry.updateRelationship(fromId, toId, 1, { trust: 1 });
 
     // Add to memory
     this.moltbotRegistry.addMemory(fromId, 'interaction', {
@@ -152,7 +152,7 @@ export class InteractionEngine {
 
     switch (actionType) {
       case 'wave':
-        this.moltbotRegistry.updateRelationship(agentId, targetId, 3);
+        this.moltbotRegistry.updateRelationship(agentId, targetId, 3, { trust: 1, respect: 1 });
         this.moltbotRegistry.addMemory(agentId, 'interaction', {
           type: 'wave',
           to: target.name,
@@ -162,8 +162,8 @@ export class InteractionEngine {
         break;
 
       case 'compliment':
-        this.moltbotRegistry.updateRelationship(agentId, targetId, 10);
-        this.moltbotRegistry.updateRelationship(targetId, agentId, 5);
+        this.moltbotRegistry.updateRelationship(agentId, targetId, 10, { respect: 5, trust: 2, conflict: -1 });
+        this.moltbotRegistry.updateRelationship(targetId, agentId, 5, { respect: 2, trust: 1, conflict: -1 });
         this.moltbotRegistry.addMemory(agentId, 'interaction', {
           type: 'compliment',
           to: target.name,
@@ -174,8 +174,8 @@ export class InteractionEngine {
         break;
 
       case 'gift':
-        this.moltbotRegistry.updateRelationship(agentId, targetId, 15);
-        this.moltbotRegistry.updateRelationship(targetId, agentId, 15);
+        this.moltbotRegistry.updateRelationship(agentId, targetId, 15, { trust: 5, respect: 3, conflict: -2 });
+        this.moltbotRegistry.updateRelationship(targetId, agentId, 15, { trust: 5, respect: 3, conflict: -2 });
         this.moltbotRegistry.addMemory(agentId, 'interaction', {
           type: 'gift',
           to: target.name,
@@ -219,11 +219,14 @@ export class InteractionEngine {
       const agentData = this.moltbotRegistry.getAgent(agent.id);
       if (agentData && agentData.memory.relationships) {
         Object.entries(agentData.memory.relationships).forEach(([targetId, rel]) => {
-          if (rel.affinity > 10) { // Only show significant relationships
+          if (rel.affinity > 10 || rel.trust > 10 || rel.respect > 10) {
             network.edges.push({
               from: agent.id,
               to: targetId,
               affinity: rel.affinity,
+              trust: rel.trust,
+              respect: rel.respect,
+              conflict: rel.conflict,
               interactions: rel.interactions
             });
           }
@@ -232,6 +235,35 @@ export class InteractionEngine {
     });
 
     return network;
+  }
+
+  getSocialStats() {
+    const network = this.getSocialNetwork();
+    const totalAgents = network.nodes.length;
+    const activeEdges = network.edges.length;
+    if (!activeEdges) {
+      return {
+        totalAgents,
+        activeEdges,
+        averageAffinity: 0,
+        averageTrust: 0,
+        averageRespect: 0
+      };
+    }
+    const totals = network.edges.reduce((acc, edge) => {
+      acc.affinity += edge.affinity || 0;
+      acc.trust += edge.trust || 0;
+      acc.respect += edge.respect || 0;
+      return acc;
+    }, { affinity: 0, trust: 0, respect: 0 });
+
+    return {
+      totalAgents,
+      activeEdges,
+      averageAffinity: totals.affinity / activeEdges,
+      averageTrust: totals.trust / activeEdges,
+      averageRespect: totals.respect / activeEdges
+    };
   }
 
   cleanupOldConversations(maxAge = 3600000) {

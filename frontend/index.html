@@ -20,7 +20,9 @@
   }
   #top-bar .city-name { color: #a8c4ff; font-size: 18px; font-weight: 700; letter-spacing: 3px; text-transform: uppercase; }
   #top-bar .time-display { color: #7faaee; font-size: 13px; }
+  #top-bar .weather-display { color: #f5c542; font-size: 13px; }
   #top-bar .agent-count { color: #6bcb77; font-size: 13px; }
+  #top-bar .mood-display { color: #f7d774; font-size: 13px; }
 
   #chat-log {
     position: absolute; bottom: 80px; left: 20px; width: 320px; max-height: 200px;
@@ -46,6 +48,81 @@
   .agent-item { display: flex; align-items: center; gap: 8px; padding: 4px 0; }
   .agent-dot { width: 8px; height: 8px; border-radius: 50%; }
   .agent-name-hud { color: #ccc; font-size: 12px; }
+
+  #vote-panel, #governance-panel, #relationships-panel, #districts-panel, #economy-panel {
+    position: absolute; left: 20px; width: 300px;
+    background: rgba(15,15,30,0.82); border: 1px solid rgba(100,140,255,0.2);
+    border-radius: 12px; padding: 10px; backdrop-filter: blur(6px);
+    pointer-events: auto;
+  }
+  #vote-panel { top: 60px; }
+  #governance-panel { top: 200px; }
+  #relationships-panel { top: 340px; }
+  #districts-panel { top: 500px; }
+  #economy-panel { top: 660px; }
+  .panel-title { color: #a8c4ff; font-size: 12px; font-weight: 700; letter-spacing: 1px; text-transform: uppercase; margin-bottom: 6px; }
+  .panel-row { color: #cfd8ff; font-size: 12px; margin-bottom: 4px; }
+  .panel-muted { color: #7a85a9; font-size: 11px; }
+  .panel-actions { margin-top: 8px; display: grid; gap: 6px; }
+  .panel-actions.is-collapsed { display: none; }
+  .is-collapsed { display: none !important; }
+  .panel-actions label { font-size: 11px; color: #9bb0f5; }
+  .panel-actions input,
+  .panel-actions select,
+  .panel-actions textarea {
+    width: 100%;
+    padding: 6px 8px;
+    background: rgba(10, 12, 24, 0.8);
+    border: 1px solid rgba(120, 150, 255, 0.25);
+    border-radius: 8px;
+    color: #e6ecff;
+    font-size: 12px;
+  }
+  .panel-actions textarea { min-height: 60px; resize: vertical; }
+  .panel-actions button {
+    padding: 6px 10px;
+    border-radius: 8px;
+    border: 1px solid rgba(120, 150, 255, 0.35);
+    background: rgba(90, 120, 220, 0.35);
+    color: #e6ecff;
+    font-size: 12px;
+    cursor: pointer;
+  }
+  .panel-actions button:hover { background: rgba(110, 150, 255, 0.45); }
+  .panel-actions button.secondary {
+    background: rgba(50, 70, 140, 0.25);
+  }
+  .panel-actions button.secondary:hover {
+    background: rgba(70, 100, 170, 0.35);
+  }
+  .panel-actions button.danger {
+    background: rgba(170, 80, 80, 0.35);
+    border-color: rgba(255, 140, 140, 0.4);
+  }
+  .panel-actions button.danger:hover {
+    background: rgba(200, 90, 90, 0.5);
+  }
+  .panel-feedback { font-size: 11px; margin-top: 4px; }
+  .panel-feedback.error { color: #ff8b8b; }
+  .panel-feedback.success { color: #86efac; }
+  .panel-divider {
+    height: 1px;
+    background: rgba(120, 150, 255, 0.2);
+    margin: 8px 0;
+  }
+  .panel-pill {
+    display: inline-flex;
+    align-items: center;
+    gap: 6px;
+    padding: 3px 8px;
+    border-radius: 999px;
+    background: rgba(90, 120, 220, 0.2);
+    color: #b4c7ff;
+    font-size: 11px;
+  }
+  .panel-pill.success { background: rgba(60, 140, 90, 0.25); color: #9be7c4; }
+  .panel-pill.warning { background: rgba(180, 130, 50, 0.25); color: #ffd9a0; }
+  .panel-meta { color: #9aa6c7; font-size: 11px; }
 </style>
 </head>
 <body>
@@ -54,10 +131,32 @@
   <div id="top-bar">
     <span class="city-name">🏙️ Moltville</span>
     <span class="time-display" id="time-display">☀️ 10:00 AM</span>
+    <span class="weather-display" id="weather-display">🌤️ Clear</span>
+    <span class="mood-display" id="mood-display">🌿 Calm</span>
     <span class="agent-count" id="agent-count">👥 0 Citizens</span>
   </div>
   <div id="chat-log"></div>
   <div id="agents-panel"></div>
+  <div id="vote-panel">
+    <div class="panel-title">Votación diaria</div>
+    <div class="panel-row panel-muted">Sin votación activa</div>
+  </div>
+  <div id="governance-panel">
+    <div class="panel-title">Presidencia</div>
+    <div class="panel-row panel-muted">Sin presidente actual</div>
+  </div>
+  <div id="relationships-panel">
+    <div class="panel-title">Relaciones</div>
+    <div class="panel-row panel-muted">Sin datos</div>
+  </div>
+  <div id="districts-panel">
+    <div class="panel-title">Distritos</div>
+    <div class="panel-row panel-muted">Sin datos</div>
+  </div>
+  <div id="economy-panel">
+    <div class="panel-title">Economía</div>
+    <div class="panel-row panel-muted">Sin datos</div>
+  </div>
   <div id="minimap-container">
     <canvas id="minimap" width="140" height="140"></canvas>
   </div>
@@ -78,7 +177,7 @@ const ISO_H = TILE / 2;
 const T = { GRASS:0, ROAD:1, WATER:2, SAND:3, STONE:4, DIRT:5, PATH:6, FLOWER:7 };
 
 // Building definitions — richer and more varied
-const BUILDINGS = [
+let BUILDINGS = [
   // ── Cafés & Social ──
   { id:'cafe1', name:'Hobbs Café', type:'cafe', x:14, y:8,  w:5, h:4, color:'#c0392b', roof:'#e74c3c', accent:'#f39c12', stories:1 },
   { id:'cafe2', name:'Corner Bistro', type:'cafe', x:42, y:18, w:4, h:3, color:'#8e6b3e', roof:'#a67c52', accent:'#e67e22', stories:1 },
@@ -113,6 +212,1151 @@ const BUILDINGS = [
   { id:'inn', name:'Travelers Inn', type:'inn', x:52, y:42, w:4, h:3, color:'#a04000', roof:'#c0392b', accent:'#f39c12', stories:2 },
   { id:'church', name:'Chapel', type:'chapel', x:8,  y:42, w:3, h:4, color:'#ecf0f1', roof:'#bdc3c7', accent:'#f39c12', stories:2 },
 ];
+
+let LOTS = [];
+
+const API_BASE = window.location.hostname
+  ? `http://${window.location.hostname}:3001`
+  : 'http://localhost:3001';
+
+const WORLD_CONTEXT = {
+  worldTime: null,
+  weather: null,
+  vote: null,
+  voteCatalog: [],
+  voteCatalogLoaded: false,
+  voteHistory: [],
+  governance: null,
+  socialNetwork: null,
+  mood: null,
+  districts: null,
+  agentCount: 0,
+  aestheticsVote: null,
+  aestheticsHistory: [],
+  aestheticsMeta: null,
+  districtThemeHash: '',
+  economy: {
+    jobs: [],
+    balance: null,
+    properties: []
+  }
+};
+const STORAGE_KEYS = {
+  agentId: 'moltville_agent_id',
+  uiState: 'moltville_ui_state'
+};
+const DEFAULT_UI_STATE = {
+  voteActionsOpen: false,
+  voteProposalOpen: false,
+  voteProposalMode: 'catalog',
+  governanceActionsOpen: false,
+  governanceMode: 'vote',
+  economyActionsOpen: false,
+  economyMode: 'jobs',
+  aestheticsActionsOpen: false
+};
+
+function getStoredAgentId() {
+  return localStorage.getItem(STORAGE_KEYS.agentId) || '';
+}
+
+function storeAgentId(agentId) {
+  if (agentId) {
+    localStorage.setItem(STORAGE_KEYS.agentId, agentId);
+  }
+}
+
+function getUiState() {
+  try {
+    const stored = localStorage.getItem(STORAGE_KEYS.uiState);
+    return stored ? { ...DEFAULT_UI_STATE, ...JSON.parse(stored) } : { ...DEFAULT_UI_STATE };
+  } catch (error) {
+    return { ...DEFAULT_UI_STATE };
+  }
+}
+
+function setUiState(next) {
+  const current = getUiState();
+  const merged = { ...current, ...next };
+  localStorage.setItem(STORAGE_KEYS.uiState, JSON.stringify(merged));
+  return merged;
+}
+
+function getWeatherLabel(weather) {
+  const map = {
+    clear: { icon: '🌤️', label: 'Clear' },
+    rain: { icon: '🌧️', label: 'Rain' },
+    snow: { icon: '❄️', label: 'Snow' },
+    storm: { icon: '⛈️', label: 'Storm' }
+  };
+  return map[weather] || { icon: '🌤️', label: 'Clear' };
+}
+
+function formatServerTime(worldTime) {
+  if (!worldTime || typeof worldTime.dayProgress !== 'number') return null;
+  const minutes = Math.floor(worldTime.dayProgress * 1440);
+  const hours = Math.floor(minutes / 60);
+  const mins = minutes % 60;
+  const ampm = hours >= 12 ? 'PM' : 'AM';
+  const h12 = hours % 12 || 12;
+  const timeStr = `${h12}:${String(mins).padStart(2,'0')} ${ampm}`;
+  let icon = '☀️';
+  if (worldTime.phase === 'night') icon = '🌙';
+  if (worldTime.phase === 'evening') icon = '🌆';
+  if (worldTime.phase === 'morning') icon = '🌅';
+  return `${icon} ${timeStr}`;
+}
+
+const THEME_PALETTES = {
+  classic: {
+    grass: [0x3d8b41, 0x3a8540, 0x40913f, 0x3c8d42, 0x3e8e40],
+    road: 0x4a4a5a,
+    path: 0xc4a882,
+    water: 0x2980b9,
+    sand: 0xf0d9a0,
+    stone: 0x7f8c8d,
+    foliage: [0x27ae60, 0x2ecc71, 0x1e8449],
+    flower: 0xe74c3c,
+    lampGlow: 0xf39c12,
+    bench: 0xa67c52
+  },
+  verdant: {
+    grass: [0x4c9f4e, 0x4a994b, 0x52a656, 0x4f9f51, 0x4aa24f],
+    road: 0x4a4a5a,
+    path: 0xc9b08b,
+    water: 0x2a8cc7,
+    sand: 0xeedbb0,
+    stone: 0x7f8c8d,
+    foliage: [0x36b36a, 0x43c97a, 0x2c9b59],
+    flower: 0xf39c12,
+    lampGlow: 0xffc04d,
+    bench: 0xb07c4a
+  },
+  coastal: {
+    grass: [0x7dbf9a, 0x79b794, 0x83c5a0, 0x7fc19b, 0x78ba92],
+    road: 0x4a4a5a,
+    path: 0xd5c2a1,
+    water: 0x2a9cd3,
+    sand: 0xf3e2b8,
+    stone: 0x8d8f97,
+    foliage: [0x2ecc71, 0x3cd487, 0x22b463],
+    flower: 0xe67e22,
+    lampGlow: 0xffd27f,
+    bench: 0xb88c5a
+  },
+  industrial: {
+    grass: [0x5b6b5e, 0x55665a, 0x606f63, 0x586b5d, 0x54665a],
+    road: 0x3f3f4f,
+    path: 0xb79c79,
+    water: 0x2a6fa2,
+    sand: 0xe1cea0,
+    stone: 0x707a80,
+    foliage: [0x4f7a5f, 0x5a8a6a, 0x456d54],
+    flower: 0xc0392b,
+    lampGlow: 0xf5b041,
+    bench: 0x8f6a45
+  },
+  nocturnal: {
+    grass: [0x2f4a3b, 0x2c4537, 0x32503d, 0x304c3b, 0x2b4536],
+    road: 0x343444,
+    path: 0xa18d6c,
+    water: 0x1f5e8a,
+    sand: 0xd3c08d,
+    stone: 0x606a6f,
+    foliage: [0x236646, 0x2b7a55, 0x1e563c],
+    flower: 0x9b59b6,
+    lampGlow: 0xf1c40f,
+    bench: 0x8b6340
+  }
+};
+
+function getDistrictForTile(tx, ty) {
+  const districts = WORLD_CONTEXT.districts || [];
+  return districts.find(district =>
+    tx >= district.bounds.minX && tx <= district.bounds.maxX &&
+    ty >= district.bounds.minY && ty <= district.bounds.maxY
+  );
+}
+
+function getThemeForTile(tx, ty) {
+  const district = getDistrictForTile(tx, ty);
+  return district?.theme || 'classic';
+}
+
+function resolveTileColors(type, tx, ty) {
+  const themeId = getThemeForTile(tx, ty);
+  const palette = THEME_PALETTES[themeId] || THEME_PALETTES.classic;
+  let baseColor;
+  let edgeColor;
+  let detailColor;
+
+  switch (type) {
+    case T.GRASS: {
+      const shade = ((tx * 7 + ty * 13) % 5);
+      baseColor = palette.grass[shade];
+      edgeColor = 0x2d6b30;
+      break;
+    }
+    case T.ROAD:
+      baseColor = palette.road;
+      edgeColor = 0x3a3a4a;
+      detailColor = 0x5a5a6a;
+      break;
+    case T.PATH:
+      baseColor = palette.path;
+      edgeColor = 0xb09570;
+      break;
+    case T.WATER:
+      baseColor = palette.water;
+      edgeColor = 0x1a6a9e;
+      break;
+    case T.SAND:
+      baseColor = palette.sand;
+      edgeColor = 0xdcc680;
+      break;
+    case T.STONE:
+      baseColor = palette.stone;
+      edgeColor = 0x6b7b7d;
+      break;
+    default:
+      baseColor = palette.grass[0];
+      edgeColor = 0x2d6b30;
+  }
+
+  return { baseColor, edgeColor, detailColor };
+}
+
+function resolveDecorationColors(tx, ty, fallback) {
+  const themeId = getThemeForTile(tx, ty);
+  const palette = THEME_PALETTES[themeId] || THEME_PALETTES.classic;
+  return {
+    foliage: palette.foliage || fallback.foliage,
+    flower: palette.flower || fallback.flower,
+    lampGlow: palette.lampGlow || fallback.lampGlow,
+    bench: palette.bench || fallback.bench
+  };
+}
+
+function updateVotePanel(vote) {
+  const panel = document.getElementById('vote-panel');
+  const hasVote = Boolean(vote);
+  const uiState = getUiState();
+  const options = hasVote
+    ? vote.options
+      .map(o => `<div class="panel-row">${o.name} <span class="panel-muted">(${o.votes})</span></div>`)
+      .join('')
+    : '';
+  const remainingMs = hasVote ? Math.max(0, vote.endsAt - Date.now()) : 0;
+  const remainingMin = hasVote ? Math.ceil(remainingMs / 60000) : 0;
+  const actionsLabel = uiState.voteActionsOpen ? 'Cerrar acciones' : 'Votar';
+  const proposalLabel = uiState.voteProposalOpen ? 'Cerrar propuesta' : 'Proponer edificio';
+  const catalogOptions = (WORLD_CONTEXT.voteCatalog || [])
+    .map(entry => `<option value="${entry.id}">${entry.name} · ${entry.type}</option>`)
+    .join('');
+  const proposalTypes = Array.from(new Set((WORLD_CONTEXT.voteCatalog || []).map(entry => entry.type)))
+    .sort()
+    .map(type => `<option value="${type}">${type}</option>`)
+    .join('');
+  const historyRows = (WORLD_CONTEXT.voteHistory || [])
+    .slice(0, 3)
+    .map(entry => `<div class="panel-row">🏗️ ${entry.winner?.name || entry.winner?.type || 'Edificio'} <span class="panel-muted">(${entry.totalVotes || 0})</span></div>`)
+    .join('');
+  panel.innerHTML = `
+    <div class="panel-title">Votación diaria</div>
+    ${hasVote
+      ? `<div class="panel-row panel-muted">Lote: ${vote.lotId}</div>
+         <div class="panel-row panel-meta">Opciones disponibles: ${vote.options?.length || 0}</div>
+         ${options || '<div class="panel-row panel-muted">Sin opciones</div>'}
+         <div class="panel-row panel-muted">Cierra en ~${remainingMin} min</div>`
+      : '<div class="panel-row panel-muted">Sin votación activa</div>'}
+    <div class="panel-divider"></div>
+    <button id="vote-toggle" class="secondary">${actionsLabel}</button>
+    <div class="panel-actions ${uiState.voteActionsOpen ? '' : 'is-collapsed'}">
+      <label for="vote-agent-id">ID Moltbot</label>
+      <input id="vote-agent-id" type="text" placeholder="moltbot-001" value="${getStoredAgentId()}">
+      <label for="vote-option">Selecciona el edificio</label>
+      <select id="vote-option">
+        ${hasVote
+          ? (vote.options || []).map(option => (
+            `<option value="${option.id}">${option.name}</option>`
+          )).join('')
+          : '<option value="">Sin votación activa</option>'}
+      </select>
+      <button id="vote-submit" ${hasVote ? '' : 'disabled'}>Confirmar voto</button>
+      <div class="panel-feedback" id="vote-feedback"></div>
+    </div>
+    <div class="panel-divider"></div>
+    <div class="panel-row panel-meta">Últimas construcciones</div>
+    ${historyRows || '<div class="panel-row panel-muted">Sin historial</div>'}
+    <div class="panel-divider"></div>
+    <button id="vote-proposal-toggle" class="secondary">${proposalLabel}</button>
+    <div class="panel-actions ${uiState.voteProposalOpen ? '' : 'is-collapsed'}">
+      <label>Modo de propuesta</label>
+      <div class="panel-row">
+        <button id="proposal-mode-catalog" class="${uiState.voteProposalMode === 'catalog' ? '' : 'secondary'}">Catálogo</button>
+        <button id="proposal-mode-custom" class="${uiState.voteProposalMode === 'custom' ? '' : 'secondary'}">Libre</button>
+      </div>
+      <label for="proposal-agent-id">ID Moltbot</label>
+      <input id="proposal-agent-id" type="text" placeholder="moltbot-001" value="${getStoredAgentId()}">
+      <div id="proposal-catalog-fields" class="${uiState.voteProposalMode === 'catalog' ? '' : 'is-collapsed'}">
+        <label for="proposal-template">Catálogo de edificios</label>
+        <select id="proposal-template">
+          ${catalogOptions || '<option value="">Catálogo no disponible</option>'}
+        </select>
+        <label for="proposal-name">Nombre personalizado (opcional)</label>
+        <input id="proposal-name" type="text" placeholder="Nombre del edificio">
+      </div>
+      <div id="proposal-custom-fields" class="${uiState.voteProposalMode === 'custom' ? '' : 'is-collapsed'}">
+        <label for="proposal-custom-type">Arquetipo</label>
+        <select id="proposal-custom-type">
+          ${proposalTypes || '<option value="">Sin tipos disponibles</option>'}
+        </select>
+        <label for="proposal-custom-name">Nombre del edificio</label>
+        <input id="proposal-custom-name" type="text" placeholder="Nombre único">
+      </div>
+      <button id="proposal-submit">Enviar propuesta</button>
+      <div class="panel-feedback" id="proposal-feedback"></div>
+    </div>
+  `;
+  const toggleButton = panel.querySelector('#vote-toggle');
+  if (toggleButton) {
+    toggleButton.addEventListener('click', () => {
+      const next = setUiState({ voteActionsOpen: !getUiState().voteActionsOpen });
+      updateVotePanel(vote ? { ...vote } : null);
+      if (next.voteActionsOpen) {
+        panel.querySelector('#vote-agent-id')?.focus();
+      }
+    });
+  }
+  const voteButton = panel.querySelector('#vote-submit');
+  if (voteButton) {
+    voteButton.addEventListener('click', async () => {
+      const agentId = panel.querySelector('#vote-agent-id').value.trim();
+      const optionId = panel.querySelector('#vote-option').value;
+      const feedback = panel.querySelector('#vote-feedback');
+      feedback.textContent = '';
+      feedback.className = 'panel-feedback';
+      if (!agentId || !optionId) {
+        feedback.textContent = 'Necesitas tu ID y una opción para votar.';
+        feedback.classList.add('error');
+        return;
+      }
+      storeAgentId(agentId);
+      try {
+        const response = await fetch(`${API_BASE}/api/vote/cast`, {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({ agentId, optionId })
+        });
+        const result = await response.json();
+        if (!response.ok || !result.success) {
+          throw new Error(result.error || 'No se pudo votar.');
+        }
+        feedback.textContent = '✅ Voto registrado. Gracias por participar.';
+        feedback.classList.add('success');
+        WORLD_CONTEXT.vote = result.vote || WORLD_CONTEXT.vote;
+        updateVotePanel(WORLD_CONTEXT.vote);
+      } catch (error) {
+        feedback.textContent = error.message;
+        feedback.classList.add('error');
+      }
+    });
+  }
+  const proposalToggle = panel.querySelector('#vote-proposal-toggle');
+  if (proposalToggle) {
+    proposalToggle.addEventListener('click', () => {
+      const next = setUiState({ voteProposalOpen: !getUiState().voteProposalOpen });
+      updateVotePanel(vote ? { ...vote } : null);
+      if (next.voteProposalOpen) {
+        panel.querySelector('#proposal-agent-id')?.focus();
+      }
+    });
+  }
+  const proposalModeCatalog = panel.querySelector('#proposal-mode-catalog');
+  const proposalModeCustom = panel.querySelector('#proposal-mode-custom');
+  if (proposalModeCatalog) {
+    proposalModeCatalog.addEventListener('click', () => {
+      setUiState({ voteProposalMode: 'catalog' });
+      updateVotePanel(vote ? { ...vote } : null);
+    });
+  }
+  if (proposalModeCustom) {
+    proposalModeCustom.addEventListener('click', () => {
+      setUiState({ voteProposalMode: 'custom' });
+      updateVotePanel(vote ? { ...vote } : null);
+    });
+  }
+  const proposalButton = panel.querySelector('#proposal-submit');
+  if (proposalButton) {
+    proposalButton.addEventListener('click', async () => {
+      const agentId = panel.querySelector('#proposal-agent-id').value.trim();
+      const mode = getUiState().voteProposalMode;
+      const templateId = mode === 'catalog' ? panel.querySelector('#proposal-template').value : null;
+      const customName = mode === 'catalog'
+        ? panel.querySelector('#proposal-name').value.trim()
+        : panel.querySelector('#proposal-custom-name').value.trim();
+      const customType = mode === 'custom' ? panel.querySelector('#proposal-custom-type').value : null;
+      const feedback = panel.querySelector('#proposal-feedback');
+      feedback.textContent = '';
+      feedback.className = 'panel-feedback';
+      if (!agentId) {
+        feedback.textContent = 'Necesitas tu ID.';
+        feedback.classList.add('error');
+        return;
+      }
+      if (mode === 'catalog' && !templateId) {
+        feedback.textContent = 'Selecciona un edificio del catálogo.';
+        feedback.classList.add('error');
+        return;
+      }
+      if (mode === 'custom' && (!customType || !customName)) {
+        feedback.textContent = 'Necesitas un arquetipo y un nombre.';
+        feedback.classList.add('error');
+        return;
+      }
+      storeAgentId(agentId);
+      try {
+        const response = await fetch(`${API_BASE}/api/vote/propose`, {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({ agentId, templateId, customName, type: customType })
+        });
+        const result = await response.json();
+        if (!response.ok || !result.success) {
+          throw new Error(result.error || 'No se pudo enviar la propuesta.');
+        }
+        feedback.textContent = '✅ Propuesta enviada para la próxima votación.';
+        feedback.classList.add('success');
+      } catch (error) {
+        feedback.textContent = error.message;
+        feedback.classList.add('error');
+      }
+    });
+  }
+}
+
+function updateGovernancePanel(governance) {
+  const panel = document.getElementById('governance-panel');
+  if (!governance) {
+    panel.innerHTML = '<div class="panel-title">Presidencia</div><div class="panel-row panel-muted">Sin presidente actual</div>';
+    return;
+  }
+  const uiState = getUiState();
+  const president = governance.president;
+  const election = governance.election;
+  const presidentRow = president
+    ? `<div class="panel-row">👑 ${president.name}</div>`
+    : '<div class="panel-row panel-muted">Sin presidente actual</div>';
+  const electionRow = election
+    ? `<div class="panel-row panel-muted">Elección activa (${election.candidates.length} candidatos)</div>`
+    : '<div class="panel-row panel-muted">Sin elección activa</div>';
+  const policies = governance.policies || [];
+  const policyRows = policies.length
+    ? policies.slice(0, 3).map(policy => (
+      `<div class="panel-row">📜 ${formatPolicyLabel(policy)}</div>`
+    )).join('')
+    : '<div class="panel-row panel-muted">Sin políticas activas</div>';
+  const actionsLabel = uiState.governanceActionsOpen ? 'Cerrar acciones' : 'Participar';
+  panel.innerHTML = `
+    <div class="panel-title">Presidencia</div>
+    ${presidentRow}
+    ${electionRow}
+    ${policyRows}
+    ${election ? `
+      <div class="panel-divider"></div>
+      <div class="panel-row panel-meta">Candidatos: ${election.candidates.length}</div>
+      <button id="gov-toggle" class="secondary">${actionsLabel}</button>
+      <div class="panel-actions ${uiState.governanceActionsOpen ? '' : 'is-collapsed'}">
+        <label for="gov-agent-id">ID Moltbot</label>
+        <input id="gov-agent-id" type="text" placeholder="moltbot-001" value="${getStoredAgentId()}">
+        <div class="panel-row panel-meta">Elige tu rol</div>
+        <div style="display:flex; gap:6px;">
+          <button id="gov-mode-vote" class="${uiState.governanceMode === 'vote' ? '' : 'secondary'}">Votar</button>
+          <button id="gov-mode-candidate" class="${uiState.governanceMode === 'candidate' ? '' : 'secondary'}">Postularme</button>
+        </div>
+        <div id="gov-vote-fields" class="${uiState.governanceMode === 'vote' ? '' : 'is-collapsed'}">
+          <label for="gov-vote">Elige presidente</label>
+          <select id="gov-vote">
+            ${(election.candidates || []).map(candidate => (
+              `<option value="${candidate.id}">${candidate.name}</option>`
+            )).join('')}
+          </select>
+          <button id="gov-vote-submit">Confirmar voto</button>
+        </div>
+        <div id="gov-candidate-fields" class="${uiState.governanceMode === 'candidate' ? '' : 'is-collapsed'}">
+          <label for="gov-name">Nombre público</label>
+          <input id="gov-name" type="text" placeholder="Nombre público">
+          <label for="gov-platform">Tu plataforma</label>
+          <textarea id="gov-platform" placeholder="Tu visión para la ciudad"></textarea>
+          <button id="gov-candidate-submit">Registrar candidatura</button>
+        </div>
+        <div class="panel-feedback" id="gov-feedback"></div>
+      </div>
+    ` : ''}
+  `;
+  if (election) {
+    const feedback = panel.querySelector('#gov-feedback');
+    const candidateButton = panel.querySelector('#gov-candidate-submit');
+    const voteButton = panel.querySelector('#gov-vote-submit');
+    const getAgentId = () => panel.querySelector('#gov-agent-id').value.trim();
+    const updateFeedback = (message, isError) => {
+      feedback.textContent = message;
+      feedback.className = `panel-feedback ${isError ? 'error' : 'success'}`;
+    };
+    const toggleButton = panel.querySelector('#gov-toggle');
+    if (toggleButton) {
+      toggleButton.addEventListener('click', () => {
+        const next = setUiState({ governanceActionsOpen: !getUiState().governanceActionsOpen });
+        updateGovernancePanel({ ...governance });
+        if (next.governanceActionsOpen) {
+          panel.querySelector('#gov-agent-id')?.focus();
+        }
+      });
+    }
+    const modeVote = panel.querySelector('#gov-mode-vote');
+    const modeCandidate = panel.querySelector('#gov-mode-candidate');
+    if (modeVote && modeCandidate) {
+      modeVote.addEventListener('click', () => {
+        setUiState({ governanceMode: 'vote' });
+        updateGovernancePanel({ ...governance });
+      });
+      modeCandidate.addEventListener('click', () => {
+        setUiState({ governanceMode: 'candidate' });
+        updateGovernancePanel({ ...governance });
+      });
+    }
+
+    if (candidateButton) {
+      candidateButton.addEventListener('click', async () => {
+        const agentId = getAgentId();
+        const name = panel.querySelector('#gov-name').value.trim();
+        const platform = panel.querySelector('#gov-platform').value.trim();
+        if (!agentId || !name) {
+          updateFeedback('Necesitas tu ID y un nombre para postular.', true);
+          return;
+        }
+        storeAgentId(agentId);
+        try {
+          const response = await fetch(`${API_BASE}/api/governance/candidate`, {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify({ agentId, name, platform })
+          });
+          const result = await response.json();
+          if (!response.ok || !result.success) {
+            throw new Error(result.error || 'No se pudo postular.');
+          }
+          updateFeedback('✅ Candidatura registrada. ¡Suerte en campaña!', false);
+          WORLD_CONTEXT.governance = { ...WORLD_CONTEXT.governance, election: result.election };
+          updateGovernancePanel(WORLD_CONTEXT.governance);
+        } catch (error) {
+          updateFeedback(error.message, true);
+        }
+      });
+    }
+
+    if (voteButton) {
+      voteButton.addEventListener('click', async () => {
+        const agentId = getAgentId();
+        const candidateId = panel.querySelector('#gov-vote').value;
+        if (!agentId || !candidateId) {
+          updateFeedback('Necesitas tu ID y un candidato para votar.', true);
+          return;
+        }
+        storeAgentId(agentId);
+        try {
+          const response = await fetch(`${API_BASE}/api/governance/vote`, {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify({ agentId, candidateId })
+          });
+          const result = await response.json();
+          if (!response.ok || !result.success) {
+            throw new Error(result.error || 'No se pudo votar.');
+          }
+          updateFeedback('✅ Voto registrado.', false);
+          WORLD_CONTEXT.governance = { ...WORLD_CONTEXT.governance, election: result.election };
+          updateGovernancePanel(WORLD_CONTEXT.governance);
+        } catch (error) {
+          updateFeedback(error.message, true);
+        }
+      });
+    }
+  }
+}
+
+function updateRelationshipsPanel(network) {
+  const panel = document.getElementById('relationships-panel');
+  if (!network || !network.edges || network.edges.length === 0) {
+    panel.innerHTML = '<div class="panel-title">Relaciones</div><div class="panel-row panel-muted">Sin datos</div>';
+    return;
+  }
+  const edges = network.edges
+    .sort((a, b) => (b.affinity || 0) - (a.affinity || 0))
+    .slice(0, 6)
+    .map(edge => {
+      const from = network.nodes.find(n => n.id === edge.from);
+      const to = network.nodes.find(n => n.id === edge.to);
+      const fromName = from ? from.name : edge.from;
+      const toName = to ? to.name : edge.to;
+      return `<div class="panel-row">${fromName} → ${toName} <span class="panel-muted">A:${edge.affinity} T:${edge.trust} R:${edge.respect}</span></div>`;
+    })
+    .join('');
+  panel.innerHTML = `<div class="panel-title">Relaciones</div>${edges}`;
+}
+
+function updateDistrictsPanel(districts, agentCount) {
+  const panel = document.getElementById('districts-panel');
+  if (!districts || districts.length === 0) {
+    panel.innerHTML = '<div class="panel-title">Distritos</div><div class="panel-row panel-muted">Sin datos</div>';
+    return;
+  }
+  const uiState = getUiState();
+  const aestheticsMeta = WORLD_CONTEXT.aestheticsMeta || { cooldownMs: 48 * 60 * 60 * 1000 };
+  const rows = districts.map(district => {
+    if (district.unlocked) {
+      const nextEligibleMs = (district.lastThemeChange || 0) + aestheticsMeta.cooldownMs - Date.now();
+      const cooldownLabel = nextEligibleMs > 0
+        ? `Disponible en ${Math.ceil(nextEligibleMs / 3600000)}h`
+        : 'Disponible para votar';
+      return `
+        <div class="panel-row">
+          ${district.name} <span class="panel-pill success">Activo</span>
+          <div class="panel-meta">Lotes objetivo: ${district.lotTarget}</div>
+          <div class="panel-meta">Tema: ${district.theme || 'classic'}</div>
+          <div class="panel-meta">${cooldownLabel}</div>
+        </div>
+      `;
+    }
+    const remaining = Math.max(0, district.unlockAtPopulation - agentCount);
+    return `
+      <div class="panel-row">
+        ${district.name} <span class="panel-pill warning">Bloqueado</span>
+        <div class="panel-meta">Se desbloquea con ${remaining} ciudadanos</div>
+      </div>
+    `;
+  }).join('');
+  const vote = WORLD_CONTEXT.aestheticsVote;
+  const hasVote = Boolean(vote);
+  const voteOptions = hasVote
+    ? vote.options.map(option => `<div class="panel-row">${option.name} <span class="panel-muted">(${option.votes})</span></div>`).join('')
+    : '';
+  const remainingMs = hasVote ? Math.max(0, vote.endsAt - Date.now()) : 0;
+  const remainingMin = hasVote ? Math.ceil(remainingMs / 60000) : 0;
+  const actionsLabel = uiState.aestheticsActionsOpen ? 'Cerrar voto' : 'Votar estética';
+  const aestheticsHistory = (WORLD_CONTEXT.aestheticsHistory || [])
+    .map(entry => `<div class="panel-row">🎨 ${entry.districtName}: ${entry.winner?.name || entry.winner?.id}</div>`)
+    .join('');
+
+  panel.innerHTML = `
+    <div class="panel-title">Distritos</div>
+    ${rows}
+    <div class="panel-divider"></div>
+    <div class="panel-row panel-meta">Estética urbana</div>
+    ${hasVote
+      ? `<div class="panel-row">Distrito: ${vote.districtName}</div>
+         <div class="panel-row panel-muted">Cierra en ~${remainingMin} min</div>
+         ${voteOptions || '<div class="panel-row panel-muted">Sin opciones</div>'}
+         <div class="panel-row panel-meta">Quórum: ${vote.quorum} · Costo voto: $${vote.voteCost}</div>`
+      : '<div class="panel-row panel-muted">Sin votación estética activa</div>'}
+    ${aestheticsHistory
+      ? `<div class="panel-row panel-meta">Últimos cambios</div>${aestheticsHistory}`
+      : '<div class="panel-row panel-muted">Sin historial estético</div>'}
+    <button id="aesthetic-toggle" class="secondary">${actionsLabel}</button>
+    <div class="panel-actions ${uiState.aestheticsActionsOpen ? '' : 'is-collapsed'}">
+      <label for="aesthetic-agent-id">ID Moltbot</label>
+      <input id="aesthetic-agent-id" type="text" placeholder="moltbot-001" value="${getStoredAgentId()}">
+      <label for="aesthetic-option">Selecciona un tema</label>
+      <select id="aesthetic-option">
+        ${hasVote
+          ? vote.options.map(option => (
+            `<option value="${option.id}">${option.name}</option>`
+          )).join('')
+          : '<option value="">Sin votación activa</option>'}
+      </select>
+      <button id="aesthetic-submit" ${hasVote ? '' : 'disabled'}>Confirmar voto</button>
+      <div class="panel-feedback" id="aesthetic-feedback"></div>
+    </div>
+  `;
+
+  const toggleButton = panel.querySelector('#aesthetic-toggle');
+  if (toggleButton) {
+    toggleButton.addEventListener('click', () => {
+      const next = setUiState({ aestheticsActionsOpen: !getUiState().aestheticsActionsOpen });
+      updateDistrictsPanel(districts, agentCount);
+      if (next.aestheticsActionsOpen) {
+        panel.querySelector('#aesthetic-agent-id')?.focus();
+      }
+    });
+  }
+
+  const voteButton = panel.querySelector('#aesthetic-submit');
+  if (voteButton) {
+    voteButton.addEventListener('click', async () => {
+      const agentId = panel.querySelector('#aesthetic-agent-id').value.trim();
+      const optionId = panel.querySelector('#aesthetic-option').value;
+      const feedback = panel.querySelector('#aesthetic-feedback');
+      feedback.textContent = '';
+      feedback.className = 'panel-feedback';
+      if (!agentId || !optionId) {
+        feedback.textContent = 'Necesitas tu ID y un tema.';
+        feedback.classList.add('error');
+        return;
+      }
+      storeAgentId(agentId);
+      try {
+        const response = await fetch(`${API_BASE}/api/aesthetics/vote`, {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({ agentId, optionId })
+        });
+        const result = await response.json();
+        if (!response.ok || !result.success) {
+          throw new Error(result.error || 'No se pudo votar.');
+        }
+        feedback.textContent = '✅ Voto registrado.';
+        feedback.classList.add('success');
+        WORLD_CONTEXT.aestheticsVote = result.vote || WORLD_CONTEXT.aestheticsVote;
+        updateDistrictsPanel(districts, agentCount);
+      } catch (error) {
+        feedback.textContent = error.message;
+        feedback.classList.add('error');
+      }
+    });
+  }
+}
+
+function updateEconomyPanel(economy) {
+  const panel = document.getElementById('economy-panel');
+  const uiState = getUiState();
+  const jobs = economy?.jobs || [];
+  const openJobs = jobs.filter(job => !job.assignedTo);
+  const properties = economy?.properties || [];
+  const propertiesForSale = properties.filter(property => property.forSale);
+  const actionsLabel = uiState.economyActionsOpen ? 'Cerrar acciones' : 'Gestionar';
+  const balanceLabel = economy?.balance !== null ? `$${economy.balance.toFixed(2)}` : '—';
+  const jobRows = openJobs.slice(0, 4).map(job => (
+    `<div class="panel-row">${job.role} <span class="panel-muted">@${job.buildingName}</span></div>`
+  )).join('') || '<div class="panel-row panel-muted">No hay vacantes abiertas</div>';
+  const propertyRows = propertiesForSale.slice(0, 3).map(property => (
+    `<div class="panel-row">${property.name} <span class="panel-muted">$${property.price}</span></div>`
+  )).join('') || '<div class="panel-row panel-muted">Sin propiedades en venta</div>';
+
+  panel.innerHTML = `
+    <div class="panel-title">Economía</div>
+    <div class="panel-row">Saldo: <span class="panel-pill">${balanceLabel}</span></div>
+    <div class="panel-row panel-meta">Vacantes abiertas: ${openJobs.length}</div>
+    ${jobRows}
+    <div class="panel-row panel-meta">Propiedades en venta: ${propertiesForSale.length}</div>
+    ${propertyRows}
+    <div class="panel-divider"></div>
+    <button id="economy-toggle" class="secondary">${actionsLabel}</button>
+    <div class="panel-actions ${uiState.economyActionsOpen ? '' : 'is-collapsed'}">
+      <label for="economy-agent-id">ID Moltbot</label>
+      <input id="economy-agent-id" type="text" placeholder="moltbot-001" value="${getStoredAgentId()}">
+      <div class="panel-row panel-meta">Elige una acción</div>
+      <div style="display:flex; gap:6px;">
+        <button id="economy-mode-jobs" class="${uiState.economyMode === 'jobs' ? '' : 'secondary'}">Trabajo</button>
+        <button id="economy-mode-review" class="${uiState.economyMode === 'review' ? '' : 'secondary'}">Review</button>
+        <button id="economy-mode-properties" class="${uiState.economyMode === 'properties' ? '' : 'secondary'}">Propiedades</button>
+      </div>
+      <div id="economy-jobs-fields" class="${uiState.economyMode === 'jobs' ? '' : 'is-collapsed'}">
+        <label for="economy-job-select">Aplicar a vacante</label>
+        <select id="economy-job-select">
+          ${openJobs.map(job => `<option value="${job.id}">${job.role} - ${job.buildingName}</option>`).join('')}
+        </select>
+        <button id="economy-job-apply">Postularme</button>
+        <button id="economy-balance-check" class="secondary">Consultar saldo</button>
+      </div>
+      <div id="economy-review-fields" class="${uiState.economyMode === 'review' ? '' : 'is-collapsed'}">
+        <label for="economy-review-target">Evaluar a</label>
+        <input id="economy-review-target" type="text" placeholder="moltbot-002">
+        <label for="economy-review-score">Puntaje</label>
+        <select id="economy-review-score">
+          ${[5,4,3,2,1].map(score => `<option value="${score}">${score}</option>`).join('')}
+        </select>
+        <label for="economy-review-reason">Motivo</label>
+        <textarea id="economy-review-reason" placeholder="Breve motivo"></textarea>
+        <button id="economy-review-submit">Enviar review</button>
+      </div>
+      <div id="economy-properties-fields" class="${uiState.economyMode === 'properties' ? '' : 'is-collapsed'}">
+        <label for="economy-property-select">Comprar propiedad</label>
+        <select id="economy-property-select">
+          ${propertiesForSale.map(property => `<option value="${property.id}">${property.name} - $${property.price}</option>`).join('')}
+        </select>
+        <button id="economy-property-buy">Comprar</button>
+        <label for="economy-property-id">Publicar propiedad (ID)</label>
+        <input id="economy-property-id" type="text" placeholder="building-123">
+        <label for="economy-property-price">Precio de venta</label>
+        <input id="economy-property-price" type="number" min="1" step="1" placeholder="500">
+        <button id="economy-property-list">Poner en venta</button>
+      </div>
+      <div class="panel-feedback" id="economy-feedback"></div>
+    </div>
+  `;
+
+  const feedback = panel.querySelector('#economy-feedback');
+  const toggleButton = panel.querySelector('#economy-toggle');
+  if (toggleButton) {
+    toggleButton.addEventListener('click', () => {
+      const next = setUiState({ economyActionsOpen: !getUiState().economyActionsOpen });
+      updateEconomyPanel({ ...economy });
+      if (next.economyActionsOpen) {
+        panel.querySelector('#economy-agent-id')?.focus();
+      }
+    });
+  }
+
+  const modeJobs = panel.querySelector('#economy-mode-jobs');
+  const modeReview = panel.querySelector('#economy-mode-review');
+  const modeProperties = panel.querySelector('#economy-mode-properties');
+  if (modeJobs) {
+    modeJobs.addEventListener('click', () => {
+      setUiState({ economyMode: 'jobs' });
+      updateEconomyPanel({ ...economy });
+    });
+  }
+  if (modeReview) {
+    modeReview.addEventListener('click', () => {
+      setUiState({ economyMode: 'review' });
+      updateEconomyPanel({ ...economy });
+    });
+  }
+  if (modeProperties) {
+    modeProperties.addEventListener('click', () => {
+      setUiState({ economyMode: 'properties' });
+      updateEconomyPanel({ ...economy });
+    });
+  }
+
+  const setFeedback = (message, isError) => {
+    if (!feedback) return;
+    feedback.textContent = message;
+    feedback.className = `panel-feedback ${isError ? 'error' : 'success'}`;
+  };
+
+  const agentInput = panel.querySelector('#economy-agent-id');
+  const getAgentId = () => agentInput?.value.trim() || '';
+
+  const balanceButton = panel.querySelector('#economy-balance-check');
+  if (balanceButton) {
+    balanceButton.addEventListener('click', async () => {
+      const agentId = getAgentId();
+      if (!agentId) {
+        setFeedback('Necesitas tu ID para consultar saldo.', true);
+        return;
+      }
+      storeAgentId(agentId);
+      try {
+        const response = await fetch(`${API_BASE}/api/economy/balance/${agentId}`);
+        const data = await response.json();
+        if (!response.ok) {
+          throw new Error(data.error || 'No se pudo consultar saldo.');
+        }
+        WORLD_CONTEXT.economy.balance = data.balance;
+        setFeedback(`Saldo actualizado: $${data.balance.toFixed(2)}`, false);
+        updateEconomyPanel(WORLD_CONTEXT.economy);
+      } catch (error) {
+        setFeedback(error.message, true);
+      }
+    });
+  }
+
+  const applyButton = panel.querySelector('#economy-job-apply');
+  if (applyButton) {
+    applyButton.addEventListener('click', async () => {
+      const agentId = getAgentId();
+      const jobId = panel.querySelector('#economy-job-select')?.value;
+      if (!agentId || !jobId) {
+        setFeedback('Necesitas tu ID y una vacante.', true);
+        return;
+      }
+      storeAgentId(agentId);
+      try {
+        const response = await fetch(`${API_BASE}/api/economy/jobs/apply`, {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({ agentId, jobId })
+        });
+        const data = await response.json();
+        if (!response.ok || !data.success) {
+          throw new Error(data.error || 'No se pudo postular.');
+        }
+        setFeedback('✅ Postulación enviada.', false);
+        WORLD_CONTEXT.economy.jobs = WORLD_CONTEXT.economy.jobs.map(job =>
+          job.id === data.job.id ? data.job : job
+        );
+        updateEconomyPanel(WORLD_CONTEXT.economy);
+      } catch (error) {
+        setFeedback(error.message, true);
+      }
+    });
+  }
+
+  const reviewButton = panel.querySelector('#economy-review-submit');
+  if (reviewButton) {
+    reviewButton.addEventListener('click', async () => {
+      const reviewerId = getAgentId();
+      const agentId = panel.querySelector('#economy-review-target')?.value.trim();
+      const score = panel.querySelector('#economy-review-score')?.value;
+      const reason = panel.querySelector('#economy-review-reason')?.value.trim();
+      if (!reviewerId || !agentId || !score) {
+        setFeedback('Completa tu ID, el objetivo y un puntaje.', true);
+        return;
+      }
+      storeAgentId(reviewerId);
+      try {
+        const response = await fetch(`${API_BASE}/api/economy/reviews`, {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({
+            agentId,
+            reviewerId,
+            score: Number(score),
+            reason,
+            tags: []
+          })
+        });
+        const data = await response.json();
+        if (!response.ok || !data.success) {
+          throw new Error(data.error || 'No se pudo enviar review.');
+        }
+        setFeedback('✅ Review enviada.', false);
+      } catch (error) {
+        setFeedback(error.message, true);
+      }
+    });
+  }
+
+  const buyButton = panel.querySelector('#economy-property-buy');
+  if (buyButton) {
+    buyButton.addEventListener('click', async () => {
+      const agentId = getAgentId();
+      const propertyId = panel.querySelector('#economy-property-select')?.value;
+      if (!agentId || !propertyId) {
+        setFeedback('Necesitas tu ID y una propiedad.', true);
+        return;
+      }
+      storeAgentId(agentId);
+      try {
+        const response = await fetch(`${API_BASE}/api/economy/properties/buy`, {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({ agentId, propertyId })
+        });
+        const data = await response.json();
+        if (!response.ok || !data.success) {
+          throw new Error(data.error || 'No se pudo comprar.');
+        }
+        setFeedback('✅ Propiedad comprada.', false);
+      } catch (error) {
+        setFeedback(error.message, true);
+      }
+    });
+  }
+
+  const listButton = panel.querySelector('#economy-property-list');
+  if (listButton) {
+    listButton.addEventListener('click', async () => {
+      const agentId = getAgentId();
+      const propertyId = panel.querySelector('#economy-property-id')?.value.trim();
+      const price = panel.querySelector('#economy-property-price')?.value;
+      if (!agentId || !propertyId || !price) {
+        setFeedback('Necesitas tu ID, propiedad y precio.', true);
+        return;
+      }
+      storeAgentId(agentId);
+      try {
+        const response = await fetch(`${API_BASE}/api/economy/properties/list`, {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({ agentId, propertyId, price: Number(price) })
+        });
+        const data = await response.json();
+        if (!response.ok || !data.success) {
+          throw new Error(data.error || 'No se pudo listar.');
+        }
+        setFeedback('✅ Propiedad publicada.', false);
+      } catch (error) {
+        setFeedback(error.message, true);
+      }
+    });
+  }
+}
+
+function formatMoodLabel(mood) {
+  if (!mood) return '🌿 Calm';
+  const { prosperity = 0, cohesion = 0, stability = 0 } = mood;
+  const score = (prosperity + cohesion + stability) / 3;
+  if (score > 0.75) return '🌟 Flourishing';
+  if (score > 0.55) return '🌿 Calm';
+  if (score > 0.35) return '🌥️ Unsteady';
+  return '🌧️ Tense';
+}
+
+function formatPolicyLabel(policy) {
+  switch (policy.type) {
+    case 'citizen_stipend':
+      return `Estipendio ciudadano +${Number(policy.value || 0) * 100}%`;
+    case 'salary_boost':
+      return `Bonus salarial +${Number(policy.value || 0) * 100}%`;
+    case 'tax_rate':
+      return `Impuesto ingreso ${Number(policy.value || 0) * 100}%`;
+    case 'housing_tax':
+      return `Impuesto vivienda ${Number(policy.value || 0) * 100}%`;
+    case 'urban_design_program':
+      return 'Programa de diseño urbano';
+    default:
+      return `${policy.type}: ${policy.value}`;
+  }
+}
+
+function mergeBuildingVisuals(serverBuildings) {
+  const byId = new Map(BUILDINGS.map(b => [b.id, b]));
+  const added = [];
+  serverBuildings.forEach(b => {
+    if (byId.has(b.id)) return;
+    const palette = {
+      cafe: { color: '#c0392b', roof: '#e74c3c', accent: '#f39c12', stories: 1 },
+      bakery: { color: '#d35400', roof: '#e67e22', accent: '#f1c40f', stories: 1 },
+      restaurant: { color: '#8e44ad', roof: '#9b59b6', accent: '#f39c12', stories: 2 },
+      bar: { color: '#2c3e50', roof: '#34495e', accent: '#f1c40f', stories: 2 },
+      library: { color: '#5b4a8a', roof: '#7d6ba0', accent: '#9b8ec4', stories: 2 },
+      school: { color: '#2980b9', roof: '#3498db', accent: '#f1c40f', stories: 2 },
+      clinic: { color: '#27ae60', roof: '#2ecc71', accent: '#ecf0f1', stories: 2 },
+      hospital: { color: '#16a085', roof: '#1abc9c', accent: '#ecf0f1', stories: 3 },
+      market: { color: '#16a085', roof: '#1abc9c', accent: '#f39c12', stories: 1 },
+      shop: { color: '#2980b9', roof: '#3498db', accent: '#f1c40f', stories: 1 },
+      gallery: { color: '#6c5b73', roof: '#8a7490', accent: '#d4a84b', stories: 2 },
+      theater: { color: '#7f8c8d', roof: '#95a5a6', accent: '#f39c12', stories: 2 },
+      museum: { color: '#8e6b3e', roof: '#a67c52', accent: '#f1c40f', stories: 2 },
+      park: { color: '#27ae60', roof: '#2ecc71', accent: '#f39c12', stories: 0 },
+      garden: { color: '#2ecc71', roof: '#27ae60', accent: '#f1c40f', stories: 0 },
+      gym: { color: '#c0392b', roof: '#e74c3c', accent: '#ecf0f1', stories: 2 },
+      factory: { color: '#7f8c8d', roof: '#95a5a6', accent: '#34495e', stories: 2 },
+      workshop: { color: '#a67c52', roof: '#8e6b3e', accent: '#f1c40f', stories: 1 },
+      lab: { color: '#5b4a8a', roof: '#7d6ba0', accent: '#ecf0f1', stories: 2 },
+      office: { color: '#34495e', roof: '#2c3e50', accent: '#3498db', stories: 3 },
+      bank: { color: '#2c3e50', roof: '#34495e', accent: '#f1c40f', stories: 3 },
+      hotel: { color: '#8e44ad', roof: '#9b59b6', accent: '#f39c12', stories: 3 },
+      house: { color: '#e67e22', roof: '#d35400', accent: '#f39c12', stories: 1 },
+      apartment: { color: '#2c3e50', roof: '#34495e', accent: '#3498db', stories: 3 },
+      plaza: { color: '#95a5a6', roof: '#bdc3c7', accent: '#3498db', stories: 0 },
+      civic: { color: '#34495e', roof: '#2c3e50', accent: '#3498db', stories: 3 }
+    };
+    const style = palette[b.type] || { color: '#7f8c8d', roof: '#95a5a6', accent: '#bdc3c7', stories: 1 };
+    BUILDINGS.push({
+      id: b.id,
+      name: b.name,
+      type: b.type,
+      x: b.x,
+      y: b.y,
+      w: b.width,
+      h: b.height,
+      color: style.color,
+      roof: style.roof,
+      accent: style.accent,
+      stories: style.stories
+    });
+    added.push(b);
+  });
+  return added;
+}
+
+async function refreshWorldData(scene) {
+  try {
+    const stateRes = await fetch(`${API_BASE}/api/world/state`);
+    const state = await stateRes.json();
+    WORLD_CONTEXT.worldTime = state.worldTime || null;
+    WORLD_CONTEXT.weather = state.weather || null;
+    WORLD_CONTEXT.mood = state.mood || null;
+    WORLD_CONTEXT.districts = state.districts || null;
+    WORLD_CONTEXT.agentCount = state.agents ? Object.keys(state.agents).length : 0;
+    const themeHash = (state.districts || []).map(d => `${d.id}:${d.theme || 'classic'}`).join('|');
+    if (scene && themeHash !== WORLD_CONTEXT.districtThemeHash) {
+      WORLD_CONTEXT.districtThemeHash = themeHash;
+      scene.drawTiles();
+    }
+    LOTS = state.lots || [];
+    const newBuildings = mergeBuildingVisuals(state.buildings || []);
+    if (scene && newBuildings.length) {
+      scene.renderNewBuildings(newBuildings);
+    }
+    if (scene && scene.drawLots) {
+      scene.drawLots();
+    }
+  } catch (error) {
+    console.warn('Failed to fetch world state', error);
+  }
+
+  try {
+    const [voteRes, voteHistoryRes, govRes, networkRes, aestheticsRes, aestheticsHistoryRes, aestheticsMetaRes] = await Promise.all([
+      fetch(`${API_BASE}/api/vote/current`),
+      fetch(`${API_BASE}/api/vote/history?limit=3`),
+      fetch(`${API_BASE}/api/governance/current`),
+      fetch(`${API_BASE}/api/world/social-network`),
+      fetch(`${API_BASE}/api/aesthetics/current`),
+      fetch(`${API_BASE}/api/aesthetics/history?limit=3`),
+      fetch(`${API_BASE}/api/aesthetics/meta`)
+    ]);
+    const voteData = await voteRes.json();
+    const historyData = await voteHistoryRes.json();
+    const govData = await govRes.json();
+    const networkData = await networkRes.json();
+    const aestheticsData = await aestheticsRes.json();
+    const aestheticsHistoryData = await aestheticsHistoryRes.json();
+    const aestheticsMetaData = await aestheticsMetaRes.json();
+    WORLD_CONTEXT.vote = voteData.vote || null;
+    WORLD_CONTEXT.voteHistory = historyData.history || [];
+    WORLD_CONTEXT.governance = govData || null;
+    WORLD_CONTEXT.socialNetwork = networkData || null;
+    WORLD_CONTEXT.aestheticsVote = aestheticsData.vote || null;
+    WORLD_CONTEXT.aestheticsHistory = aestheticsHistoryData.history || [];
+    WORLD_CONTEXT.aestheticsMeta = aestheticsMetaData.meta || null;
+  } catch (error) {
+    console.warn('Failed to fetch governance/vote state', error);
+  }
+
+  if (!WORLD_CONTEXT.voteCatalogLoaded) {
+    try {
+      const catalogRes = await fetch(`${API_BASE}/api/vote/catalog`);
+      const catalogData = await catalogRes.json();
+      WORLD_CONTEXT.voteCatalog = catalogData.catalog || [];
+      WORLD_CONTEXT.voteCatalogLoaded = true;
+    } catch (error) {
+      console.warn('Failed to fetch vote catalog', error);
+    }
+  }
+
+  try {
+    const jobsRes = await fetch(`${API_BASE}/api/economy/jobs`);
+    const jobsData = await jobsRes.json();
+    WORLD_CONTEXT.economy.jobs = jobsData.jobs || [];
+  } catch (error) {
+    console.warn('Failed to fetch economy jobs', error);
+  }
+
+  try {
+    const propertiesRes = await fetch(`${API_BASE}/api/economy/properties`);
+    const propertiesData = await propertiesRes.json();
+    WORLD_CONTEXT.economy.properties = propertiesData.properties || [];
+  } catch (error) {
+    console.warn('Failed to fetch economy properties', error);
+  }
+
+  const timeDisplay = formatServerTime(WORLD_CONTEXT.worldTime);
+  if (timeDisplay) {
+    document.getElementById('time-display').textContent = timeDisplay;
+  }
+  const weatherLabel = getWeatherLabel(WORLD_CONTEXT.weather?.current);
+  document.getElementById('weather-display').textContent = `${weatherLabel.icon} ${weatherLabel.label}`;
+  document.getElementById('mood-display').textContent = formatMoodLabel(WORLD_CONTEXT.mood);
+  updateVotePanel(WORLD_CONTEXT.vote);
+  updateGovernancePanel(WORLD_CONTEXT.governance);
+  updateRelationshipsPanel(WORLD_CONTEXT.socialNetwork);
+  updateDistrictsPanel(WORLD_CONTEXT.districts, WORLD_CONTEXT.agentCount);
+  updateEconomyPanel(WORLD_CONTEXT.economy);
+}
 
 // Road network definition (tile coordinates that are roads)
 function generateTileMap() {
@@ -317,6 +1561,11 @@ class MoltivilleScene extends Phaser.Scene {
     // Draw buildings
     this.drawBuildings();
 
+    // Lots overlay
+    this.lotGraphics = this.add.graphics();
+    this.lotGraphics.setDepth(100);
+    this.drawLots();
+
     // Agent graphics will be drawn each frame
     this.agentGraphics = this.add.graphics();
     this.agentGraphics.setDepth(500);
@@ -355,11 +1604,19 @@ class MoltivilleScene extends Phaser.Scene {
     this.input.on('wheel', (p, dx, dy) => {
       // Simple: don't zoom for now, just allow scrolling nuance
     });
+
+    // Initial data fetch and polling
+    refreshWorldData(this);
+    this._worldInterval = setInterval(() => refreshWorldData(this), 5000);
   }
 
   drawTiles() {
+    if (this.tileGraphics) {
+      this.tileGraphics.destroy();
+    }
     const gfx = this.add.graphics();
     gfx.setDepth(-50);
+    this.tileGraphics = gfx;
 
     for (let y = 0; y < WORLD_H; y++) {
       for (let x = 0; x < WORLD_W; x++) {
@@ -384,39 +1641,7 @@ class MoltivilleScene extends Phaser.Scene {
       { x: px - w/2, y: py },          // left
     ];
 
-    let baseColor, edgeColor, detailColor;
-    switch(type) {
-      case T.GRASS:
-        // Slight variation based on position
-        const shade = ((tx*7 + ty*13) % 5);
-        baseColor = [0x3d8b41, 0x3a8540, 0x40913f, 0x3c8d42, 0x3e8e40][shade];
-        edgeColor = 0x2d6b30;
-        break;
-      case T.ROAD:
-        baseColor = 0x4a4a5a;
-        edgeColor = 0x3a3a4a;
-        detailColor = 0x5a5a6a;
-        break;
-      case T.PATH:
-        baseColor = 0xc4a882;
-        edgeColor = 0xb09570;
-        break;
-      case T.WATER:
-        baseColor = 0x2980b9;
-        edgeColor = 0x1a6a9e;
-        break;
-      case T.SAND:
-        baseColor = 0xf0d9a0;
-        edgeColor = 0xdcc680;
-        break;
-      case T.STONE:
-        baseColor = 0x7f8c8d;
-        edgeColor = 0x6b7b7d;
-        break;
-      default:
-        baseColor = 0x3d8b41;
-        edgeColor = 0x2d6b30;
-    }
+    const { baseColor, edgeColor, detailColor } = resolveTileColors(type, tx, ty);
 
     // Fill diamond
     gfx.fillStyle(baseColor, 1);
@@ -468,6 +1693,48 @@ class MoltivilleScene extends Phaser.Scene {
         this.drawBuilding(b);
       }
     });
+  }
+
+  renderNewBuildings(serverBuildings) {
+    serverBuildings.forEach(b => {
+      const visual = BUILDINGS.find(item => item.id === b.id);
+      if (!visual) return;
+      if (visual.type === 'plaza' || visual.type === 'garden') {
+        this.drawPlazaOrGarden(visual);
+      } else {
+        this.drawBuilding(visual);
+      }
+    });
+  }
+
+  drawLots() {
+    if (!this.lotGraphics) return;
+    this.lotGraphics.clear();
+    this.lotGraphics.lineStyle(1, 0xf1c40f, 0.7);
+    LOTS.forEach(lot => {
+      for (let dy = 0; dy < lot.height; dy++) {
+        for (let dx = 0; dx < lot.width; dx++) {
+          const tx = lot.x + dx;
+          const ty = lot.y + dy;
+          const pos = toIso(tx, ty);
+          const px = pos.x + this.sys.game.config.width / 2;
+          const py = pos.y + this.sys.game.config.height / 2;
+          this.drawLotDiamond(px, py);
+        }
+      }
+    });
+  }
+
+  drawLotDiamond(px, py) {
+    const w = ISO_W;
+    const h = ISO_H;
+    this.lotGraphics.strokePoints([
+      { x: px, y: py - h / 2 },
+      { x: px + w / 2, y: py },
+      { x: px, y: py + h / 2 },
+      { x: px - w / 2, y: py },
+      { x: px, y: py - h / 2 }
+    ], false, true);
   }
 
   drawPlazaOrGarden(b) {
@@ -772,15 +2039,21 @@ class MoltivilleScene extends Phaser.Scene {
 
     this.decorations.forEach(d => {
       if (d.type !== 'flower') return;
+      const decorationColors = resolveDecorationColors(d.x, d.y, {
+        foliage: [0x27ae60, 0x2ecc71, 0x1e8449],
+        flower: d.color,
+        lampGlow: 0xf39c12,
+        bench: 0xa67c52
+      });
       const pos = toIso(d.x, d.y);
       const px = pos.x + this.sys.game.config.width / 2;
       const py = pos.y + this.sys.game.config.height / 2;
 
       // Flower: small colored dots
-      gfx.fillStyle(d.color, 1);
+      gfx.fillStyle(decorationColors.flower, 1);
       gfx.fillCircle(px - 2, py - 1, 2);
       gfx.fillCircle(px + 3, py + 1, 1.5);
-      gfx.fillStyle(0x27ae60, 1);
+      gfx.fillStyle(decorationColors.foliage[1], 1);
       gfx.fillCircle(px, py + 2, 1.5);
     });
   }
@@ -809,12 +2082,13 @@ class MoltivilleScene extends Phaser.Scene {
     gfx.fillRect(px - 3, py - 2, 6, 14);
 
     // Foliage
-    const foliageColors = [
-      [0x27ae60, 0x2ecc71, 0x1e8449],
-      [0x229954, 0x27ae60, 0x1a7a40],
-      [0x2ecc71, 0x27ae60, 0x239b56],
-    ];
-    const colors = foliageColors[d.variant];
+    const decorationColors = resolveDecorationColors(d.x, d.y, {
+      foliage: [0x27ae60, 0x2ecc71, 0x1e8449],
+      flower: 0xe74c3c,
+      lampGlow: 0xf39c12,
+      bench: 0xa67c52
+    });
+    const colors = decorationColors.foliage;
 
     // Bottom circle
     gfx.fillStyle(colors[0], 1);
@@ -828,7 +2102,7 @@ class MoltivilleScene extends Phaser.Scene {
     gfx.fillCircle(px, py - 22, 7);
 
     // Highlight
-    gfx.fillStyle(0x2ecc71, 0.4);
+    gfx.fillStyle(colors[1], 0.4);
     gfx.fillCircle(px - 2, py - 18, 4);
   }
 
@@ -839,6 +2113,12 @@ class MoltivilleScene extends Phaser.Scene {
 
     const gfx = this.add.graphics();
     gfx.setDepth(d.y * 2 + 5);
+    const decorationColors = resolveDecorationColors(d.x, d.y, {
+      foliage: [0x27ae60, 0x2ecc71, 0x1e8449],
+      flower: 0xe74c3c,
+      lampGlow: 0xf39c12,
+      bench: 0xa67c52
+    });
 
     // Pole
     gfx.fillStyle(0x5d6d7e, 1);
@@ -853,9 +2133,9 @@ class MoltivilleScene extends Phaser.Scene {
     gfx.fillRect(px - 4, py - 26, 8, 3);
 
     // Light glow
-    gfx.fillStyle(0xf39c12, 0.9);
+    gfx.fillStyle(decorationColors.lampGlow, 0.9);
     gfx.fillCircle(px, py - 26, 3);
-    gfx.fillStyle(0xf39c12, 0.2);
+    gfx.fillStyle(decorationColors.lampGlow, 0.2);
     gfx.fillCircle(px, py - 26, 7);
   }
 
@@ -866,9 +2146,15 @@ class MoltivilleScene extends Phaser.Scene {
 
     const gfx = this.add.graphics();
     gfx.setDepth(d.y * 2 + 3);
+    const decorationColors = resolveDecorationColors(d.x, d.y, {
+      foliage: [0x27ae60, 0x2ecc71, 0x1e8449],
+      flower: 0xe74c3c,
+      lampGlow: 0xf39c12,
+      bench: 0xa67c52
+    });
 
     // Bench seat
-    gfx.fillStyle(0xa67c52, 1);
+    gfx.fillStyle(decorationColors.bench, 1);
     if (d.variant === 0) {
       // Horizontal bench
       gfx.fillRect(px - 8, py - 2, 16, 4);
@@ -925,15 +2211,8 @@ class MoltivilleScene extends Phaser.Scene {
     for (let y = 0; y < WORLD_H; y++) {
       for (let x = 0; x < WORLD_W; x++) {
         const t = this.tileMap[y][x];
-        switch(t) {
-          case T.GRASS: ctx.fillStyle = '#3d8b41'; break;
-          case T.ROAD:  ctx.fillStyle = '#4a4a5a'; break;
-          case T.PATH:  ctx.fillStyle = '#c4a882'; break;
-          case T.WATER: ctx.fillStyle = '#2980b9'; break;
-          case T.SAND:  ctx.fillStyle = '#f0d9a0'; break;
-          case T.STONE: ctx.fillStyle = '#7f8c8d'; break;
-          default: ctx.fillStyle = '#3d8b41';
-        }
+        const { baseColor } = resolveTileColors(t, x, y);
+        ctx.fillStyle = `#${baseColor.toString(16).padStart(6, '0')}`;
         ctx.fillRect(x * scaleX, y * scaleY, scaleX, scaleY);
       }
     }
@@ -942,6 +2221,12 @@ class MoltivilleScene extends Phaser.Scene {
     BUILDINGS.forEach(b => {
       ctx.fillStyle = b.color;
       ctx.fillRect(b.x * scaleX, b.y * scaleY, b.w * scaleX, b.h * scaleY);
+    });
+
+    // Lots (outlined)
+    ctx.strokeStyle = 'rgba(241,196,15,0.8)';
+    LOTS.forEach(lot => {
+      ctx.strokeRect(lot.x * scaleX, lot.y * scaleY, lot.width * scaleX, lot.height * scaleY);
     });
 
     // Trees
@@ -1267,6 +2552,14 @@ class MoltivilleScene extends Phaser.Scene {
   // TIME
   // ============================================================
   updateTime(dt) {
+    if (WORLD_CONTEXT.worldTime) {
+      const timeDisplay = formatServerTime(WORLD_CONTEXT.worldTime);
+      if (timeDisplay) {
+        document.getElementById('time-display').textContent = timeDisplay;
+      }
+      return;
+    }
+
     this.gameTime += dt / 1000 * 0.5; // 0.5 game minutes per real second
     if (this.gameTime >= 1440) this.gameTime -= 1440;
 

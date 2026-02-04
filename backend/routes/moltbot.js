@@ -102,6 +102,9 @@ router.get('/:agentId/relationships', async (req, res) => {
         agentId: otherId,
         agentName: other ? other.name : 'Unknown',
         affinity: rel.affinity,
+        trust: rel.trust,
+        respect: rel.respect,
+        conflict: rel.conflict,
         interactions: rel.interactions,
         lastInteraction: rel.lastInteraction
       };
