@@ -30,8 +30,37 @@ export class MoltbotRegistry {
     this.persistApiKeyRevocation(apiKey);
   }
 
+  async rotateApiKey(oldKey, newKey) {
+    if (!oldKey || !newKey) return null;
+    if (!this.issuedApiKeys.has(oldKey)) return null;
+    const agentId = this.apiKeys.get(oldKey) || null;
+    if (agentId) {
+      const agent = this.agents.get(agentId);
+      if (agent) {
+        agent.apiKey = newKey;
+      }
+    }
+    this.apiKeys.delete(oldKey);
+    if (agentId) {
+      this.apiKeys.set(newKey, agentId);
+    }
+    await this.issueApiKey(newKey);
+    this.revokeApiKey(oldKey);
+    if (this.db && agentId) {
+      await this.assignApiKeyToAgent(newKey, agentId);
+    }
+    return { agentId };
+  }
+
   isApiKeyIssued(apiKey) {
     return this.issuedApiKeys.has(apiKey);
+  }
+
+  getIssuedKeys() {
+    return Array.from(this.issuedApiKeys).map(apiKey => ({
+      apiKey,
+      agentId: this.apiKeys.get(apiKey) || null
+    }));
   }
 
   async registerAgent(data) {

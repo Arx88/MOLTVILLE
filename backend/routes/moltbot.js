@@ -69,6 +69,74 @@ router.post('/revoke-key', async (req, res) => {
   }
 });
 
+// Rotate API key
+router.post('/rotate-key', async (req, res) => {
+  try {
+    const { apiKey } = req.body;
+    if (typeof apiKey !== 'string' || apiKey.trim().length === 0) {
+      return res.status(400).json({ error: 'API key is required' });
+    }
+    const normalizedKey = apiKey.trim();
+    const { moltbotRegistry, io } = req.app.locals;
+
+    if (!moltbotRegistry.isApiKeyIssued(normalizedKey)) {
+      return res.status(404).json({ error: 'API key not found' });
+    }
+
+    const newApiKey = `moltville_${uuidv4().replace(/-/g, '')}`;
+    const rotation = await moltbotRegistry.rotateApiKey(normalizedKey, newApiKey);
+
+    if (rotation?.agentId) {
+      const socketId = moltbotRegistry.getAgentSocket(rotation.agentId);
+      if (socketId && io) {
+        io.to(socketId).emit('auth:rotated', { apiKey: newApiKey });
+      }
+    }
+
+    return res.json({
+      rotated: true,
+      apiKey: newApiKey,
+      instructions: {
+        websocket: `ws://localhost:${process.env.PORT || 3001}`,
+        event: 'agent:connect',
+        payload: {
+          apiKey: newApiKey,
+          agentId: rotation?.agentId || uuidv4()
+        }
+      }
+    });
+  } catch (error) {
+    res.status(500).json({ error: error.message });
+  }
+});
+
+// List API keys with status
+router.get('/keys', async (req, res) => {
+  try {
+    const { moltbotRegistry, db } = req.app.locals;
+    if (db) {
+      const result = await db.query(
+        'SELECT api_key, agent_id, issued_at, revoked_at FROM api_keys ORDER BY issued_at DESC'
+      );
+      return res.json(result.rows.map(row => ({
+        apiKey: row.api_key,
+        agentId: row.agent_id,
+        issuedAt: row.issued_at,
+        revokedAt: row.revoked_at
+      })));
+    }
+    const issued = moltbotRegistry.getIssuedKeys();
+    return res.json(issued.map(entry => ({
+      apiKey: entry.apiKey,
+      agentId: entry.agentId,
+      issuedAt: null,
+      revokedAt: null
+    })));
+  } catch (error) {
+    return res.status(500).json({ error: error.message });
+  }
+});
+
 // Get agent info
 router.get('/:agentId', async (req, res) => {
   try {

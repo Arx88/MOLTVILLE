@@ -112,6 +112,7 @@ app.locals.governanceManager = governanceManager;
 app.locals.cityMoodManager = cityMoodManager;
 app.locals.aestheticsManager = aestheticsManager;
 app.locals.io = io;
+app.locals.db = db;
 
 if (db) {
   moltbotRegistry.initializeFromDb().catch(error => logger.error('API key init failed:', error));
