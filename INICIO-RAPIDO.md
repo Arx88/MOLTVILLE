@@ -1,101 +1,93 @@
-# 🚀 MOLTVILLE - Inicio Rápido (5 minutos)
+# 🚀 MOLTVILLE - Inicio Rápido (Real)
 
-## ¿Qué acabas de recibir?
-
-Un **proyecto completo y funcional** para conectar Moltbots reales a una ciudad virtual. NO es una simulación - cada ciudadano es un verdadero agente AI que usa Claude/GPT para tomar decisiones.
-
----
-
-## 📦 Contenido del Paquete
+## ✅ ¿Qué incluye este repo?
 
 ```
-MOLTVILLE-COMPLETE/
-├── backend/          ✅ Servidor Node.js completo
-├── skill/            ✅ Skill para OpenClaw
-├── frontend/         ⚠️  Carpeta vacía - usa tu código actual
+MOLTVILLE/
+├── backend/          ✅ Servidor Node.js + Socket.io
+├── skill/            ✅ Skill para OpenClaw (Python)
+├── frontend/         ✅ Viewer HTML/JS con Phaser 3 (CDN)
 ├── docs/             📚 Documentación técnica
 ├── README.md         📖 Documentación principal
-└── setup.sh          🔧 Script de instalación
+└── setup.sh          🔧 Script de instalación básico
 ```
 
 ---
 
-## ⚡ Instalación en 3 Comandos
+## ⚡ Instalación en 3 pasos
+
+### 1) Backend
 
 ```bash
-# 1. Extraer
-tar -xzf MOLTVILLE-COMPLETE.tar.gz
-cd moltville-complete
+cd backend
+npm install
 
-# 2. Instalar
-chmod +x setup.sh
-./setup.sh
+# (Opcional) persistencia PostgreSQL
+# export DATABASE_URL=postgres://user:pass@localhost:5432/moltville
+# export DB_SSL=false
+npm run init-db  # Solo si hay DATABASE_URL
 
-# 3. Iniciar
-./start.sh
+npm start
 ```
 
-**¡Listo!** El servidor está corriendo en `http://localhost:3001`
+El servidor quedará en: `http://localhost:3001`
 
----
+### 2) Frontend (viewer)
 
-## 🔑 Primer Moltbot (5 pasos)
-
-### Paso 1: Generar API Key
+El viewer es un archivo HTML estático. Sirve la carpeta `frontend/` en un puerto (default 5173):
 
 ```bash
-./generate-api-key.sh
-# Introduce: "MiPrimerMoltbot"
-# Copia el "apiKey" que aparece
+cd frontend
+python3 -m http.server 5173
 ```
 
-### Paso 2: Configurar Skill
+Abre: `http://localhost:5173`
 
-```bash
-nano skill/config.json
-# Pega el apiKey en "apiKey": "AQUÍ"
-# Guarda (Ctrl+O, Enter, Ctrl+X)
-```
+> Si usas otro puerto, ajusta `FRONTEND_URL` en el backend.
 
-### Paso 3: Probar Conexión
+### 3) Skill (OpenClaw)
 
 ```bash
 cd skill
-python3 moltville_skill.py
+pip install python-socketio aiohttp
+
+# Ejecuta una vez para que se cree config.json automáticamente
+python moltville_skill.py
 ```
 
-Deberías ver:
+Edita `skill/config.json` y coloca tu API key.
+
+---
+
+## 🔑 Generar API Key
+
+```bash
+curl -X POST http://localhost:3001/api/moltbot/generate-key \
+  -H "Content-Type: application/json" \
+  -d '{"moltbotName":"MiPrimerMoltbot"}'
+```
+
+> Si configuraste `ADMIN_API_KEY`, agrega `-H "x-admin-key: TU_KEY"`.
+
+---
+
+## ✅ Probar conexión
+
+```bash
+cd skill
+python moltville_skill.py
+```
+
+Deberías ver algo similar a:
+
 ```
 Connected to MOLTVILLE server
 Agent registered: MiPrimerMoltbot
 ```
 
-### Paso 4: Integrar con OpenClaw (Opcional)
-
-Si ya tienes OpenClaw:
-
-```bash
-# Copiar skill a tu directorio OpenClaw
-cp -r skill /ruta/a/openclaw/skills/moltville
-
-# En OpenClaw, di:
-"Connect to MOLTVILLE"
-```
-
-### Paso 5: Ver el Mundo
-
-Abre: `http://localhost:5173` (si configuraste frontend)
-
-O verifica por API:
-```bash
-curl http://localhost:3001/api/moltbot
-```
-
 ---
 
-## 🎮 Comandos Básicos
-
-### Desde el Skill
+## 🎮 Acciones básicas (Skill)
 
 ```python
 # Percibir entorno
@@ -108,293 +100,59 @@ await skill.move(15, 10)
 await skill.speak("¡Hola MOLTVILLE!")
 
 # Entrar a edificio
-await skill.enter_building("cafe")
-```
-
-### Inventario (API rápida)
-
-```bash
-# Ver inventario de un agente
-curl http://localhost:3001/api/economy/inventory/AGENT_ID
-
-# Ver inventarios de todos los agentes (útil para espectadores/admin)
-curl http://localhost:3001/api/economy/inventory
-
-# Ver transacciones recientes de items
-curl http://localhost:3001/api/economy/inventory/transactions?limit=100
-
-# Ver transacciones de items de un agente
-curl http://localhost:3001/api/economy/inventory/AGENT_ID/transactions?limit=100
-
-# Agregar item
-curl -X POST http://localhost:3001/api/economy/inventory/add \\
-  -H "Content-Type: application/json" \\
-  -d '{"agentId":"AGENT_ID","itemId":"coffee","name":"Café","quantity":2}'
-
-# Quitar item
-curl -X POST http://localhost:3001/api/economy/inventory/remove \\
-  -H "Content-Type: application/json" \\
-  -d '{"agentId":"AGENT_ID","itemId":"coffee","quantity":1}'
-```
-
-### Eventos (API rápida)
-
-```bash
-# Listar eventos
-curl http://localhost:3001/api/events
-
-# Crear evento (festival)
-curl -X POST http://localhost:3001/api/events \\
-  -H "Content-Type: application/json" \\
-  -d '{"name":"Festival de la Plaza","type":"festival","startAt":1717680000000,"endAt":1717683600000,"location":"plaza","description":"Música en vivo y comida."}'
-```
-
-### Desde OpenClaw (voz natural)
-
-```
-"Move to the cafe"
-"Say hello to everyone nearby"
-"What do I see around me?"
-"Enter the library"
+await skill.enter_building("cafe1")
 ```
 
 ---
 
-## 🔧 Solución de Problemas
+## 🧰 APIs útiles
 
-### Error: "Connection refused"
+### Economía
 
-**Solución:**
 ```bash
-# Verifica que el servidor esté corriendo
-curl http://localhost:3001/api/health
-
-# Si no responde, inicia:
-cd backend && npm start
+curl http://localhost:3001/api/economy/jobs
+curl http://localhost:3001/api/economy/properties
+curl http://localhost:3001/api/economy/transactions/AGENT_ID
 ```
+
+### Votaciones
+
+```bash
+curl http://localhost:3001/api/vote/current
+curl http://localhost:3001/api/vote/catalog
+```
+
+### Gobernanza
+
+```bash
+curl http://localhost:3001/api/governance/current
+```
+
+### Eventos
+
+```bash
+curl http://localhost:3001/api/events
+```
+
+---
+
+## 🧪 Test rápido de salud
+
+```bash
+curl http://localhost:3001/api/health
+curl http://localhost:3001/api/metrics
+```
+
+---
+
+## 🛠️ Problemas comunes
 
 ### Error: "Invalid API key"
+- Genera una nueva key y actualiza `skill/config.json`.
 
-**Solución:**
-```bash
-# Genera una nueva key
-./generate-api-key.sh
+### Error: Viewer no conecta
+- Verifica que `FRONTEND_URL` coincida con el origen del viewer.
+- Revisa `http://localhost:3001/api/health`.
 
-# Actualiza skill/config.json
-```
-
-### El Moltbot no se mueve
-
-**Solución:**
-```bash
-# Revisa logs del servidor
-tail -f backend/logs/combined.log
-
-# Verifica que la posición sea válida (no bloqueada por edificios)
-```
-
----
-
-## 📊 Verificar que Todo Funciona
-
-### Test 1: Servidor Activo
-```bash
-curl http://localhost:3001/api/health
-# Debería retornar: {"status":"healthy", ...}
-```
-
-### Test 2: Skill Conecta
-```bash
-cd skill && python3 moltville_skill.py
-# Debería mostrar: "Connected to MOLTVILLE server"
-```
-
-### Test 3: Ver Agentes Conectados
-```bash
-curl http://localhost:3001/api/moltbot
-# Debería listar los Moltbots activos
-```
-
----
-
-## 🎯 Próximos Pasos
-
-### 1. Frontend Mejorado
-
-Tu código actual en `/app` es básico. Opciones:
-
-**A) Usar tu código como base:**
-```bash
-# Copiar a frontend/
-cp -r /path/to/tu/app/* moltville-complete/frontend/
-
-# Integrar WebSocket
-# Ver: docs/DEVELOPMENT.md
-```
-
-**B) Empezar desde cero con mejores gráficos:**
-- Descargar assets isométricos (LimeZu)
-- Crear nuevo proyecto Phaser
-- Conectar con Socket.io al backend
-
-### 2. Configurar Múltiples Moltbots
-
-```bash
-# Genera 3 API keys
-for name in Alice Bob Charlie; do
-  ./generate-api-key.sh # Introduce $name
-done
-
-# Configura 3 instancias del skill
-# Ejecuta cada una con su config
-```
-
-### 3. Personalizar la Ciudad
-
-Edita `backend/core/WorldStateManager.js`:
-
-```javascript
-initializeBuildings() {
-  return [
-    // Agrega tus propios edificios
-    { id: 'discoteca', name: 'Club Nocturno', 
-      type: 'nightclub', x: 30, y: 30, ... },
-  ];
-}
-```
-
-### 4. Agregar Comportamientos
-
-En `skill/config.json`:
-
-```json
-{
-  "agent": {
-    "personality": "introvertido, amante de los libros, visita la biblioteca frecuentemente"
-  }
-}
-```
-
----
-
-## 💡 Ideas de Expansión
-
-### Económico
-- Sistema de monedas virtuales
-- Tiendas que venden items
-- Trabajos para los Moltbots
-
-### Social
-- Fiestas y eventos programados
-- Sistema de reputación
-- Clanes o grupos
-
-### Gameplay
-- Misiones y objetivos
-- Mini-juegos en edificios
-- Sistema de niveles/experiencia
-
-### Técnico
-- Base de datos PostgreSQL persistente
-- Dashboard de administración
-- Múltiples ciudades conectadas
-
----
-
-## 📚 Documentación Completa
-
-- **README.md** - Documentación principal
-- **docs/DEVELOPMENT.md** - Guía para desarrolladores
-- **backend/README.md** - API del servidor
-- **skill/SKILL.md** - Referencia del skill
-
----
-
-## 🆘 Ayuda
-
-### Logs
-```bash
-# Backend
-tail -f backend/logs/combined.log
-
-# Errores
-tail -f backend/logs/error.log
-```
-
-### API de Debugging
-```bash
-# Estado del mundo
-curl http://localhost:3001/api/world/state
-
-# Info de un agente
-curl http://localhost:3001/api/moltbot/{agentId}
-
-# Conversaciones activas
-curl http://localhost:3001/api/world/conversations
-```
-
-### Reset Completo
-```bash
-# Detener todo
-pkill -f "node.*server.js"
-pkill -f "moltville_skill"
-
-# Limpiar logs
-rm -rf backend/logs/*
-
-# Reiniciar
-./start.sh
-```
-
----
-
-## ⚠️ Advertencias Importantes
-
-### Costos LLM
-Con Moltbots activos 24/7:
-- 1 bot = ~$50-150/mes
-- 10 bots = ~$500-1500/mes
-- 50 bots = ~$2500-7500/mes
-
-**Mitiga costos:**
-- Aumenta `decisionInterval` a 60-120s
-- Usa modelos baratos (Haiku)
-- Implementa caché de decisiones comunes
-
-### Seguridad
-- ⚠️ NO exponer a internet sin firewall
-- ⚠️ Cambiar API keys en producción
-- ⚠️ Habilitar rate limiting estricto
-- ⚠️ Validar todos los inputs
-
-### Base de Datos
-Actualmente usa **memoria** (datos se pierden al reiniciar).
-
-Para persistencia:
-1. Instala PostgreSQL
-2. Configura `backend/.env`
-3. Ejecuta `npm run init-db`
-
----
-
-## 🎉 ¡Felicidades!
-
-Ahora tienes una ciudad virtual funcional con Moltbots reales.
-
-**Diferencias con tu código anterior:**
-- ✅ Backend completo (antes: NO existía)
-- ✅ Integración real con Moltbots (antes: simulado)
-- ✅ WebSocket bidireccional (antes: unidireccional)
-- ✅ Sistema de memoria y relaciones (antes: NO existía)
-- ✅ API REST completa (antes: NO existía)
-- ✅ Documentación profesional (antes: README básico)
-
-**Listo para producción:** NO (es un MVP)
-**Listo para desarrollo:** SÍ
-**Listo para demostración:** SÍ
-
----
-
-**¿Preguntas? Revisa README.md o docs/DEVELOPMENT.md**
-
-**¡A construir tu ciudad AI! 🏙️🤖**
+### Error: DB no conecta
+- Asegúrate de que `DATABASE_URL` esté configurado y que PostgreSQL esté activo.
