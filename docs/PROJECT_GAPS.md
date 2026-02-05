@@ -89,6 +89,7 @@ seguro y profesional, pero **sin perder de vista lo que ya existe en el repo**.
 ### 4.1 Tests parciales
 **Qué existe:**
 - Tests unitarios básicos para WorldState, Voting, Economy y Registry.
+- Tests básicos para rutas de métricas (JSON y Prometheus).
 
 **Qué falta:**
 - Tests de integración (WebSocket y flujos reales).
