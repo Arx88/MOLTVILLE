@@ -400,12 +400,19 @@ export class WorldStateManager {
       { x: 1, y: 1 },  { x: -1, y: 1 }
     ];
 
-    const heuristic = (x, y) => Math.abs(x - endX) + Math.abs(y - endY);
+    const heuristic = (x, y) => {
+      const dx = Math.abs(x - endX);
+      const dy = Math.abs(y - endY);
+      const min = Math.min(dx, dy);
+      const max = Math.max(dx, dy);
+      return (1.414 * min) + (max - min);
+    };
     open[0].h = heuristic(startX, startY);
     open[0].f = open[0].h;
 
     let iterations = 0;
-    while (open.length > 0 && iterations < 500) {
+    const maxIterations = 1200;
+    while (open.length > 0 && iterations < maxIterations) {
       iterations++;
       // Find node with lowest f
       let bestIdx = 0;
@@ -465,12 +472,22 @@ export class WorldStateManager {
   moveAgentTo(agentId, targetX, targetY) {
     const agent = this.agents.get(agentId);
     if (!agent) throw new Error(`Agent ${agentId} not found`);
-    if (!this.isWalkable(targetX, targetY)) throw new Error(`Target (${targetX}, ${targetY}) is not walkable`);
-    if (this.isOccupied(targetX, targetY, agentId)) {
+    let finalTargetX = targetX;
+    let finalTargetY = targetY;
+    if (!this.isWalkable(finalTargetX, finalTargetY)) {
+      const fallback = this.findNearestWalkable(targetX, targetY, 3, agentId);
+      if (fallback) {
+        finalTargetX = fallback.x;
+        finalTargetY = fallback.y;
+      } else {
+        throw new Error(`Target (${targetX}, ${targetY}) is not walkable`);
+      }
+    }
+    if (this.isOccupied(finalTargetX, finalTargetY, agentId)) {
       return { success: false, reason: 'Target occupied' };
     }
 
-    const path = this.findPath(agent.x, agent.y, targetX, targetY);
+    const path = this.findPath(agent.x, agent.y, finalTargetX, finalTargetY);
     if (!path || path.length < 2) return { success: false, reason: 'No path found' };
 
     this.movementState.set(agentId, {
@@ -490,7 +507,11 @@ export class WorldStateManager {
     else agent.facing = dy > 0 ? 'down' : 'up';
 
     agent.state = 'moving';
-    return { success: true, path };
+    return {
+      success: true,
+      path,
+      target: { x: finalTargetX, y: finalTargetY }
+    };
   }
 
   // Legacy single-step move (still supported)
@@ -572,6 +593,22 @@ export class WorldStateManager {
     const agent = this.agents.get(agentId);
     if (!agent) return null;
     return { x: agent.x, y: agent.y, facing: agent.facing };
+  }
+
+  findNearestWalkable(targetX, targetY, maxRadius = 2, excludeAgentId = null) {
+    for (let radius = 1; radius <= maxRadius; radius++) {
+      for (let dx = -radius; dx <= radius; dx++) {
+        for (let dy = -radius; dy <= radius; dy++) {
+          if (Math.abs(dx) !== radius && Math.abs(dy) !== radius) continue;
+          const candidateX = targetX + dx;
+          const candidateY = targetY + dy;
+          if (!this.isWalkable(candidateX, candidateY)) continue;
+          if (this.isOccupied(candidateX, candidateY, excludeAgentId)) continue;
+          return { x: candidateX, y: candidateY };
+        }
+      }
+    }
+    return null;
   }
 
   getAllAgentPositions() {

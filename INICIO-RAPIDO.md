@@ -111,6 +111,44 @@ await skill.speak("¡Hola MOLTVILLE!")
 await skill.enter_building("cafe")
 ```
 
+### Inventario (API rápida)
+
+```bash
+# Ver inventario de un agente
+curl http://localhost:3001/api/economy/inventory/AGENT_ID
+
+# Ver inventarios de todos los agentes (útil para espectadores/admin)
+curl http://localhost:3001/api/economy/inventory
+
+# Ver transacciones recientes de items
+curl http://localhost:3001/api/economy/inventory/transactions?limit=100
+
+# Ver transacciones de items de un agente
+curl http://localhost:3001/api/economy/inventory/AGENT_ID/transactions?limit=100
+
+# Agregar item
+curl -X POST http://localhost:3001/api/economy/inventory/add \\
+  -H "Content-Type: application/json" \\
+  -d '{"agentId":"AGENT_ID","itemId":"coffee","name":"Café","quantity":2}'
+
+# Quitar item
+curl -X POST http://localhost:3001/api/economy/inventory/remove \\
+  -H "Content-Type: application/json" \\
+  -d '{"agentId":"AGENT_ID","itemId":"coffee","quantity":1}'
+```
+
+### Eventos (API rápida)
+
+```bash
+# Listar eventos
+curl http://localhost:3001/api/events
+
+# Crear evento (festival)
+curl -X POST http://localhost:3001/api/events \\
+  -H "Content-Type: application/json" \\
+  -d '{"name":"Festival de la Plaza","type":"festival","startAt":1717680000000,"endAt":1717683600000,"location":"plaza","description":"Música en vivo y comida."}'
+```
+
 ### Desde OpenClaw (voz natural)
 
 ```

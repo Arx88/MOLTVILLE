@@ -24,6 +24,7 @@ import { GovernanceManager } from './core/GovernanceManager.js';
 import { db } from './utils/db.js';
 import { CityMoodManager } from './core/CityMoodManager.js';
 import { AestheticsManager } from './core/AestheticsManager.js';
+import { EventManager } from './core/EventManager.js';
 
 import authRoutes from './routes/auth.js';
 import moltbotRoutes from './routes/moltbot.js';
@@ -32,6 +33,7 @@ import economyRoutes from './routes/economy.js';
 import voteRoutes from './routes/vote.js';
 import governanceRoutes from './routes/governance.js';
 import { createAestheticsRouter } from './routes/aesthetics.js';
+import eventRoutes from './routes/events.js';
 
 const app = express();
 const httpServer = createServer(app);
@@ -96,11 +98,12 @@ const worldState = new WorldStateManager();
 const moltbotRegistry = new MoltbotRegistry({ db });
 const actionQueue = new ActionQueue(worldState, moltbotRegistry);
 const interactionEngine = new InteractionEngine(worldState, moltbotRegistry);
-const economyManager = new EconomyManager(worldState, { db });
+const economyManager = new EconomyManager(worldState, { db, io });
 const votingManager = new VotingManager(worldState, io, { db, economyManager });
 const governanceManager = new GovernanceManager(io, { db });
 const cityMoodManager = new CityMoodManager(economyManager, interactionEngine);
 const aestheticsManager = new AestheticsManager({ worldStateManager: worldState, economyManager, governanceManager, io });
+const eventManager = new EventManager({ io });
 
 app.locals.worldState = worldState;
 app.locals.moltbotRegistry = moltbotRegistry;
@@ -111,6 +114,7 @@ app.locals.votingManager = votingManager;
 app.locals.governanceManager = governanceManager;
 app.locals.cityMoodManager = cityMoodManager;
 app.locals.aestheticsManager = aestheticsManager;
+app.locals.eventManager = eventManager;
 app.locals.io = io;
 
 if (db) {
@@ -128,6 +132,7 @@ app.use('/api/economy', economyRoutes);
 app.use('/api/vote', voteRoutes);
 app.use('/api/governance', governanceRoutes);
 app.use('/api/aesthetics', createAestheticsRouter({ aestheticsManager }));
+app.use('/api/events', eventRoutes);
 
 app.get('/api/health', (req, res) => {
   res.json({
@@ -140,6 +145,15 @@ app.get('/api/health', (req, res) => {
 
 app.get('/api/metrics', (req, res) => {
   const viewersRoom = io.sockets.adapter.rooms.get('viewers');
+  const events = eventManager.getSummary();
+  const eventCounts = events.reduce(
+    (acc, event) => {
+      acc.total += 1;
+      acc[event.status] += 1;
+      return acc;
+    },
+    { total: 0, scheduled: 0, active: 0, ended: 0 }
+  );
   res.json({
     uptimeSec: Math.floor((Date.now() - metrics.startTime) / 1000),
     http: metrics.http,
@@ -149,6 +163,13 @@ app.get('/api/metrics', (req, res) => {
       connectedAgents: moltbotRegistry.getAgentCount(),
       connectedViewers: viewersRoom ? viewersRoom.size : 0
     },
+    economy: {
+      agentsWithBalance: economyManager.balances.size,
+      averageBalance: economyManager.getAverageBalance(),
+      inventory: economyManager.getInventoryStats(),
+      itemTransactions: economyManager.getItemTransactions(500).length
+    },
+    events: eventCounts,
     world: metrics.world
   });
 });
@@ -170,7 +191,12 @@ io.on('connection', (socket) => {
     socket.emit('world:state', {
       ...worldState.getFullState(),
       governance: governanceManager.getSummary(),
-      mood: cityMoodManager.getSummary()
+      mood: cityMoodManager.getSummary(),
+      events: eventManager.getSummary(),
+      economy: {
+        inventories: economyManager.getAllInventories(),
+        itemTransactions: economyManager.getItemTransactions()
+      }
     });
     socket.emit('agents:list', moltbotRegistry.getAllAgents());
     logger.info(`Viewer joined: ${socket.id}`);
@@ -421,12 +447,14 @@ setInterval(() => {
   const tickStart = Date.now();
   worldState.tick();
   actionQueue.processQueue();
+  moltbotRegistry.pruneMemories();
   economyManager.applyPolicies(governanceManager.getSummary().policies || []);
   economyManager.tick();
   votingManager.tick();
   governanceManager.tick();
   cityMoodManager.tick();
   aestheticsManager.tick(moltbotRegistry.getAgentCount());
+  eventManager.tick();
   interactionEngine.cleanupOldConversations();
 
   // Broadcast interpolated agent positions to viewers
@@ -438,6 +466,7 @@ setInterval(() => {
     vote: votingManager.getVoteSummary(),
     governance: governanceManager.getSummary(),
     mood: cityMoodManager.getSummary(),
+    events: eventManager.getSummary(),
     aesthetics: aestheticsManager.getVoteSummary()
   });
   recordTickDuration(Date.now() - tickStart);
