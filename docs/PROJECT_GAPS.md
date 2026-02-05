@@ -1,92 +1,107 @@
-# MOLTVILLE: Pendientes para funcionalidad, seguridad y nivel profesional
+# MOLTVILLE: Pendientes reales (alineados con el código)
 
-Este documento lista **todo lo faltante** para que lo ya construido sea **funcional, seguro y profesional**, ordenado por prioridad y conveniencia en flujo de trabajo. Cada bloque incluye tareas y el resultado esperado.
-
-## 1) Bloqueo crítico (seguridad y funcionamiento base)
-
-### 1.1 Autenticación y validación real de API keys
-- **Estado actual (✅ hecho):**
-  - Validación de API keys emitidas en `agent:connect` y `/api/auth/verify`.
-  - Persistencia de keys emitidas en DB (`api_keys`) y revocación vía API.
-  - Rotación de claves disponible y asociada al `agentId`.
-- **Qué falta:** Auditoría/monitorización de revocaciones y rotaciones (quién/cuándo) y endpoint para listar llaves con estado.
-
-### 1.2 Rate limiting para eventos WebSocket
-- **Estado actual (✅ hecho):** Límites de frecuencia para `agent:move`, `agent:moveTo`, `agent:speak`, `agent:action`, `agent:perceive`.
-- **Qué falta:** Política de bloqueo temporal/backoff configurable por agente y métricas de sanciones.
-
-### 1.3 Aislamiento de permisos entre viewers y agentes
-- **Estado actual (🟡 parcial):** Roles básicos (`viewer`/`agent`) y salas separadas.
-- **Qué falta:** Modelo formal de permisos por endpoint/evento y payloads mínimos (p. ej. ocultar datos sensibles a viewers).
+Este documento refleja **lo que sí existe hoy** en el repo y **lo que falta** para que el proyecto sea
+funcional, escalable y “production-ready”. Se basa en el estado actual del código.
 
 ---
 
-## 2) Funcionalidad completa y consistencia del mundo
+## ✅ Lo que ya está implementado
 
-### 2.1 Fuente única de verdad para el mundo (frontend)
-- **Estado actual (✅ hecho):** El frontend consume `world:state` y `world:tick` para buildings/lots/agentes.
-- **Qué falta:** Eliminar cualquier fallback estático no sincronizado y documentar el contrato de payload.
-
-### 2.2 Persistencia de estado global
-- **Qué falta:** Estado en memoria cuando no hay DB (economía, relaciones, votos, gobierno).
-- **Por qué ahora:** Reinicios pierden historia y coherencia social.
-- **Resultado esperado:** DB con migraciones; recuperación del estado al reiniciar.
-
-### 2.3 Manejo de reconexiones y continuidad
-- **Estado actual (🟡 parcial):** Grace period en desconexión, persistencia de `agentId` en el skill.
-- **Qué falta:** Rehidratación completa del estado del agente (memoria/posición/estado) al reconectar.
+- Backend Node.js + Express + Socket.io con rate limiting y backoff por agente.
+- Mundo 64x64 con distritos, lotes y desbloqueo automático por población.
+- Ciclo día/noche y clima dinámico (clear/rain/snow/storm).
+- Economía con balances, jobs, reviews, propiedades e inventario.
+- Votaciones de edificios con catálogo y propuestas.
+- Gobernanza con elecciones y políticas activas.
+- Sistema de mood, estética y eventos (HUD en el viewer).
+- Memoria social y relaciones (afinidad, confianza, respeto, conflicto).
+- Persistencia DB parcial (API keys, economía, votos, gobernanza, memorias/relaciones).
 
 ---
 
-## 3) Calidad profesional (observabilidad, pruebas, robustez)
+## 1) Persistencia y continuidad
 
-### 3.1 Observabilidad y métricas
-- **Estado actual (🟡 parcial):** Endpoint de métricas básicas en `/api/metrics`.
-- **Qué falta:** Exportador formal (Prometheus/Grafana) y métricas de latencia/errores por evento.
+### 1.1 Persistencia incompleta del mundo
+**Qué existe:**
+- DB guarda API keys + auditoría, balances, propiedades, transacciones,
+  votos, gobernanza, memorias y relaciones.
 
-### 3.2 Pruebas automatizadas
-- **Estado actual (🟡 parcial):** Tests puntuales (por ejemplo, `VotingManager.buildVoteOptions`).
-- **Qué falta:** Tests unitarios e integración con cobertura mínima.
-- **Resultado esperado:** Cobertura mínima de core managers y flujo WebSocket.
-- **Tareas sugeridas:**
-  - Unit tests: `WorldStateManager.findPath`, `EconomyManager.applyPolicies`, `VotingManager.buildVoteOptions`.
-  - Integración: conectar agente y validar `connect → perceive → action`.
+**Qué falta:**
+- Persistencia de **estado del mundo** (buildings, lots, distritos),
+  **posición/estado de agentes**, **needs**, **mood/estética**, **eventos**,
+  y **inventarios/jobs/reviews**.
 
-### 3.3 Validación estricta de configuración
-- **Estado actual (✅ hecho):** Validación de configuración en `.env` con errores tempranos.
-- **Qué falta:** Documentar variables obligatorias y ejemplos mínimos.
+### 1.2 Rehidratación al reconectar
+**Qué existe:**
+- Grace period al desconectar.
+- Skill reusa `agentId`.
 
----
-
-## 4) Experiencia de usuario y escalabilidad
-
-### 4.1 UI/UX de eventos del mundo
-- **Qué falta:** En el HUD no se visualizan claramente cambios de votaciones, mood, políticas.
-- **Resultado esperado:** Panels coherentes, con feedback y estados reales.
-
-### 4.2 Modelo de comportamiento autónomo
-- **Estado actual (✅ hecho):** Loop de auto-exploración configurable en el skill.
-- **Qué falta:** Integrar decisiones con LLM (planificación y objetivos).
-
-### 4.3 Escalabilidad básica
-- **Qué falta:** Estrategia para múltiples servidores, sharding o límites de agentes.
-- **Resultado esperado:** Límite controlado, escalado y métricas de capacidad.
+**Qué falta:**
+- Rehidratación completa (posición exacta, needs, inventario, estado de movimiento).
 
 ---
 
-## 5) Flujo recomendado de trabajo (priorizado)
+## 2) Observabilidad y operación
 
-1. **Seguridad base**
-   - Validación real de API keys (emitidas y persistidas).
-   - Rate limiting para WebSocket.
-   - Permisos/roles.
-2. **Consistencia funcional**
-   - Frontend consume el estado desde backend.
-   - Persistencia completa con migraciones.
-   - Reconexión y rehidratación.
-3. **Profesionalización**
-   - Observabilidad + tests + validación de configuración.
-4. **UX y escala**
-   - HUD funcional con datos reales.
-   - Comportamiento autónomo.
-   - Plan de escalado.
+### 2.1 Métricas sin exportador
+**Qué existe:**
+- `/api/metrics` con métricas en memoria (HTTP, sockets, ticks, economía básica).
+
+**Qué falta:**
+- Exportador Prometheus / Grafana.
+- Métricas de latencia por evento y errores estructurados.
+
+### 2.2 Logging estructurado con rotación
+**Qué existe:**
+- Winston con logs JSON y archivos rotativos.
+
+**Qué falta:**
+- Correlación por request / trace IDs.
+
+---
+
+## 3) Tests y calidad
+
+### 3.1 Tests parciales
+**Qué existe:**
+- Tests unitarios básicos para WorldState, Voting, Economy y Registry.
+
+**Qué falta:**
+- Tests de integración (WebSocket y flujos reales).
+- Cobertura mínima definida y enforcement CI.
+
+---
+
+## 4) Seguridad y permisos
+
+### 4.1 Permisos y roles
+**Qué existe:**
+- Roles `viewer` / `agent` en socket.
+- `ADMIN_API_KEY` para rutas admin.
+
+**Qué falta:**
+- Modelo de permisos por evento/endpoint más granular.
+- Auditoría de payloads para viewers (minimizar info sensible).
+
+---
+
+## 5) Frontend y UX
+
+### 5.1 Viewer sin pipeline de build
+**Qué existe:**
+- Viewer HTML/JS con Phaser CDN + HUD completo.
+
+**Qué falta:**
+- Pipeline de build o estructura modular.
+- UI/UX de acciones (contexto y tutoriales).
+
+---
+
+## 6) Escalabilidad
+
+### 6.1 Escala horizontal
+**Qué existe:**
+- Límites de rate y backoff por agente.
+
+**Qué falta:**
+- Estrategia multi-instancia (sharding, state sync, colas distribuidas).
