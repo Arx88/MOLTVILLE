@@ -10,6 +10,7 @@ import socketio
 from typing import Dict, List, Optional, Any
 from pathlib import Path
 import logging
+import random
 
 # Setup logging
 logging.basicConfig(level=logging.INFO)
@@ -22,24 +23,25 @@ class MOLTVILLESkill:
     
     def __init__(self, config_path: str = "config.json"):
         """Initialize the skill with configuration"""
-        self.config = self._load_config(config_path)
+        self.config_path = Path(__file__).parent / config_path
+        self.config = self._load_config(self.config_path)
         self.sio = socketio.AsyncClient(
             reconnection=True,
             reconnection_attempts=5,
             reconnection_delay=2
         )
         self.connected = False
-        self.agent_id = None
+        self.agent_id_path = Path(__file__).parent / ".moltville_agent_id"
+        self.agent_id = self._load_agent_id()
         self.current_state = {}
+        self._auto_task: Optional[asyncio.Task] = None
         
         # Setup event handlers
         self._setup_handlers()
     
-    def _load_config(self, config_path: str) -> Dict:
+    def _load_config(self, config_path: Path) -> Dict:
         """Load configuration from file"""
-        config_file = Path(__file__).parent / config_path
-        
-        if not config_file.exists():
+        if not config_path.exists():
             # Create default config
             default_config = {
                 "server": {
@@ -58,14 +60,39 @@ class MOLTVILLESkill:
                 }
             }
             
-            with open(config_file, 'w') as f:
+            with open(config_path, 'w') as f:
                 json.dump(default_config, f, indent=2)
             
-            logger.warning(f"Created default config at {config_file}. Please update with your API key!")
+            logger.warning(f"Created default config at {config_path}. Please update with your API key!")
             return default_config
         
-        with open(config_file) as f:
+        with open(config_path) as f:
             return json.load(f)
+
+    def _save_config(self) -> None:
+        try:
+            with open(self.config_path, 'w') as f:
+                json.dump(self.config, f, indent=2)
+        except OSError as error:
+            logger.warning(f"Failed to save config: {error}")
+
+    def _load_agent_id(self) -> Optional[str]:
+        if not self.agent_id_path.exists():
+            return None
+        try:
+            stored = self.agent_id_path.read_text().strip()
+            return stored or None
+        except OSError as error:
+            logger.warning(f"Failed to load agent id: {error}")
+            return None
+
+    def _store_agent_id(self, agent_id: str) -> None:
+        if not agent_id:
+            return
+        try:
+            self.agent_id_path.write_text(agent_id)
+        except OSError as error:
+            logger.warning(f"Failed to store agent id: {error}")
     
     def _setup_handlers(self):
         """Setup WebSocket event handlers"""
@@ -79,6 +106,9 @@ class MOLTVILLESkill:
         async def disconnect():
             logger.info("Disconnected from MOLTVILLE server")
             self.connected = False
+            if self._auto_task:
+                self._auto_task.cancel()
+                self._auto_task = None
         
         @self.sio.event
         async def agent_registered(data):
@@ -86,6 +116,17 @@ class MOLTVILLESkill:
             self.agent_id = data['agentId']
             self.current_state = data
             self.connected = True
+            self._store_agent_id(self.agent_id)
+
+        @self.sio.on('auth:rotated')
+        async def auth_rotated(data):
+            if not isinstance(data, dict):
+                return
+            new_key = data.get('apiKey')
+            if isinstance(new_key, str) and new_key.strip():
+                self.config['server']['apiKey'] = new_key.strip()
+                self._save_config()
+                logger.info("API key rotated and saved.")
         
         @self.sio.event
         async def perception_update(data):
@@ -109,10 +150,29 @@ class MOLTVILLESkill:
         """Authenticate with server"""
         await self.sio.emit('agent:connect', {
             'apiKey': self.config['server']['apiKey'],
-            'agentId': None,  # Server will generate
+            'agentId': self.agent_id,  # Reuse agent id if available
             'agentName': self.config['agent']['name'],
             'avatar': self.config['agent']['avatar']
         })
+
+    async def _run_auto_explore(self) -> None:
+        interval_ms = self.config.get("behavior", {}).get("decisionInterval", 30000)
+        interval_sec = max(interval_ms / 1000, 1)
+        while True:
+            if not self.connected:
+                await asyncio.sleep(1)
+                continue
+            perception = await self.perceive()
+            position = perception.get("position") or {}
+            current_x = position.get("x")
+            current_y = position.get("y")
+            if isinstance(current_x, int) and isinstance(current_y, int):
+                dx = random.randint(-3, 3)
+                dy = random.randint(-3, 3)
+                if dx == 0 and dy == 0:
+                    dx = 1
+                await self.move(current_x + dx, current_y + dy)
+            await asyncio.sleep(interval_sec)
     
     async def connect_to_moltville(self) -> Dict[str, Any]:
         """
@@ -133,6 +193,10 @@ class MOLTVILLESkill:
             
             if not self.connected:
                 raise Exception("Failed to register with server")
+
+            if self.config.get("behavior", {}).get("autoExplore", False):
+                if not self._auto_task or self._auto_task.done():
+                    self._auto_task = asyncio.create_task(self._run_auto_explore())
             
             return {
                 "success": True,

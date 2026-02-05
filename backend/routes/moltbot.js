@@ -69,6 +69,47 @@ router.post('/revoke-key', async (req, res) => {
   }
 });
 
+// Rotate API key
+router.post('/rotate-key', async (req, res) => {
+  try {
+    const { apiKey } = req.body;
+    if (typeof apiKey !== 'string' || apiKey.trim().length === 0) {
+      return res.status(400).json({ error: 'API key is required' });
+    }
+    const normalizedKey = apiKey.trim();
+    const { moltbotRegistry, io } = req.app.locals;
+
+    if (!moltbotRegistry.isApiKeyIssued(normalizedKey)) {
+      return res.status(404).json({ error: 'API key not found' });
+    }
+
+    const newApiKey = `moltville_${uuidv4().replace(/-/g, '')}`;
+    const rotation = await moltbotRegistry.rotateApiKey(normalizedKey, newApiKey);
+
+    if (rotation?.agentId) {
+      const socketId = moltbotRegistry.getAgentSocket(rotation.agentId);
+      if (socketId && io) {
+        io.to(socketId).emit('auth:rotated', { apiKey: newApiKey });
+      }
+    }
+
+    return res.json({
+      rotated: true,
+      apiKey: newApiKey,
+      instructions: {
+        websocket: `ws://localhost:${process.env.PORT || 3001}`,
+        event: 'agent:connect',
+        payload: {
+          apiKey: newApiKey,
+          agentId: rotation?.agentId || uuidv4()
+        }
+      }
+    });
+  } catch (error) {
+    res.status(500).json({ error: error.message });
+  }
+});
+
 // Get agent info
 router.get('/:agentId', async (req, res) => {
   try {
