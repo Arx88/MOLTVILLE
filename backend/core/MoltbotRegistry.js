@@ -46,6 +46,7 @@ export class MoltbotRegistry {
       }
       existing.socketId = socketId;
       existing.lastSeen = Date.now();
+      existing.connected = true;
       this.sockets.set(id, socketId);
       if (this.db && !existing.memory.loadedFromDb) {
         await this.loadAgentState(existing.id);
@@ -61,6 +62,7 @@ export class MoltbotRegistry {
       avatar,
       socketId,
       apiKey,
+      connected: true,
       connectedAt: Date.now(),
       lastSeen: Date.now(),
       stats: {
@@ -154,6 +156,7 @@ export class MoltbotRegistry {
       id: agent.id,
       name: agent.name,
       avatar: agent.avatar,
+      connected: agent.connected,
       connectedAt: agent.connectedAt,
       lastSeen: agent.lastSeen,
       stats: agent.stats
@@ -180,6 +183,14 @@ export class MoltbotRegistry {
           agent.stats.interactionCount++;
           break;
       }
+    }
+  }
+
+  setAgentConnection(agentId, connected) {
+    const agent = this.agents.get(agentId);
+    if (agent) {
+      agent.connected = connected;
+      agent.lastSeen = Date.now();
     }
   }
 
