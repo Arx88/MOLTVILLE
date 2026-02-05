@@ -12,7 +12,10 @@ export const metrics = {
     connections: 0,
     disconnections: 0,
     events: buildCounter(),
-    rateLimited: buildCounter()
+    rateLimited: buildCounter(),
+    latency: {
+      byEvent: Object.create(null)
+    }
   },
   world: {
     ticks: 0,
@@ -42,6 +45,22 @@ export const trackSocketEvent = (eventName) => {
 
 export const trackSocketRateLimit = (eventName) => {
   metrics.socket.rateLimited[eventName] = (metrics.socket.rateLimited[eventName] || 0) + 1;
+};
+
+export const recordSocketDuration = (eventName, durationMs) => {
+  const bucket = metrics.socket.latency.byEvent;
+  const existing = bucket[eventName] || { count: 0, avgMs: 0, lastMs: 0, maxMs: 0 };
+  const nextCount = existing.count + 1;
+  const nextAvg =
+    existing.count === 0
+      ? durationMs
+      : (existing.avgMs * existing.count + durationMs) / nextCount;
+  bucket[eventName] = {
+    count: nextCount,
+    avgMs: nextAvg,
+    lastMs: durationMs,
+    maxMs: Math.max(existing.maxMs, durationMs)
+  };
 };
 
 export const recordTickDuration = (durationMs) => {

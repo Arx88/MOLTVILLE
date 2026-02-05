@@ -51,9 +51,13 @@ llegar a un nivel “production-ready” sin perder los pendientes grandes.
 
 ### 3) Observabilidad profesional
 **Falta:**
-- Exportador Prometheus/Grafana.
-- Métricas por evento + latencias.
+- Dashboards Prometheus/Grafana.
+- Métricas de errores estructurados con más contexto.
 - Dashboards (agentes activos, economía, salud del servidor).
+
+**Implementado recientemente:**
+- Exportador Prometheus en `/api/metrics/prometheus`.
+- Latencias por evento de socket (avg/last/max).
 
 ### 4) Tests de integración
 **Falta:**

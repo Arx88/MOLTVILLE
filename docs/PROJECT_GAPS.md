@@ -68,17 +68,19 @@ seguro y profesional, pero **sin perder de vista lo que ya existe en el repo**.
 ### 3.1 Métricas sin exportador
 **Qué existe:**
 - `/api/metrics` con métricas en memoria (HTTP, sockets, ticks, economía básica).
+- Exportador Prometheus en `/api/metrics/prometheus` con métricas de HTTP, sockets, ticks, economía y eventos.
 
 **Qué falta:**
-- Exportador Prometheus / Grafana.
-- Métricas de latencia por evento y errores estructurados.
+- Dashboards Prometheus / Grafana.
+- Métricas de errores estructurados con más contexto.
 
 ### 3.2 Logging estructurado con rotación
 **Qué existe:**
 - Winston con logs JSON y archivos rotativos.
+- `x-request-id` en respuestas HTTP y en payloads de error del backend.
 
 **Qué falta:**
-- Correlación por request / trace IDs.
+- Integrar tracing distribuido con correlación entre servicios.
 
 ---
 
@@ -87,6 +89,7 @@ seguro y profesional, pero **sin perder de vista lo que ya existe en el repo**.
 ### 4.1 Tests parciales
 **Qué existe:**
 - Tests unitarios básicos para WorldState, Voting, Economy y Registry.
+- Tests básicos para rutas de métricas (JSON y Prometheus).
 
 **Qué falta:**
 - Tests de integración (WebSocket y flujos reales).
