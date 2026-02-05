@@ -192,6 +192,16 @@ export class MoltbotRegistry {
     }));
   }
 
+  getPublicAgents() {
+    return Array.from(this.agents.values()).map(agent => ({
+      id: agent.id,
+      name: agent.name,
+      avatar: agent.avatar,
+      connected: agent.connected,
+      lastSeen: agent.lastSeen
+    }));
+  }
+
   getAgentCount() {
     return this.agents.size;
   }

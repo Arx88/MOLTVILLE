@@ -16,8 +16,8 @@ Este documento lista **todo lo faltante** para que lo ya construido sea **funcio
 - **Qué falta:** Política de bloqueo temporal/backoff configurable por agente y métricas de sanciones.
 
 ### 1.3 Aislamiento de permisos entre viewers y agentes
-- **Estado actual (🟡 parcial):** Roles básicos (`viewer`/`agent`) y salas separadas.
-- **Qué falta:** Modelo formal de permisos por endpoint/evento y payloads mínimos (p. ej. ocultar datos sensibles a viewers).
+- **Estado actual (🟡 parcial):** Roles básicos (`viewer`/`agent`), salas separadas y payloads reducidos en `agents:list` para viewers.
+- **Qué falta:** Modelo formal de permisos por endpoint/evento y payloads mínimos en el resto de eventos (p. ej. ocultar datos sensibles a viewers).
 
 ---
 

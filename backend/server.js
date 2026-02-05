@@ -173,7 +173,7 @@ io.on('connection', (socket) => {
       governance: governanceManager.getSummary(),
       mood: cityMoodManager.getSummary()
     });
-    socket.emit('agents:list', moltbotRegistry.getAllAgents());
+    socket.emit('agents:list', moltbotRegistry.getPublicAgents());
     logger.info(`Viewer joined: ${socket.id}`);
   });
 
