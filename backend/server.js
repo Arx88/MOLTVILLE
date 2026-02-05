@@ -65,6 +65,8 @@ app.use('/api/', limiter);
 const SOCKET_RATE_LIMIT_MS = config.socketRateLimitMs;
 const SOCKET_SPEAK_LIMIT_MS = config.socketSpeakLimitMs;
 const SOCKET_PERCEIVE_LIMIT_MS = config.socketPerceiveLimitMs;
+const SOCKET_RATE_MAX_STRIKES = config.socketRateMaxStrikes;
+const SOCKET_RATE_BLOCK_MS = config.socketRateBlockMs;
 const AGENT_DISCONNECT_GRACE_MS = config.agentDisconnectGraceMs;
 
 const isSocketRateLimited = (socket, eventName, minIntervalMs) => {
@@ -78,6 +80,32 @@ const isSocketRateLimited = (socket, eventName, minIntervalMs) => {
   }
   socket.rateLimits.set(eventName, now);
   return false;
+};
+
+const socketRateState = new Map();
+
+const applySocketBackoff = (socket) => {
+  if (!socket.agentId) return null;
+  const now = Date.now();
+  const state = socketRateState.get(socket.agentId) || { strikes: 0, blockedUntil: 0 };
+  if (state.blockedUntil > now) {
+    return state.blockedUntil - now;
+  }
+  state.strikes += 1;
+  if (state.strikes >= SOCKET_RATE_MAX_STRIKES) {
+    state.blockedUntil = now + SOCKET_RATE_BLOCK_MS;
+    state.strikes = 0;
+    socketRateState.set(socket.agentId, state);
+    return SOCKET_RATE_BLOCK_MS;
+  }
+  socketRateState.set(socket.agentId, state);
+  return null;
+};
+
+const shouldBlockSocket = (socket) => {
+  if (!socket.agentId) return false;
+  const state = socketRateState.get(socket.agentId);
+  return Boolean(state && state.blockedUntil > Date.now());
 };
 
 const ensureActiveApiKey = (socket, registry) => {
@@ -194,8 +222,8 @@ io.on('connection', (socket) => {
       mood: cityMoodManager.getSummary(),
       events: eventManager.getSummary(),
       economy: {
-        inventories: economyManager.getAllInventories(),
-        itemTransactions: economyManager.getItemTransactions()
+        inventorySummary: economyManager.getInventoryStats(),
+        itemTransactionCount: economyManager.getItemTransactions(500).length
       }
     });
     socket.emit('agents:list', moltbotRegistry.getAllAgents());
@@ -283,8 +311,17 @@ io.on('connection', (socket) => {
     try {
       if (!socket.agentId) { socket.emit('error', { message: 'Not authenticated' }); return; }
       if (!ensureActiveApiKey(socket, moltbotRegistry)) { return; }
+      if (shouldBlockSocket(socket)) {
+        socket.emit('error', { message: 'Move rate limit blocked' });
+        return;
+      }
       if (isSocketRateLimited(socket, 'agent:move', SOCKET_RATE_LIMIT_MS)) {
         trackSocketRateLimit('agent:move');
+        const blockDuration = applySocketBackoff(socket);
+        if (blockDuration) {
+          socket.emit('error', { message: `Move rate limit blocked for ${Math.ceil(blockDuration / 1000)}s` });
+          return;
+        }
         socket.emit('error', { message: 'Move rate limit exceeded' });
         return;
       }
@@ -309,8 +346,17 @@ io.on('connection', (socket) => {
     try {
       if (!socket.agentId) { socket.emit('error', { message: 'Not authenticated' }); return; }
       if (!ensureActiveApiKey(socket, moltbotRegistry)) { return; }
+      if (shouldBlockSocket(socket)) {
+        socket.emit('error', { message: 'Move rate limit blocked' });
+        return;
+      }
       if (isSocketRateLimited(socket, 'agent:moveTo', SOCKET_RATE_LIMIT_MS)) {
         trackSocketRateLimit('agent:moveTo');
+        const blockDuration = applySocketBackoff(socket);
+        if (blockDuration) {
+          socket.emit('error', { message: `Move rate limit blocked for ${Math.ceil(blockDuration / 1000)}s` });
+          return;
+        }
         socket.emit('error', { message: 'Move rate limit exceeded' });
         return;
       }
@@ -334,8 +380,17 @@ io.on('connection', (socket) => {
     try {
       if (!socket.agentId) { socket.emit('error', { message: 'Not authenticated' }); return; }
       if (!ensureActiveApiKey(socket, moltbotRegistry)) { return; }
+      if (shouldBlockSocket(socket)) {
+        socket.emit('error', { message: 'Speak rate limit blocked' });
+        return;
+      }
       if (isSocketRateLimited(socket, 'agent:speak', SOCKET_SPEAK_LIMIT_MS)) {
         trackSocketRateLimit('agent:speak');
+        const blockDuration = applySocketBackoff(socket);
+        if (blockDuration) {
+          socket.emit('error', { message: `Speak rate limit blocked for ${Math.ceil(blockDuration / 1000)}s` });
+          return;
+        }
         socket.emit('error', { message: 'Speak rate limit exceeded' });
         return;
       }
@@ -376,8 +431,17 @@ io.on('connection', (socket) => {
     try {
       if (!socket.agentId) { socket.emit('error', { message: 'Not authenticated' }); return; }
       if (!ensureActiveApiKey(socket, moltbotRegistry)) { return; }
+      if (shouldBlockSocket(socket)) {
+        socket.emit('error', { message: 'Action rate limit blocked' });
+        return;
+      }
       if (isSocketRateLimited(socket, 'agent:action', SOCKET_RATE_LIMIT_MS)) {
         trackSocketRateLimit('agent:action');
+        const blockDuration = applySocketBackoff(socket);
+        if (blockDuration) {
+          socket.emit('error', { message: `Action rate limit blocked for ${Math.ceil(blockDuration / 1000)}s` });
+          return;
+        }
         socket.emit('error', { message: 'Action rate limit exceeded' });
         return;
       }
@@ -401,8 +465,17 @@ io.on('connection', (socket) => {
     try {
       if (!socket.agentId) { socket.emit('error', { message: 'Not authenticated' }); return; }
       if (!ensureActiveApiKey(socket, moltbotRegistry)) { return; }
+      if (shouldBlockSocket(socket)) {
+        socket.emit('error', { message: 'Perceive rate limit blocked' });
+        return;
+      }
       if (isSocketRateLimited(socket, 'agent:perceive', SOCKET_PERCEIVE_LIMIT_MS)) {
         trackSocketRateLimit('agent:perceive');
+        const blockDuration = applySocketBackoff(socket);
+        if (blockDuration) {
+          socket.emit('error', { message: `Perceive rate limit blocked for ${Math.ceil(blockDuration / 1000)}s` });
+          return;
+        }
         return;
       }
       socket.emit('perception:update', {
@@ -435,6 +508,7 @@ io.on('connection', (socket) => {
         }, AGENT_DISCONNECT_GRACE_MS);
         disconnectTimers.set(socket.agentId, timeoutId);
       }
+      socketRateState.delete(socket.agentId);
     }
     metrics.socket.disconnections += 1;
     logger.info(`Client disconnected: ${socket.id}`);

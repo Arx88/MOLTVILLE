@@ -1,4 +1,5 @@
 import express from 'express';
+import { requireAdminKeyWithSuccess } from '../utils/adminAuth.js';
 
 const router = express.Router();
 
@@ -107,31 +108,31 @@ router.get('/transactions/:agentId', (req, res) => {
   res.json({ agentId, transactions: economy.getTransactions(agentId) });
 });
 
-router.get('/inventory/:agentId/transactions', (req, res) => {
+router.get('/inventory/:agentId/transactions', requireAdminKeyWithSuccess, (req, res) => {
   const { agentId } = req.params;
   const economy = req.app.locals.economyManager;
   const limit = Number(req.query.limit) || 100;
   res.json({ agentId, transactions: economy.getItemTransactionsForAgent(agentId, limit) });
 });
 
-router.get('/inventory/:agentId', (req, res) => {
+router.get('/inventory/:agentId', requireAdminKeyWithSuccess, (req, res) => {
   const { agentId } = req.params;
   const economy = req.app.locals.economyManager;
   res.json({ agentId, inventory: economy.getInventory(agentId) });
 });
 
-router.get('/inventory', (req, res) => {
+router.get('/inventory', requireAdminKeyWithSuccess, (req, res) => {
   const economy = req.app.locals.economyManager;
   res.json({ inventories: economy.getAllInventories() });
 });
 
-router.get('/inventory/transactions', (req, res) => {
+router.get('/inventory/transactions', requireAdminKeyWithSuccess, (req, res) => {
   const economy = req.app.locals.economyManager;
   const limit = Number(req.query.limit) || 100;
   res.json({ transactions: economy.getItemTransactions(limit) });
 });
 
-router.post('/inventory/add', (req, res) => {
+router.post('/inventory/add', requireAdminKeyWithSuccess, (req, res) => {
   const { agentId, itemId, name, quantity } = req.body;
   const economy = req.app.locals.economyManager;
   if (!agentId || !itemId) {
@@ -145,7 +146,7 @@ router.post('/inventory/add', (req, res) => {
   }
 });
 
-router.post('/inventory/remove', (req, res) => {
+router.post('/inventory/remove', requireAdminKeyWithSuccess, (req, res) => {
   const { agentId, itemId, quantity } = req.body;
   const economy = req.app.locals.economyManager;
   if (!agentId || !itemId) {

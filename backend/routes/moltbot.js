@@ -1,5 +1,6 @@
 import express from 'express';
 import { v4 as uuidv4 } from 'uuid';
+import { requireAdminKey } from '../utils/adminAuth.js';
 
 const router = express.Router();
 
@@ -13,7 +14,7 @@ const buildActorMeta = (body = {}) => {
 };
 
 // Generate API key for new moltbot
-router.post('/generate-key', async (req, res) => {
+router.post('/generate-key', requireAdminKey, async (req, res) => {
   try {
     const { moltbotName } = req.body;
     
@@ -51,7 +52,7 @@ router.post('/generate-key', async (req, res) => {
 });
 
 // Revoke API key
-router.post('/revoke-key', async (req, res) => {
+router.post('/revoke-key', requireAdminKey, async (req, res) => {
   try {
     const { apiKey } = req.body;
     if (typeof apiKey !== 'string' || apiKey.trim().length === 0) {
@@ -89,7 +90,7 @@ router.post('/revoke-key', async (req, res) => {
 });
 
 // Rotate API key
-router.post('/rotate-key', async (req, res) => {
+router.post('/rotate-key', requireAdminKey, async (req, res) => {
   try {
     const { apiKey } = req.body;
     if (typeof apiKey !== 'string' || apiKey.trim().length === 0) {
@@ -137,7 +138,7 @@ router.post('/rotate-key', async (req, res) => {
 });
 
 // List API keys with status
-router.get('/keys', async (req, res) => {
+router.get('/keys', requireAdminKey, async (req, res) => {
   try {
     const { moltbotRegistry } = req.app.locals;
     const keys = await moltbotRegistry.listApiKeys();
@@ -148,7 +149,7 @@ router.get('/keys', async (req, res) => {
 });
 
 // List API key audit events
-router.get('/keys/events', async (req, res) => {
+router.get('/keys/events', requireAdminKey, async (req, res) => {
   try {
     const limit = parseInt(req.query.limit, 10) || 50;
     const { moltbotRegistry } = req.app.locals;
@@ -184,7 +185,7 @@ router.get('/:agentId', async (req, res) => {
 });
 
 // Get agent memory
-router.get('/:agentId/memory', async (req, res) => {
+router.get('/:agentId/memory', requireAdminKey, async (req, res) => {
   try {
     const { agentId } = req.params;
     const { type, limit } = req.query;
@@ -207,7 +208,7 @@ router.get('/:agentId/memory', async (req, res) => {
 });
 
 // Get agent relationships
-router.get('/:agentId/relationships', async (req, res) => {
+router.get('/:agentId/relationships', requireAdminKey, async (req, res) => {
   try {
     const { agentId } = req.params;
     const { moltbotRegistry } = req.app.locals;
