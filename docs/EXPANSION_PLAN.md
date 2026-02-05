@@ -41,7 +41,7 @@ llegar a un nivel “production-ready” sin perder los pendientes grandes.
 ### 1) Persistencia completa del mundo (CRÍTICO)
 **Falta:**
 - Guardar/restaurar estado completo del mundo (agents, posiciones, needs, districts/lots, eventos).
-- Persistir inventarios, jobs, reviews y estado económico avanzado.
+- Persistir estado económico avanzado restante (más allá de balances, propiedades, inventarios, jobs y reviews).
 - Snapshots periódicos para recuperación rápida.
 
 ### 2) Rehidratación al reconectar (IMPORTANTE)

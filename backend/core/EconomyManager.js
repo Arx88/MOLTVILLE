@@ -36,6 +36,50 @@ export class EconomyManager {
       this.balances.set(row.agent_id, parseFloat(row.balance));
     });
 
+    const inventories = await this.db.query(
+      'SELECT agent_id, item_id, name, quantity FROM economy_inventories'
+    );
+    inventories.rows.forEach(row => {
+      if (!this.inventories.has(row.agent_id)) {
+        this.inventories.set(row.agent_id, new Map());
+      }
+      const inventory = this.inventories.get(row.agent_id);
+      inventory.set(row.item_id, {
+        id: row.item_id,
+        name: row.name,
+        quantity: parseFloat(row.quantity)
+      });
+    });
+
+    const jobAssignments = await this.db.query(
+      'SELECT agent_id, job_id FROM economy_job_assignments'
+    );
+    jobAssignments.rows.forEach(row => {
+      this.jobAssignments.set(row.agent_id, row.job_id);
+      const job = this.jobs.get(row.job_id);
+      if (job) {
+        job.assignedTo = row.agent_id;
+      } else {
+        logger.warn(`Economy: Job assignment ${row.job_id} not found for ${row.agent_id}`);
+      }
+    });
+
+    const reviews = await this.db.query(
+      'SELECT agent_id, reviewer_id, score, tags, reason, created_at FROM economy_reviews'
+    );
+    reviews.rows.forEach(row => {
+      if (!this.reviews.has(row.agent_id)) {
+        this.reviews.set(row.agent_id, []);
+      }
+      this.reviews.get(row.agent_id).push({
+        reviewerId: row.reviewer_id,
+        score: parseFloat(row.score),
+        tags: row.tags || [],
+        reason: row.reason || '',
+        timestamp: row.created_at ? new Date(row.created_at).getTime() : Date.now()
+      });
+    });
+
     const properties = await this.db.query('SELECT * FROM economy_properties');
     if (properties.rows.length) {
       this.properties.clear();
@@ -200,6 +244,7 @@ export class EconomyManager {
       quantity: numericQuantity,
       action: 'add'
     });
+    this.persistInventoryItem(agentId, item);
     this.emitInventoryUpdate(agentId);
     return item;
   }
@@ -227,6 +272,7 @@ export class EconomyManager {
         quantity: numericQuantity,
         action: 'remove'
       });
+      this.persistInventoryItem(agentId, { id: itemId, name: existing.name, quantity: 0 });
       this.emitInventoryUpdate(agentId);
       return { id: itemId, name: existing.name, quantity: 0 };
     }
@@ -239,6 +285,7 @@ export class EconomyManager {
       quantity: numericQuantity,
       action: 'remove'
     });
+    this.persistInventoryItem(agentId, item);
     this.emitInventoryUpdate(agentId);
     return item;
   }
@@ -522,6 +569,7 @@ export class EconomyManager {
     if (job.assignedTo) throw new Error('Job already filled');
     job.assignedTo = agentId;
     this.jobAssignments.set(agentId, jobId);
+    this.persistJobAssignment(agentId, jobId);
     return job;
   }
 
@@ -542,6 +590,7 @@ export class EconomyManager {
       timestamp: Date.now()
     };
     this.reviews.get(agentId).push(entry);
+    this.persistReview(agentId, entry);
     const avg = this.getAverageReviewScore(agentId);
     if (avg !== null && avg < this.reviewThreshold) {
       this.fireAgent(agentId);
@@ -573,6 +622,7 @@ export class EconomyManager {
       job.assignedTo = null;
     }
     this.jobAssignments.delete(agentId);
+    this.deleteJobAssignment(agentId);
     logger.info(`Economy: Agent ${agentId} was removed from job ${jobId}`);
     return job;
   }
@@ -617,6 +667,56 @@ export class EconomyManager {
         property.forSale
       ]
     ).catch(error => logger.error('Property persist failed:', error));
+  }
+
+  persistInventoryItem(agentId, item) {
+    if (!this.db) return;
+    if (!item || !item.id) return;
+    if (item.quantity <= 0) {
+      this.db.query(
+        'DELETE FROM economy_inventories WHERE agent_id = $1 AND item_id = $2',
+        [agentId, item.id]
+      ).catch(error => logger.error('Inventory delete failed:', error));
+      return;
+    }
+    this.db.query(
+      `INSERT INTO economy_inventories (agent_id, item_id, name, quantity)
+       VALUES ($1, $2, $3, $4)
+       ON CONFLICT (agent_id, item_id) DO UPDATE SET
+         name = EXCLUDED.name,
+         quantity = EXCLUDED.quantity,
+         updated_at = NOW()`,
+      [agentId, item.id, item.name, item.quantity]
+    ).catch(error => logger.error('Inventory persist failed:', error));
+  }
+
+  persistJobAssignment(agentId, jobId) {
+    if (!this.db) return;
+    this.db.query(
+      `INSERT INTO economy_job_assignments (agent_id, job_id)
+       VALUES ($1, $2)
+       ON CONFLICT (agent_id) DO UPDATE SET
+         job_id = EXCLUDED.job_id,
+         assigned_at = NOW()`,
+      [agentId, jobId]
+    ).catch(error => logger.error('Job assignment persist failed:', error));
+  }
+
+  deleteJobAssignment(agentId) {
+    if (!this.db) return;
+    this.db.query(
+      'DELETE FROM economy_job_assignments WHERE agent_id = $1',
+      [agentId]
+    ).catch(error => logger.error('Job assignment delete failed:', error));
+  }
+
+  persistReview(agentId, review) {
+    if (!this.db) return;
+    this.db.query(
+      `INSERT INTO economy_reviews (agent_id, reviewer_id, score, tags, reason)
+       VALUES ($1, $2, $3, $4, $5)`,
+      [agentId, review.reviewerId, review.score, JSON.stringify(review.tags || []), review.reason]
+    ).catch(error => logger.error('Review persist failed:', error));
   }
 
   persistProperties() {

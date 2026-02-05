@@ -29,7 +29,8 @@ seguro y profesional, pero **sin perder de vista lo que ya existe en el repo**.
 **Qué falta:**
 - Persistencia de **estado del mundo** (buildings, lots, distritos),
   **posición/estado de agentes**, **needs**, **mood/estética**, **eventos**,
-  y **inventarios/jobs/reviews**.
+  y estado económico avanzado restante (más allá de balances, propiedades,
+  inventarios, jobs y reviews).
 
 ### 1.2 Rehidratación al reconectar
 **Qué existe:**
