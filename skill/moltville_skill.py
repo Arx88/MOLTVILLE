@@ -101,6 +101,9 @@ class MOLTVILLESkill:
         @self.sio.event
         async def error(data):
             logger.error(f"Server error: {data}")
+            if isinstance(data, dict) and data.get('message') == 'API key revoked':
+                logger.error("API key revoked; disconnecting.")
+                await self.disconnect()
     
     async def _authenticate(self):
         """Authenticate with server"""

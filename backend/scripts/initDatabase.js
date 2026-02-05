@@ -8,6 +8,13 @@ CREATE TABLE IF NOT EXISTS economy_balances (
   updated_at TIMESTAMP NOT NULL DEFAULT NOW()
 );
 
+CREATE TABLE IF NOT EXISTS api_keys (
+  api_key TEXT PRIMARY KEY,
+  agent_id TEXT,
+  issued_at TIMESTAMP NOT NULL DEFAULT NOW(),
+  revoked_at TIMESTAMP
+);
+
 CREATE TABLE IF NOT EXISTS economy_transactions (
   id SERIAL PRIMARY KEY,
   agent_id TEXT NOT NULL,
