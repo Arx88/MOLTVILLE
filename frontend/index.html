@@ -23,6 +23,129 @@
   #top-bar .weather-display { color: #f5c542; font-size: 13px; }
   #top-bar .agent-count { color: #6bcb77; font-size: 13px; }
   #top-bar .mood-display { color: #f7d774; font-size: 13px; }
+  #status-banner {
+    position: absolute; top: 60px; left: 50%; transform: translateX(-50%);
+    background: rgba(120, 40, 40, 0.9);
+    border: 1px solid rgba(255, 120, 120, 0.5);
+    border-radius: 10px;
+    padding: 6px 14px;
+    color: #ffe6e6;
+    font-size: 12px;
+    display: none;
+    pointer-events: none;
+  }
+  #status-banner.success {
+    background: rgba(40, 120, 70, 0.9);
+    border-color: rgba(120, 255, 180, 0.5);
+    color: #e6fff2;
+  }
+  #status-banner .banner-content {
+    display: flex;
+    align-items: center;
+    gap: 10px;
+  }
+  #status-banner .retry-button {
+    pointer-events: auto;
+    background: rgba(120, 150, 255, 0.2);
+    border: 1px solid rgba(120, 150, 255, 0.4);
+    border-radius: 999px;
+    padding: 2px 8px;
+    color: #e6ecff;
+    font-size: 11px;
+    cursor: pointer;
+  }
+  #status-banner .retry-button:hover {
+    background: rgba(120, 150, 255, 0.35);
+  }
+  #status-banner .details-button {
+    pointer-events: auto;
+    background: rgba(120, 150, 255, 0.1);
+    border: 1px solid rgba(120, 150, 255, 0.3);
+    border-radius: 999px;
+    padding: 2px 8px;
+    color: #cfd8ff;
+    font-size: 11px;
+    cursor: pointer;
+  }
+  #status-banner .details-button:hover {
+    background: rgba(120, 150, 255, 0.25);
+  }
+  #status-modal {
+    position: fixed;
+    inset: 0;
+    display: none;
+    align-items: center;
+    justify-content: center;
+    background: rgba(10, 12, 24, 0.6);
+    z-index: 20;
+    pointer-events: auto;
+  }
+  #status-modal.is-open {
+    display: flex;
+  }
+  #status-modal .modal-card {
+    width: 320px;
+    background: rgba(15, 15, 30, 0.95);
+    border: 1px solid rgba(100, 140, 255, 0.3);
+    border-radius: 14px;
+    padding: 16px;
+    color: #e6ecff;
+  }
+  #status-modal .modal-title {
+    font-size: 13px;
+    font-weight: 700;
+    color: #a8c4ff;
+    margin-bottom: 8px;
+  }
+  #status-modal .modal-row {
+    font-size: 12px;
+    color: #cfd8ff;
+    margin-bottom: 6px;
+  }
+  #status-modal .modal-actions {
+    display: flex;
+    justify-content: flex-end;
+    gap: 8px;
+    margin-top: 10px;
+  }
+  #status-modal .modal-actions button {
+    background: rgba(90, 120, 220, 0.35);
+    border: 1px solid rgba(120, 150, 255, 0.35);
+    border-radius: 8px;
+    padding: 6px 10px;
+    color: #e6ecff;
+    font-size: 12px;
+    cursor: pointer;
+  }
+  #status-modal .modal-actions button.secondary {
+    background: rgba(50, 70, 140, 0.25);
+  }
+  #refresh-indicator {
+    position: absolute; top: 62px; right: 24px;
+    display: flex; align-items: center; gap: 8px;
+    background: rgba(15, 15, 30, 0.7);
+    border: 1px solid rgba(100, 140, 255, 0.3);
+    border-radius: 999px;
+    padding: 4px 10px;
+    color: #cfd8ff;
+    font-size: 11px;
+    opacity: 0;
+    transition: opacity 0.2s ease;
+  }
+  #refresh-indicator.is-active {
+    opacity: 1;
+  }
+  #refresh-indicator .spinner {
+    width: 12px;
+    height: 12px;
+    border-radius: 50%;
+    border: 2px solid rgba(120, 150, 255, 0.3);
+    border-top-color: #a8c4ff;
+    animation: spin 0.8s linear infinite;
+  }
+  @keyframes spin {
+    to { transform: rotate(360deg); }
+  }
 
   #chat-log {
     position: absolute; bottom: 80px; left: 20px; width: 320px; max-height: 200px;
@@ -135,6 +258,31 @@
     <span class="mood-display" id="mood-display">🌿 Calm</span>
     <span class="agent-count" id="agent-count">👥 0 Citizens</span>
   </div>
+  <div id="status-banner">
+    <div class="banner-content">
+      <span class="banner-message"></span>
+      <button class="retry-button" type="button">Reintentar</button>
+      <button class="details-button" type="button">Detalles</button>
+    </div>
+  </div>
+  <div id="status-modal">
+    <div class="modal-card">
+      <div class="modal-title">Estado de conexión</div>
+      <div class="modal-row" id="status-modal-last-success">Último refresh: —</div>
+      <div class="modal-row" id="status-modal-last-duration">Duración último refresh: —</div>
+      <div class="modal-row" id="status-modal-failures">Fallos seguidos: —</div>
+      <div class="modal-row" id="status-modal-last-section">Último módulo fallido: —</div>
+      <div class="modal-row" id="status-modal-last-error">Último error: —</div>
+      <div class="modal-actions">
+        <button class="secondary" id="status-modal-close" type="button">Cerrar</button>
+        <button id="status-modal-retry" type="button">Reintentar ahora</button>
+      </div>
+    </div>
+  </div>
+  <div id="refresh-indicator">
+    <span class="spinner"></span>
+    <span>Actualizando…</span>
+  </div>
   <div id="chat-log"></div>
   <div id="agents-panel"></div>
   <div id="vote-panel">
@@ -214,6 +362,7 @@ let BUILDINGS = [
 ];
 
 let LOTS = [];
+let WORLD_INTERVAL_ID = null;
 
 const API_BASE = window.location.hostname
   ? `http://${window.location.hostname}:3001`
@@ -235,12 +384,21 @@ const WORLD_CONTEXT = {
   aestheticsHistory: [],
   aestheticsMeta: null,
   districtThemeHash: '',
+  lastRefreshSuccessAt: null,
+  refreshFailureCount: 0,
+  lastErrorMessage: '',
+  lastFailedSection: '',
+  lastRefreshDurationMs: null,
+  lastModalAutoOpenAt: null,
   economy: {
     jobs: [],
     balance: null,
     properties: []
   }
 };
+const REFRESH_PERSIST_MS = 15000;
+const REFRESH_MODAL_AUTO_OPEN_MS = 60000;
+const REFRESH_MODAL_FAILURE_THRESHOLD = 3;
 const STORAGE_KEYS = {
   agentId: 'moltville_agent_id',
   uiState: 'moltville_ui_state'
@@ -1264,98 +1422,268 @@ function mergeBuildingVisuals(serverBuildings) {
 }
 
 async function refreshWorldData(scene) {
+  const refreshStartedAt = Date.now();
+  setRefreshState(true);
+  let hadError = false;
   try {
-    const stateRes = await fetch(`${API_BASE}/api/world/state`);
-    const state = await stateRes.json();
-    WORLD_CONTEXT.worldTime = state.worldTime || null;
-    WORLD_CONTEXT.weather = state.weather || null;
-    WORLD_CONTEXT.mood = state.mood || null;
-    WORLD_CONTEXT.districts = state.districts || null;
-    WORLD_CONTEXT.agentCount = state.agents ? Object.keys(state.agents).length : 0;
-    const themeHash = (state.districts || []).map(d => `${d.id}:${d.theme || 'classic'}`).join('|');
-    if (scene && themeHash !== WORLD_CONTEXT.districtThemeHash) {
-      WORLD_CONTEXT.districtThemeHash = themeHash;
-      scene.drawTiles();
-    }
-    LOTS = state.lots || [];
-    const newBuildings = mergeBuildingVisuals(state.buildings || []);
-    if (scene && newBuildings.length) {
-      scene.renderNewBuildings(newBuildings);
-    }
-    if (scene && scene.drawLots) {
-      scene.drawLots();
-    }
-  } catch (error) {
-    console.warn('Failed to fetch world state', error);
-  }
-
-  try {
-    const [voteRes, voteHistoryRes, govRes, networkRes, aestheticsRes, aestheticsHistoryRes, aestheticsMetaRes] = await Promise.all([
-      fetch(`${API_BASE}/api/vote/current`),
-      fetch(`${API_BASE}/api/vote/history?limit=3`),
-      fetch(`${API_BASE}/api/governance/current`),
-      fetch(`${API_BASE}/api/world/social-network`),
-      fetch(`${API_BASE}/api/aesthetics/current`),
-      fetch(`${API_BASE}/api/aesthetics/history?limit=3`),
-      fetch(`${API_BASE}/api/aesthetics/meta`)
-    ]);
-    const voteData = await voteRes.json();
-    const historyData = await voteHistoryRes.json();
-    const govData = await govRes.json();
-    const networkData = await networkRes.json();
-    const aestheticsData = await aestheticsRes.json();
-    const aestheticsHistoryData = await aestheticsHistoryRes.json();
-    const aestheticsMetaData = await aestheticsMetaRes.json();
-    WORLD_CONTEXT.vote = voteData.vote || null;
-    WORLD_CONTEXT.voteHistory = historyData.history || [];
-    WORLD_CONTEXT.governance = govData || null;
-    WORLD_CONTEXT.socialNetwork = networkData || null;
-    WORLD_CONTEXT.aestheticsVote = aestheticsData.vote || null;
-    WORLD_CONTEXT.aestheticsHistory = aestheticsHistoryData.history || [];
-    WORLD_CONTEXT.aestheticsMeta = aestheticsMetaData.meta || null;
-  } catch (error) {
-    console.warn('Failed to fetch governance/vote state', error);
-  }
-
-  if (!WORLD_CONTEXT.voteCatalogLoaded) {
     try {
-      const catalogRes = await fetch(`${API_BASE}/api/vote/catalog`);
-      const catalogData = await catalogRes.json();
-      WORLD_CONTEXT.voteCatalog = catalogData.catalog || [];
-      WORLD_CONTEXT.voteCatalogLoaded = true;
+      const stateRes = await fetch(`${API_BASE}/api/world/state`);
+      if (!stateRes.ok) {
+        throw new Error(`HTTP ${stateRes.status}`);
+      }
+      const state = await stateRes.json();
+      WORLD_CONTEXT.worldTime = state.worldTime || null;
+      WORLD_CONTEXT.weather = state.weather || null;
+      WORLD_CONTEXT.mood = state.mood || null;
+      WORLD_CONTEXT.districts = state.districts || null;
+      WORLD_CONTEXT.agentCount = state.agents ? Object.keys(state.agents).length : 0;
+      const themeHash = (state.districts || []).map(d => `${d.id}:${d.theme || 'classic'}`).join('|');
+      if (scene && themeHash !== WORLD_CONTEXT.districtThemeHash) {
+        WORLD_CONTEXT.districtThemeHash = themeHash;
+        scene.drawTiles();
+      }
+      LOTS = state.lots || [];
+      const newBuildings = mergeBuildingVisuals(state.buildings || []);
+      if (scene && newBuildings.length) {
+        scene.renderNewBuildings(newBuildings);
+      }
+      if (scene && scene.drawLots) {
+        scene.drawLots();
+      }
     } catch (error) {
-      console.warn('Failed to fetch vote catalog', error);
+      console.warn('Failed to fetch world state', error);
+      hadError = true;
+      WORLD_CONTEXT.lastFailedSection = 'world';
+      showStatusBanner(getStatusMessage(error), true);
     }
-  }
 
-  try {
-    const jobsRes = await fetch(`${API_BASE}/api/economy/jobs`);
-    const jobsData = await jobsRes.json();
-    WORLD_CONTEXT.economy.jobs = jobsData.jobs || [];
-  } catch (error) {
-    console.warn('Failed to fetch economy jobs', error);
-  }
+    try {
+      const [voteRes, voteHistoryRes, govRes, networkRes, aestheticsRes, aestheticsHistoryRes, aestheticsMetaRes] = await Promise.all([
+        fetch(`${API_BASE}/api/vote/current`),
+        fetch(`${API_BASE}/api/vote/history?limit=3`),
+        fetch(`${API_BASE}/api/governance/current`),
+        fetch(`${API_BASE}/api/world/social-network`),
+        fetch(`${API_BASE}/api/aesthetics/current`),
+        fetch(`${API_BASE}/api/aesthetics/history?limit=3`),
+        fetch(`${API_BASE}/api/aesthetics/meta`)
+      ]);
+      if (!voteRes.ok || !voteHistoryRes.ok || !govRes.ok || !networkRes.ok || !aestheticsRes.ok || !aestheticsHistoryRes.ok || !aestheticsMetaRes.ok) {
+        throw new Error('HTTP 503');
+      }
+      const voteData = await voteRes.json();
+      const historyData = await voteHistoryRes.json();
+      const govData = await govRes.json();
+      const networkData = await networkRes.json();
+      const aestheticsData = await aestheticsRes.json();
+      const aestheticsHistoryData = await aestheticsHistoryRes.json();
+      const aestheticsMetaData = await aestheticsMetaRes.json();
+      WORLD_CONTEXT.vote = voteData.vote || null;
+      WORLD_CONTEXT.voteHistory = historyData.history || [];
+      WORLD_CONTEXT.governance = govData || null;
+      WORLD_CONTEXT.socialNetwork = networkData || null;
+      WORLD_CONTEXT.aestheticsVote = aestheticsData.vote || null;
+      WORLD_CONTEXT.aestheticsHistory = aestheticsHistoryData.history || [];
+      WORLD_CONTEXT.aestheticsMeta = aestheticsMetaData.meta || null;
+    } catch (error) {
+      console.warn('Failed to fetch governance/vote state', error);
+      hadError = true;
+      WORLD_CONTEXT.lastFailedSection = 'governance';
+      showStatusBanner(getStatusMessage(error), true);
+    }
 
-  try {
-    const propertiesRes = await fetch(`${API_BASE}/api/economy/properties`);
-    const propertiesData = await propertiesRes.json();
-    WORLD_CONTEXT.economy.properties = propertiesData.properties || [];
-  } catch (error) {
-    console.warn('Failed to fetch economy properties', error);
-  }
+    if (!WORLD_CONTEXT.voteCatalogLoaded) {
+      try {
+        const catalogRes = await fetch(`${API_BASE}/api/vote/catalog`);
+        if (!catalogRes.ok) {
+          throw new Error(`HTTP ${catalogRes.status}`);
+        }
+        const catalogData = await catalogRes.json();
+        WORLD_CONTEXT.voteCatalog = catalogData.catalog || [];
+        WORLD_CONTEXT.voteCatalogLoaded = true;
+      } catch (error) {
+        console.warn('Failed to fetch vote catalog', error);
+        hadError = true;
+        WORLD_CONTEXT.lastFailedSection = 'catalog';
+        showStatusBanner(getStatusMessage(error), true);
+      }
+    }
 
-  const timeDisplay = formatServerTime(WORLD_CONTEXT.worldTime);
-  if (timeDisplay) {
-    document.getElementById('time-display').textContent = timeDisplay;
+    try {
+      const jobsRes = await fetch(`${API_BASE}/api/economy/jobs`);
+      if (!jobsRes.ok) {
+        throw new Error(`HTTP ${jobsRes.status}`);
+      }
+      const jobsData = await jobsRes.json();
+      WORLD_CONTEXT.economy.jobs = jobsData.jobs || [];
+    } catch (error) {
+      console.warn('Failed to fetch economy jobs', error);
+      hadError = true;
+      WORLD_CONTEXT.lastFailedSection = 'jobs';
+      showStatusBanner(getStatusMessage(error), true);
+    }
+
+    try {
+      const propertiesRes = await fetch(`${API_BASE}/api/economy/properties`);
+      if (!propertiesRes.ok) {
+        throw new Error(`HTTP ${propertiesRes.status}`);
+      }
+      const propertiesData = await propertiesRes.json();
+      WORLD_CONTEXT.economy.properties = propertiesData.properties || [];
+    } catch (error) {
+      console.warn('Failed to fetch economy properties', error);
+      hadError = true;
+      WORLD_CONTEXT.lastFailedSection = 'properties';
+      showStatusBanner(getStatusMessage(error), true);
+    }
+
+    const timeDisplay = formatServerTime(WORLD_CONTEXT.worldTime);
+    if (timeDisplay) {
+      document.getElementById('time-display').textContent = timeDisplay;
+    }
+    const weatherLabel = getWeatherLabel(WORLD_CONTEXT.weather?.current);
+    document.getElementById('weather-display').textContent = `${weatherLabel.icon} ${weatherLabel.label}`;
+    document.getElementById('mood-display').textContent = formatMoodLabel(WORLD_CONTEXT.mood);
+    updateVotePanel(WORLD_CONTEXT.vote);
+    updateGovernancePanel(WORLD_CONTEXT.governance);
+    updateRelationshipsPanel(WORLD_CONTEXT.socialNetwork);
+    updateDistrictsPanel(WORLD_CONTEXT.districts, WORLD_CONTEXT.agentCount);
+    updateEconomyPanel(WORLD_CONTEXT.economy);
+    if (!hadError) {
+      WORLD_CONTEXT.lastRefreshSuccessAt = Date.now();
+      WORLD_CONTEXT.refreshFailureCount = 0;
+      WORLD_CONTEXT.lastFailedSection = '';
+      WORLD_CONTEXT.lastModalAutoOpenAt = null;
+      hideStatusBanner();
+    } else {
+      WORLD_CONTEXT.refreshFailureCount += 1;
+      const lastSuccessAt = WORLD_CONTEXT.lastRefreshSuccessAt || 0;
+      const staleFor = Date.now() - lastSuccessAt;
+      if (staleFor > REFRESH_PERSIST_MS || WORLD_CONTEXT.refreshFailureCount >= REFRESH_MODAL_FAILURE_THRESHOLD) {
+        showStatusBanner('Sin conexión estable. Reintentando…', true, { persistent: true });
+        const shouldAutoOpen = !WORLD_CONTEXT.lastModalAutoOpenAt
+          || Date.now() - WORLD_CONTEXT.lastModalAutoOpenAt > REFRESH_MODAL_AUTO_OPEN_MS;
+        if (shouldAutoOpen) {
+          WORLD_CONTEXT.lastModalAutoOpenAt = Date.now();
+          openStatusModal();
+        }
+      }
+    }
+  } finally {
+    WORLD_CONTEXT.lastRefreshDurationMs = Date.now() - refreshStartedAt;
+    setRefreshState(false);
   }
-  const weatherLabel = getWeatherLabel(WORLD_CONTEXT.weather?.current);
-  document.getElementById('weather-display').textContent = `${weatherLabel.icon} ${weatherLabel.label}`;
-  document.getElementById('mood-display').textContent = formatMoodLabel(WORLD_CONTEXT.mood);
-  updateVotePanel(WORLD_CONTEXT.vote);
-  updateGovernancePanel(WORLD_CONTEXT.governance);
-  updateRelationshipsPanel(WORLD_CONTEXT.socialNetwork);
-  updateDistrictsPanel(WORLD_CONTEXT.districts, WORLD_CONTEXT.agentCount);
-  updateEconomyPanel(WORLD_CONTEXT.economy);
+}
+
+function showStatusBanner(message, isError, options = {}) {
+  const banner = document.getElementById('status-banner');
+  if (!banner) return;
+  const messageEl = banner.querySelector('.banner-message');
+  if (messageEl) {
+    messageEl.textContent = message;
+  }
+  WORLD_CONTEXT.lastErrorMessage = message;
+  banner.classList.toggle('success', !isError);
+  banner.style.display = 'block';
+  if (options.persistent) {
+    banner.dataset.persistent = 'true';
+    return;
+  }
+  banner.dataset.persistent = 'false';
+  window.clearTimeout(showStatusBanner.timeoutId);
+  showStatusBanner.timeoutId = window.setTimeout(() => {
+    if (banner.dataset.persistent === 'true') return;
+    banner.style.display = 'none';
+  }, 4000);
+}
+
+function hideStatusBanner() {
+  const banner = document.getElementById('status-banner');
+  if (!banner) return;
+  banner.dataset.persistent = 'false';
+  banner.style.display = 'none';
+}
+
+function setupStatusBannerControls() {
+  const banner = document.getElementById('status-banner');
+  if (!banner || banner.dataset.bound === 'true') return;
+  const retryButton = banner.querySelector('.retry-button');
+  const detailsButton = banner.querySelector('.details-button');
+  if (retryButton) {
+    retryButton.addEventListener('click', () => {
+      setPollingActive(true);
+      showStatusBanner('Reintentando conexión…', false);
+    });
+  }
+  if (detailsButton) {
+    detailsButton.addEventListener('click', openStatusModal);
+  }
+  banner.dataset.bound = 'true';
+}
+
+function openStatusModal() {
+  const modal = document.getElementById('status-modal');
+  if (!modal) return;
+  const lastSuccess = WORLD_CONTEXT.lastRefreshSuccessAt
+    ? new Date(WORLD_CONTEXT.lastRefreshSuccessAt).toLocaleTimeString()
+    : 'Sin datos';
+  const lastSuccessEl = document.getElementById('status-modal-last-success');
+  const lastDurationEl = document.getElementById('status-modal-last-duration');
+  const failuresEl = document.getElementById('status-modal-failures');
+  const lastSectionEl = document.getElementById('status-modal-last-section');
+  const lastErrorEl = document.getElementById('status-modal-last-error');
+  if (lastSuccessEl) lastSuccessEl.textContent = `Último refresh: ${lastSuccess}`;
+  if (lastDurationEl) {
+    const duration = WORLD_CONTEXT.lastRefreshDurationMs;
+    lastDurationEl.textContent = duration !== null
+      ? `Duración último refresh: ${duration} ms`
+      : 'Duración último refresh: —';
+  }
+  if (failuresEl) failuresEl.textContent = `Fallos seguidos: ${WORLD_CONTEXT.refreshFailureCount}`;
+  if (lastSectionEl) {
+    lastSectionEl.textContent = WORLD_CONTEXT.lastFailedSection
+      ? `Último módulo fallido: ${WORLD_CONTEXT.lastFailedSection}`
+      : 'Último módulo fallido: —';
+  }
+  if (lastErrorEl) lastErrorEl.textContent = `Último error: ${WORLD_CONTEXT.lastErrorMessage || '—'}`;
+  modal.classList.add('is-open');
+}
+
+function closeStatusModal() {
+  const modal = document.getElementById('status-modal');
+  if (!modal) return;
+  modal.classList.remove('is-open');
+}
+
+function setRefreshState(isActive) {
+  const indicator = document.getElementById('refresh-indicator');
+  if (!indicator) return;
+  indicator.classList.toggle('is-active', isActive);
+}
+
+function setPollingActive(isActive) {
+  if (WORLD_INTERVAL_ID) {
+    clearInterval(WORLD_INTERVAL_ID);
+    WORLD_INTERVAL_ID = null;
+  }
+  if (!isActive) {
+    setRefreshState(false);
+    return;
+  }
+  if (window._moltvilleScene) {
+    refreshWorldData(window._moltvilleScene);
+    WORLD_INTERVAL_ID = setInterval(() => refreshWorldData(window._moltvilleScene), 5000);
+  }
+}
+
+function getStatusMessage(error) {
+  const message = typeof error?.message === 'string' ? error.message : '';
+  if (message.includes('HTTP 401') || message.includes('HTTP 403')) {
+    return 'Sesión inválida o sin autorización.';
+  }
+  if (message.includes('HTTP 404')) {
+    return 'Recurso no disponible en el servidor.';
+  }
+  return 'Conexión perdida con el servidor.';
 }
 
 // Road network definition (tile coordinates that are roads)
@@ -1538,6 +1866,20 @@ class MoltivilleScene extends Phaser.Scene {
   }
 
   create() {
+    window._moltvilleScene = this;
+    setupStatusBannerControls();
+    const modalClose = document.getElementById('status-modal-close');
+    if (modalClose) {
+      modalClose.addEventListener('click', closeStatusModal);
+    }
+    const modalRetry = document.getElementById('status-modal-retry');
+    if (modalRetry) {
+      modalRetry.addEventListener('click', () => {
+        closeStatusModal();
+        setPollingActive(true);
+        showStatusBanner('Reintentando conexión…', false);
+      });
+    }
     this.tileMap = generateTileMap();
     this.decorations = generateDecorations();
     this.agents = createDemoAgents();
@@ -1606,8 +1948,13 @@ class MoltivilleScene extends Phaser.Scene {
     });
 
     // Initial data fetch and polling
-    refreshWorldData(this);
-    this._worldInterval = setInterval(() => refreshWorldData(this), 5000);
+    setPollingActive(true);
+    if (!window._moltvilleVisibilityHook) {
+      document.addEventListener('visibilitychange', () => {
+        setPollingActive(!document.hidden);
+      });
+      window._moltvilleVisibilityHook = true;
+    }
   }
 
   drawTiles() {
