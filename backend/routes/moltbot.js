@@ -188,6 +188,69 @@ router.get('/:agentId/relationships', async (req, res) => {
   }
 });
 
+// Get agent inventory
+router.get('/:agentId/inventory', async (req, res) => {
+  try {
+    const { agentId } = req.params;
+    const { moltbotRegistry } = req.app.locals;
+    const inventory = moltbotRegistry.getInventory(agentId);
+    if (!inventory) {
+      return res.status(404).json({ error: 'Agent not found' });
+    }
+    res.json({ agentId, inventory });
+  } catch (error) {
+    res.status(500).json({ error: error.message });
+  }
+});
+
+// Add item to agent inventory
+router.post('/:agentId/inventory/add', async (req, res) => {
+  try {
+    const { agentId } = req.params;
+    const { itemId, quantity, name } = req.body;
+    const { moltbotRegistry } = req.app.locals;
+    if (!itemId) {
+      return res.status(400).json({ error: 'itemId is required' });
+    }
+    const item = moltbotRegistry.addItem(agentId, itemId, quantity, { name });
+    res.json({ success: true, item });
+  } catch (error) {
+    res.status(400).json({ error: error.message });
+  }
+});
+
+// Remove item from agent inventory
+router.post('/:agentId/inventory/remove', async (req, res) => {
+  try {
+    const { agentId } = req.params;
+    const { itemId, quantity } = req.body;
+    const { moltbotRegistry } = req.app.locals;
+    if (!itemId) {
+      return res.status(400).json({ error: 'itemId is required' });
+    }
+    const item = moltbotRegistry.removeItem(agentId, itemId, quantity);
+    res.json({ success: true, item });
+  } catch (error) {
+    res.status(400).json({ error: error.message });
+  }
+});
+
+// Transfer item between agents
+router.post('/:agentId/inventory/transfer', async (req, res) => {
+  try {
+    const { agentId } = req.params;
+    const { targetAgentId, itemId, quantity } = req.body;
+    const { moltbotRegistry } = req.app.locals;
+    if (!targetAgentId || !itemId) {
+      return res.status(400).json({ error: 'targetAgentId and itemId are required' });
+    }
+    const item = moltbotRegistry.transferItem(agentId, targetAgentId, itemId, quantity);
+    res.json({ success: true, item });
+  } catch (error) {
+    res.status(400).json({ error: error.message });
+  }
+});
+
 // List all agents
 router.get('/', async (req, res) => {
   try {

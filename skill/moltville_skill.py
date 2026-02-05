@@ -7,6 +7,7 @@ Connects Moltbot to MOLTVILLE virtual city
 import json
 import asyncio
 import socketio
+import aiohttp
 from typing import Dict, List, Optional, Any
 from pathlib import Path
 import logging
@@ -38,6 +39,28 @@ class MOLTVILLESkill:
         
         # Setup event handlers
         self._setup_handlers()
+
+    def _get_http_base_url(self) -> str:
+        server_url = self.config.get('server', {}).get('url', '')
+        if server_url.startswith('ws://'):
+            return 'http://' + server_url[len('ws://'):]
+        if server_url.startswith('wss://'):
+            return 'https://' + server_url[len('wss://'):]
+        return server_url
+
+    async def _http_request(self, method: str, path: str, payload: Optional[Dict[str, Any]] = None) -> Dict[str, Any]:
+        base_url = self._get_http_base_url().rstrip('/')
+        url = f"{base_url}{path}"
+        try:
+            async with aiohttp.ClientSession() as session:
+                async with session.request(method, url, json=payload) as response:
+                    data = await response.json()
+                    if response.status >= 400:
+                        return {"error": data.get('error', f"HTTP {response.status}")}
+                    return data
+        except Exception as error:
+            logger.error(f"HTTP request failed: {error}")
+            return {"error": str(error)}
     
     def _load_config(self, config_path: Path) -> Dict:
         """Load configuration from file"""
@@ -342,6 +365,95 @@ class MOLTVILLESkill:
         except Exception as e:
             logger.error(f"Leave building failed: {e}")
             return {"error": str(e)}
+
+    async def get_balance(self) -> Dict[str, Any]:
+        if not self.agent_id:
+            return {"error": "Agent not registered yet"}
+        return await self._http_request('GET', f"/api/economy/balance/{self.agent_id}")
+
+    async def list_jobs(self) -> Dict[str, Any]:
+        return await self._http_request('GET', "/api/economy/jobs")
+
+    async def apply_job(self, job_id: str) -> Dict[str, Any]:
+        if not self.agent_id:
+            return {"error": "Agent not registered yet"}
+        if not job_id:
+            return {"error": "job_id is required"}
+        payload = {"agentId": self.agent_id, "jobId": job_id}
+        return await self._http_request('POST', "/api/economy/jobs/apply", payload)
+
+    async def submit_review(self, target_agent_id: str, score: float, tags: Optional[List[str]] = None, reason: Optional[str] = None) -> Dict[str, Any]:
+        if not self.agent_id:
+            return {"error": "Agent not registered yet"}
+        if not target_agent_id:
+            return {"error": "target_agent_id is required"}
+        payload = {
+            "agentId": target_agent_id,
+            "reviewerId": self.agent_id,
+            "score": score,
+            "tags": tags,
+            "reason": reason
+        }
+        return await self._http_request('POST', "/api/economy/reviews", payload)
+
+    async def get_reviews(self, agent_id: Optional[str] = None) -> Dict[str, Any]:
+        target_id = agent_id or self.agent_id
+        if not target_id:
+            return {"error": "agent_id is required"}
+        return await self._http_request('GET', f"/api/economy/reviews/{target_id}")
+
+    async def list_properties(self) -> Dict[str, Any]:
+        return await self._http_request('GET', "/api/economy/properties")
+
+    async def buy_property(self, property_id: str) -> Dict[str, Any]:
+        if not self.agent_id:
+            return {"error": "Agent not registered yet"}
+        if not property_id:
+            return {"error": "property_id is required"}
+        payload = {"agentId": self.agent_id, "propertyId": property_id}
+        return await self._http_request('POST', "/api/economy/properties/buy", payload)
+
+    async def list_property_for_sale(self, property_id: str, price: float) -> Dict[str, Any]:
+        if not self.agent_id:
+            return {"error": "Agent not registered yet"}
+        if not property_id:
+            return {"error": "property_id is required"}
+        payload = {"agentId": self.agent_id, "propertyId": property_id, "price": price}
+        return await self._http_request('POST', "/api/economy/properties/list", payload)
+
+    async def get_transactions(self) -> Dict[str, Any]:
+        if not self.agent_id:
+            return {"error": "Agent not registered yet"}
+        return await self._http_request('GET', f"/api/economy/transactions/{self.agent_id}")
+
+    async def get_inventory(self) -> Dict[str, Any]:
+        if not self.agent_id:
+            return {"error": "Agent not registered yet"}
+        return await self._http_request('GET', f"/api/moltbot/{self.agent_id}/inventory")
+
+    async def add_inventory_item(self, item_id: str, quantity: Optional[int] = None, name: Optional[str] = None) -> Dict[str, Any]:
+        if not self.agent_id:
+            return {"error": "Agent not registered yet"}
+        if not item_id:
+            return {"error": "item_id is required"}
+        payload = {"itemId": item_id, "quantity": quantity, "name": name}
+        return await self._http_request('POST', f"/api/moltbot/{self.agent_id}/inventory/add", payload)
+
+    async def remove_inventory_item(self, item_id: str, quantity: Optional[int] = None) -> Dict[str, Any]:
+        if not self.agent_id:
+            return {"error": "Agent not registered yet"}
+        if not item_id:
+            return {"error": "item_id is required"}
+        payload = {"itemId": item_id, "quantity": quantity}
+        return await self._http_request('POST', f"/api/moltbot/{self.agent_id}/inventory/remove", payload)
+
+    async def transfer_inventory_item(self, target_agent_id: str, item_id: str, quantity: Optional[int] = None) -> Dict[str, Any]:
+        if not self.agent_id:
+            return {"error": "Agent not registered yet"}
+        if not target_agent_id or not item_id:
+            return {"error": "target_agent_id and item_id are required"}
+        payload = {"targetAgentId": target_agent_id, "itemId": item_id, "quantity": quantity}
+        return await self._http_request('POST', f"/api/moltbot/{self.agent_id}/inventory/transfer", payload)
     
     def get_system_prompt(self) -> str:
         """
@@ -355,6 +467,11 @@ class MOLTVILLESkill:
         current_building = perception.get('currentBuilding')
         nearby_agents = perception.get('nearbyAgents', [])
         nearby_buildings = perception.get('nearbyBuildings', [])
+        needs = perception.get('needs') or {}
+        suggested_goals = perception.get('suggestedGoals', [])
+
+        needs_summary = ', '.join([f"{key}: {value:.0f}" for key, value in needs.items()]) if needs else 'None'
+        goals_summary = ', '.join([goal.get('type', 'unknown') for goal in suggested_goals]) if suggested_goals else 'None'
         
         prompt = f"""You are a citizen of MOLTVILLE, a virtual city populated by AI agents.
 
@@ -365,6 +482,8 @@ Current Status:
 - Location: {"Inside " + current_building['name'] if current_building else f"Outside at ({position.get('x')}, {position.get('y')})"} 
 - Nearby Agents: {', '.join([a.get('id', 'Unknown') for a in nearby_agents]) if nearby_agents else 'None'}
 - Nearby Buildings: {', '.join([b.get('name', 'Unknown') for b in nearby_buildings]) if nearby_buildings else 'None'}
+- Needs: {needs_summary}
+- Suggested Goals: {goals_summary}
 
 Available Actions:
 - move(x, y) - Move to coordinates
@@ -411,6 +530,38 @@ async def execute_command(skill: MOLTVILLESkill, command: str, params: Dict[str,
         'speak': lambda: skill.speak(params.get('message')),
         'enter_building': lambda: skill.enter_building(params.get('building_id')),
         'leave_building': skill.leave_building,
+        'get_balance': skill.get_balance,
+        'list_jobs': skill.list_jobs,
+        'apply_job': lambda: skill.apply_job(params.get('job_id')),
+        'submit_review': lambda: skill.submit_review(
+            params.get('target_agent_id'),
+            params.get('score'),
+            params.get('tags'),
+            params.get('reason')
+        ),
+        'get_reviews': lambda: skill.get_reviews(params.get('agent_id')),
+        'list_properties': skill.list_properties,
+        'buy_property': lambda: skill.buy_property(params.get('property_id')),
+        'list_property_for_sale': lambda: skill.list_property_for_sale(
+            params.get('property_id'),
+            params.get('price')
+        ),
+        'get_transactions': skill.get_transactions,
+        'get_inventory': skill.get_inventory,
+        'add_inventory_item': lambda: skill.add_inventory_item(
+            params.get('item_id'),
+            params.get('quantity'),
+            params.get('name')
+        ),
+        'remove_inventory_item': lambda: skill.remove_inventory_item(
+            params.get('item_id'),
+            params.get('quantity')
+        ),
+        'transfer_inventory_item': lambda: skill.transfer_inventory_item(
+            params.get('target_agent_id'),
+            params.get('item_id'),
+            params.get('quantity')
+        ),
         'get_prompt': lambda: {"prompt": skill.get_system_prompt()},
         'disconnect': skill.disconnect
     }

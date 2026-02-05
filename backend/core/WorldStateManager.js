@@ -19,6 +19,19 @@ export class WorldStateManager {
       lastChange: Date.now()
     };
     this.lastExpansionCheck = 0;
+    this.lastNeedUpdate = Date.now();
+    this.needRates = {
+      hungerPerMinute: parseFloat(process.env.NEED_HUNGER_PER_MINUTE || '1.2'),
+      energyPerMinute: parseFloat(process.env.NEED_ENERGY_PER_MINUTE || '0.6'),
+      socialPerMinute: parseFloat(process.env.NEED_SOCIAL_PER_MINUTE || '0.4'),
+      funPerMinute: parseFloat(process.env.NEED_FUN_PER_MINUTE || '0.4')
+    };
+    this.needThresholds = {
+      hunger: parseFloat(process.env.NEED_HUNGER_THRESHOLD || '70'),
+      energy: parseFloat(process.env.NEED_ENERGY_THRESHOLD || '30'),
+      social: parseFloat(process.env.NEED_SOCIAL_THRESHOLD || '30'),
+      fun: parseFloat(process.env.NEED_FUN_THRESHOLD || '30')
+    };
     // Movement interpolation state per agent
     this.movementState = new Map(); // agentId -> { fromX, fromY, toX, toY, progress, path }
   }
@@ -183,6 +196,7 @@ export class WorldStateManager {
     this.updateWorldTime();
     this.updateWeather();
     this.expandCityIfNeeded();
+    this.updateNeeds();
     // Progress all active movements
     this.movementState.forEach((state, agentId) => {
       if (state.fullPath && (!Array.isArray(state.fullPath) || typeof state.currentStep !== 'number')) {
@@ -221,6 +235,36 @@ export class WorldStateManager {
         }
       }
     });
+  }
+
+  initializeNeeds() {
+    return {
+      hunger: 20,
+      energy: 100,
+      social: 60,
+      fun: 60
+    };
+  }
+
+  updateNeeds() {
+    const now = Date.now();
+    const deltaMinutes = (now - this.lastNeedUpdate) / 60000;
+    if (deltaMinutes <= 0) return;
+    this.lastNeedUpdate = now;
+
+    for (const agent of this.agents.values()) {
+      if (!agent.needs) {
+        agent.needs = this.initializeNeeds();
+      }
+      agent.needs.hunger = this.clamp(agent.needs.hunger + deltaMinutes * this.needRates.hungerPerMinute, 0, 100);
+      agent.needs.energy = this.clamp(agent.needs.energy - deltaMinutes * this.needRates.energyPerMinute, 0, 100);
+      agent.needs.social = this.clamp(agent.needs.social - deltaMinutes * this.needRates.socialPerMinute, 0, 100);
+      agent.needs.fun = this.clamp(agent.needs.fun - deltaMinutes * this.needRates.funPerMinute, 0, 100);
+    }
+  }
+
+  clamp(value, min, max) {
+    return Math.min(max, Math.max(min, value));
   }
 
   expandCityIfNeeded() {
@@ -330,6 +374,7 @@ export class WorldStateManager {
       facing: 'down',
       state: 'idle',
       currentBuilding: null,
+      needs: this.initializeNeeds(),
       lastUpdate: Date.now()
     });
     logger.debug(`Agent ${agentId} added at (${position.x}, ${position.y})`);
@@ -589,9 +634,55 @@ export class WorldStateManager {
         id: b.id, name: b.name, type: b.type,
         position: { x: b.x, y: b.y }, occupants: b.occupancy.length
       })),
+      needs: agent.needs,
+      suggestedGoals: this.getSuggestedGoals(agent),
       worldTime: this.getTimeState(),
       weather: this.getWeatherState()
     };
+  }
+
+  getSuggestedGoals(agent) {
+    if (!agent.needs) return [];
+    const suggestions = [];
+    const { hunger, energy, social, fun } = agent.needs;
+
+    if (hunger >= this.needThresholds.hunger) {
+      suggestions.push({
+        type: 'eat',
+        urgency: hunger,
+        reason: 'high_hunger',
+        targetTypes: ['cafe', 'market', 'shop', 'inn']
+      });
+    }
+    if (energy <= this.needThresholds.energy) {
+      suggestions.push({
+        type: 'rest',
+        urgency: 100 - energy,
+        reason: 'low_energy',
+        targetTypes: ['inn', 'house', 'apartment']
+      });
+    }
+    if (social <= this.needThresholds.social) {
+      suggestions.push({
+        type: 'socialize',
+        urgency: 100 - social,
+        reason: 'low_social',
+        targetTypes: ['plaza', 'cafe', 'market', 'garden']
+      });
+    }
+    if (fun <= this.needThresholds.fun) {
+      suggestions.push({
+        type: 'relax',
+        urgency: 100 - fun,
+        reason: 'low_fun',
+        targetTypes: ['garden', 'plaza', 'gallery', 'park']
+      });
+    }
+
+    return suggestions
+      .sort((a, b) => b.urgency - a.urgency)
+      .slice(0, 3)
+      .map(({ urgency, ...entry }) => entry);
   }
 
   getRandomSpawnPosition() {

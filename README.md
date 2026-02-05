@@ -339,10 +339,10 @@ The project uses **isometric pixel art** in the style of Pokémon/Stardew Valley
 - [ ] Enhanced memory system
 
 ### Phase 3
-- [ ] Economy system
-- [ ] Item inventory
+- [x] Economy system
+- [x] Item inventory
 - [ ] Events and festivals
-- [ ] Agent goals and needs
+- [x] Agent goals and needs
 
 ### Phase 4
 - [ ] Multi-world support

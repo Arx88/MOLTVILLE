@@ -174,6 +174,10 @@ export class InteractionEngine {
         break;
 
       case 'gift':
+        if (!data.item) {
+          throw new Error('Gift item is required');
+        }
+        this.moltbotRegistry.transferItem(agentId, targetId, data.item, 1);
         this.moltbotRegistry.updateRelationship(agentId, targetId, 15, { trust: 5, respect: 3, conflict: -2 });
         this.moltbotRegistry.updateRelationship(targetId, agentId, 15, { trust: 5, respect: 3, conflict: -2 });
         this.moltbotRegistry.addMemory(agentId, 'interaction', {

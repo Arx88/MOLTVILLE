@@ -92,6 +92,9 @@ export class MoltbotRegistry {
         actionsTaken: 0,
         interactionCount: 0
       },
+      inventory: {
+        items: {}
+      },
       memory: {
         interactions: [],
         locations: [],
@@ -290,6 +293,61 @@ export class MoltbotRegistry {
       locations: agent.memory.locations.slice(-limit),
       relationships: agent.memory.relationships
     };
+  }
+
+  ensureInventory(agent) {
+    if (!agent.inventory) {
+      agent.inventory = { items: {} };
+    }
+  }
+
+  getInventory(agentId) {
+    const agent = this.agents.get(agentId);
+    if (!agent) return null;
+    this.ensureInventory(agent);
+    return Object.values(agent.inventory.items);
+  }
+
+  addItem(agentId, itemId, quantity = 1, metadata = {}) {
+    const agent = this.agents.get(agentId);
+    if (!agent) throw new Error('Agent not found');
+    this.ensureInventory(agent);
+    if (!itemId) throw new Error('Item id is required');
+    const normalizedId = String(itemId).trim();
+    if (!normalizedId) throw new Error('Item id is required');
+    const qty = Number.isFinite(quantity) ? Math.max(1, Math.floor(quantity)) : 1;
+    const existing = agent.inventory.items[normalizedId] || {
+      id: normalizedId,
+      name: metadata.name || normalizedId,
+      quantity: 0
+    };
+    existing.quantity += qty;
+    agent.inventory.items[normalizedId] = existing;
+    return existing;
+  }
+
+  removeItem(agentId, itemId, quantity = 1) {
+    const agent = this.agents.get(agentId);
+    if (!agent) throw new Error('Agent not found');
+    this.ensureInventory(agent);
+    if (!itemId) throw new Error('Item id is required');
+    const normalizedId = String(itemId).trim();
+    const item = agent.inventory.items[normalizedId];
+    if (!item) throw new Error('Item not found in inventory');
+    const qty = Number.isFinite(quantity) ? Math.max(1, Math.floor(quantity)) : 1;
+    if (item.quantity < qty) throw new Error('Not enough quantity');
+    item.quantity -= qty;
+    if (item.quantity <= 0) {
+      delete agent.inventory.items[normalizedId];
+      return null;
+    }
+    return item;
+  }
+
+  transferItem(fromAgentId, toAgentId, itemId, quantity = 1) {
+    const item = this.removeItem(fromAgentId, itemId, quantity);
+    const transferred = this.addItem(toAgentId, itemId, quantity, item || {});
+    return transferred;
   }
 
   getRelationship(agentId, otherAgentId) {
