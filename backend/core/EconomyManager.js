@@ -4,12 +4,16 @@ export class EconomyManager {
   constructor(worldState, options = {}) {
     this.worldState = worldState;
     this.db = options.db || null;
+    this.io = options.io || null;
     this.balances = new Map();
     this.jobs = new Map();
     this.jobAssignments = new Map();
     this.reviews = new Map();
     this.properties = new Map();
     this.transactions = new Map();
+    this.inventories = new Map();
+    this.itemTransactions = [];
+    this.itemTransactionsByAgent = new Map();
     this.policyState = {
       baseIncomeMultiplier: 1,
       salaryMultiplier: 1,
@@ -158,6 +162,139 @@ export class EconomyManager {
       this.persistBalance(agentId);
       logger.info(`Economy: Initialized balance for agent ${agentId}`);
     }
+    if (!this.inventories.has(agentId)) {
+      this.inventories.set(agentId, new Map());
+    }
+  }
+
+  ensureInventory(agentId) {
+    if (!this.inventories.has(agentId)) {
+      this.inventories.set(agentId, new Map());
+    }
+    return this.inventories.get(agentId);
+  }
+
+  getInventory(agentId) {
+    const inventory = this.ensureInventory(agentId);
+    return Array.from(inventory.values()).map(item => ({ ...item }));
+  }
+
+  addItem(agentId, { itemId, name, quantity = 1 }) {
+    if (!itemId) {
+      throw new Error('itemId is required');
+    }
+    const numericQuantity = Number(quantity);
+    if (!Number.isFinite(numericQuantity) || numericQuantity <= 0) {
+      throw new Error('quantity must be a positive number');
+    }
+    const inventory = this.ensureInventory(agentId);
+    const existing = inventory.get(itemId);
+    const nextName = name || existing?.name || itemId;
+    const nextQuantity = (existing?.quantity || 0) + numericQuantity;
+    const item = { id: itemId, name: nextName, quantity: nextQuantity };
+    inventory.set(itemId, item);
+    this.recordItemTransaction({
+      agentId,
+      itemId,
+      name: nextName,
+      quantity: numericQuantity,
+      action: 'add'
+    });
+    this.emitInventoryUpdate(agentId);
+    return item;
+  }
+
+  removeItem(agentId, { itemId, quantity = 1 }) {
+    if (!itemId) {
+      throw new Error('itemId is required');
+    }
+    const numericQuantity = Number(quantity);
+    if (!Number.isFinite(numericQuantity) || numericQuantity <= 0) {
+      throw new Error('quantity must be a positive number');
+    }
+    const inventory = this.ensureInventory(agentId);
+    const existing = inventory.get(itemId);
+    if (!existing || existing.quantity < numericQuantity) {
+      throw new Error('insufficient item quantity');
+    }
+    const nextQuantity = existing.quantity - numericQuantity;
+    if (nextQuantity === 0) {
+      inventory.delete(itemId);
+      this.recordItemTransaction({
+        agentId,
+        itemId,
+        name: existing.name,
+        quantity: numericQuantity,
+        action: 'remove'
+      });
+      this.emitInventoryUpdate(agentId);
+      return { id: itemId, name: existing.name, quantity: 0 };
+    }
+    const item = { id: itemId, name: existing.name, quantity: nextQuantity };
+    inventory.set(itemId, item);
+    this.recordItemTransaction({
+      agentId,
+      itemId,
+      name: existing.name,
+      quantity: numericQuantity,
+      action: 'remove'
+    });
+    this.emitInventoryUpdate(agentId);
+    return item;
+  }
+
+  recordItemTransaction({ agentId, itemId, name, quantity, action }) {
+    const transaction = {
+      agentId,
+      itemId,
+      name,
+      quantity,
+      action,
+      timestamp: Date.now()
+    };
+    this.itemTransactions.push(transaction);
+    if (this.itemTransactions.length > 500) {
+      this.itemTransactions.splice(0, this.itemTransactions.length - 500);
+    }
+    if (!this.itemTransactionsByAgent.has(agentId)) {
+      this.itemTransactionsByAgent.set(agentId, []);
+    }
+    const agentLedger = this.itemTransactionsByAgent.get(agentId);
+    agentLedger.push(transaction);
+    if (agentLedger.length > 200) {
+      agentLedger.splice(0, agentLedger.length - 200);
+    }
+    if (this.io) {
+      this.io.to('viewers').emit('economy:item-transaction', transaction);
+    }
+  }
+
+  getItemTransactions(limit = 100) {
+    return this.itemTransactions.slice(-limit);
+  }
+
+  getItemTransactionsForAgent(agentId, limit = 100) {
+    if (!this.itemTransactionsByAgent.has(agentId)) return [];
+    return this.itemTransactionsByAgent.get(agentId).slice(-limit);
+  }
+
+  getAllInventories() {
+    const entries = [];
+    this.inventories.forEach((inventory, agentId) => {
+      entries.push({
+        agentId,
+        inventory: Array.from(inventory.values()).map(item => ({ ...item }))
+      });
+    });
+    return entries;
+  }
+
+  emitInventoryUpdate(agentId) {
+    if (!this.io) return;
+    this.io.to('viewers').emit('economy:inventory:update', {
+      agentId,
+      inventory: this.getInventory(agentId)
+    });
   }
 
   getBalance(agentId) {
@@ -168,6 +305,22 @@ export class EconomyManager {
     if (this.balances.size === 0) return 0;
     const total = Array.from(this.balances.values()).reduce((sum, value) => sum + value, 0);
     return total / this.balances.size;
+  }
+
+  getInventoryStats() {
+    let totalItems = 0;
+    const uniqueItems = new Set();
+    this.inventories.forEach(inventory => {
+      inventory.forEach(item => {
+        totalItems += item.quantity || 0;
+        if (item.id) uniqueItems.add(item.id);
+      });
+    });
+    return {
+      agentsWithInventory: this.inventories.size,
+      totalItems,
+      uniqueItems: uniqueItems.size
+    };
   }
 
   tick() {

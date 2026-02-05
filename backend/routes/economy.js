@@ -107,4 +107,56 @@ router.get('/transactions/:agentId', (req, res) => {
   res.json({ agentId, transactions: economy.getTransactions(agentId) });
 });
 
+router.get('/inventory/:agentId/transactions', (req, res) => {
+  const { agentId } = req.params;
+  const economy = req.app.locals.economyManager;
+  const limit = Number(req.query.limit) || 100;
+  res.json({ agentId, transactions: economy.getItemTransactionsForAgent(agentId, limit) });
+});
+
+router.get('/inventory/:agentId', (req, res) => {
+  const { agentId } = req.params;
+  const economy = req.app.locals.economyManager;
+  res.json({ agentId, inventory: economy.getInventory(agentId) });
+});
+
+router.get('/inventory', (req, res) => {
+  const economy = req.app.locals.economyManager;
+  res.json({ inventories: economy.getAllInventories() });
+});
+
+router.get('/inventory/transactions', (req, res) => {
+  const economy = req.app.locals.economyManager;
+  const limit = Number(req.query.limit) || 100;
+  res.json({ transactions: economy.getItemTransactions(limit) });
+});
+
+router.post('/inventory/add', (req, res) => {
+  const { agentId, itemId, name, quantity } = req.body;
+  const economy = req.app.locals.economyManager;
+  if (!agentId || !itemId) {
+    return res.status(400).json({ success: false, error: 'agentId and itemId are required' });
+  }
+  try {
+    const item = economy.addItem(agentId, { itemId, name, quantity });
+    res.json({ success: true, item });
+  } catch (error) {
+    res.status(400).json({ success: false, error: error.message });
+  }
+});
+
+router.post('/inventory/remove', (req, res) => {
+  const { agentId, itemId, quantity } = req.body;
+  const economy = req.app.locals.economyManager;
+  if (!agentId || !itemId) {
+    return res.status(400).json({ success: false, error: 'agentId and itemId are required' });
+  }
+  try {
+    const item = economy.removeItem(agentId, { itemId, quantity });
+    res.json({ success: true, item });
+  } catch (error) {
+    res.status(400).json({ success: false, error: error.message });
+  }
+});
+
 export default router;

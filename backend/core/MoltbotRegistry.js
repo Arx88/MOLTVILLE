@@ -8,6 +8,13 @@ export class MoltbotRegistry {
     this.apiKeys = new Map(); // apiKey -> agentId
     this.sockets = new Map(); // agentId -> socketId
     this.issuedApiKeys = new Set();
+    this.memoryLimits = {
+      interactionsMax: parseInt(process.env.MEMORY_INTERACTIONS_MAX, 10) || 200,
+      locationsMax: parseInt(process.env.MEMORY_LOCATIONS_MAX, 10) || 100,
+      maxAgeMs: parseInt(process.env.MEMORY_MAX_AGE_MS, 10) || 7 * 24 * 60 * 60 * 1000,
+      pruneIntervalMs: parseInt(process.env.MEMORY_PRUNE_INTERVAL_MS, 10) || 600000
+    };
+    this.lastMemoryPrune = 0;
   }
 
   async initializeFromDb() {
@@ -228,21 +235,44 @@ export class MoltbotRegistry {
       switch (memoryType) {
         case 'interaction':
           agent.memory.interactions.push(memory);
-          // Keep last 100 interactions
-          if (agent.memory.interactions.length > 100) {
-            agent.memory.interactions.shift();
-          }
+          this.trimMemoryList(agent.memory.interactions, this.memoryLimits.interactionsMax);
           break;
         case 'location':
           agent.memory.locations.push(memory);
-          if (agent.memory.locations.length > 50) {
-            agent.memory.locations.shift();
-          }
+          this.trimMemoryList(agent.memory.locations, this.memoryLimits.locationsMax);
           break;
       }
 
       this.persistMemory(agentId, memory);
     }
+  }
+
+  trimMemoryList(list, max) {
+    if (max <= 0) return;
+    if (list.length > max) {
+      list.splice(0, list.length - max);
+    }
+  }
+
+  pruneMemories() {
+    const now = Date.now();
+    if (now - this.lastMemoryPrune < this.memoryLimits.pruneIntervalMs) return;
+    this.lastMemoryPrune = now;
+    const maxAgeMs = this.memoryLimits.maxAgeMs;
+    const pruneByAge = Number.isFinite(maxAgeMs) && maxAgeMs > 0;
+
+    this.agents.forEach(agent => {
+      if (pruneByAge) {
+        agent.memory.interactions = agent.memory.interactions.filter(
+          entry => now - entry.timestamp <= maxAgeMs
+        );
+        agent.memory.locations = agent.memory.locations.filter(
+          entry => now - entry.timestamp <= maxAgeMs
+        );
+      }
+      this.trimMemoryList(agent.memory.interactions, this.memoryLimits.interactionsMax);
+      this.trimMemoryList(agent.memory.locations, this.memoryLimits.locationsMax);
+    });
   }
 
   updateRelationship(agentId, otherAgentId, delta, dimensions = {}) {

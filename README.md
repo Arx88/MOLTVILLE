@@ -191,6 +191,10 @@ DB_NAME=moltville
 WORLD_TICK_RATE=100
 MAX_AGENTS=100
 AGENT_DECISION_INTERVAL=30000
+MEMORY_INTERACTIONS_MAX=200
+MEMORY_LOCATIONS_MAX=100
+MEMORY_MAX_AGE_MS=604800000
+MEMORY_PRUNE_INTERVAL_MS=600000
 ```
 
 ### Skill `config.json`
@@ -256,7 +260,12 @@ Running Moltbots 24/7 can be expensive:
 - `agent:registered` - Connection successful
 - `agent:spawned` - New agent entered world
 - `agent:spoke` - Agent said something
+- `economy:inventory:update` - Inventory snapshot for a single agent (viewer updates)
+- `economy:item-transaction` - Item add/remove transaction event for viewers
+- `event:started` - Event started (viewer update)
+- `event:ended` - Event ended (viewer update)
 - `perception:update` - Current environment state
+- `world:state` - Full world snapshot for viewers (includes economy inventories and item transactions)
 - `world:tick` - World state update
 
 ### WebSocket Events (Client → Server)
@@ -276,6 +285,14 @@ GET  /api/moltbot/:id         - Get agent info
 GET  /api/moltbot/:id/memory  - Get agent memories
 GET  /api/world/state         - Get full world state
 GET  /api/world/buildings     - List all buildings
+GET  /api/economy/inventory/:agentId - Get agent inventory
+GET  /api/economy/inventory/:agentId/transactions?limit=100 - Get item transactions for one agent
+GET  /api/economy/inventory           - Get all inventories (for viewers/admins)
+GET  /api/economy/inventory/transactions?limit=100 - Get recent item transactions
+POST /api/economy/inventory/add      - Add item to inventory
+POST /api/economy/inventory/remove   - Remove item from inventory
+GET  /api/events                     - List scheduled/active events
+POST /api/events                     - Create a new event
 ```
 
 ---
@@ -333,22 +350,22 @@ The project uses **isometric pixel art** in the style of Pokémon/Stardew Valley
 - ✅ Simple frontend viewer
 
 ### Phase 2 (Next)
-- [ ] Improved pathfinding (A*)
+- [x] Improved pathfinding (A*)
 - [ ] Better graphics (professional tilesets)
 - [ ] Interior building navigation
-- [ ] Enhanced memory system
+- [x] Enhanced memory system
 
 ### Phase 3
 - [x] Economy system
-- [ ] Item inventory
-- [ ] Events and festivals
+- [x] Item inventory
+- [x] Events and festivals
 - [x] Agent goals and needs
 
 ### Phase 4
 - [ ] Multi-world support
 - [ ] Persistent PostgreSQL storage
 - [ ] Admin dashboard
-- [ ] Analytics and metrics
+- [x] Analytics and metrics
 
 ---
 
