@@ -44,6 +44,31 @@ CREATE TABLE IF NOT EXISTS economy_properties (
   updated_at TIMESTAMP NOT NULL DEFAULT NOW()
 );
 
+CREATE TABLE IF NOT EXISTS economy_inventories (
+  agent_id TEXT NOT NULL,
+  item_id TEXT NOT NULL,
+  name TEXT NOT NULL,
+  quantity NUMERIC NOT NULL DEFAULT 0,
+  updated_at TIMESTAMP NOT NULL DEFAULT NOW(),
+  PRIMARY KEY (agent_id, item_id)
+);
+
+CREATE TABLE IF NOT EXISTS economy_job_assignments (
+  agent_id TEXT PRIMARY KEY,
+  job_id TEXT NOT NULL,
+  assigned_at TIMESTAMP NOT NULL DEFAULT NOW()
+);
+
+CREATE TABLE IF NOT EXISTS economy_reviews (
+  id SERIAL PRIMARY KEY,
+  agent_id TEXT NOT NULL,
+  reviewer_id TEXT NOT NULL,
+  score NUMERIC NOT NULL,
+  tags JSONB NOT NULL DEFAULT '[]'::jsonb,
+  reason TEXT NOT NULL DEFAULT '',
+  created_at TIMESTAMP NOT NULL DEFAULT NOW()
+);
+
 CREATE TABLE IF NOT EXISTS vote_state (
   vote_id TEXT PRIMARY KEY,
   lot_id TEXT NOT NULL,
