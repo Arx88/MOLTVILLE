@@ -1,11 +1,11 @@
-# MOLTVILLE: Pendientes reales (alineados con el código)
+# MOLTVILLE: Pendientes (alineados con el código actual)
 
-Este documento refleja **lo que sí existe hoy** en el repo y **lo que falta** para que el proyecto sea
-funcional, escalable y “production-ready”. Se basa en el estado actual del código.
+Este documento lista **lo que falta por implementar** para que el proyecto sea funcional,
+seguro y profesional, pero **sin perder de vista lo que ya existe en el repo**.
 
 ---
 
-## ✅ Lo que ya está implementado
+## ✅ Ya implementado (confirmado en código)
 
 - Backend Node.js + Express + Socket.io con rate limiting y backoff por agente.
 - Mundo 64x64 con distritos, lotes y desbloqueo automático por población.
@@ -19,7 +19,7 @@ funcional, escalable y “production-ready”. Se basa en el estado actual del c
 
 ---
 
-## 1) Persistencia y continuidad
+## 1) Persistencia y continuidad (CRÍTICO)
 
 ### 1.1 Persistencia incompleta del mundo
 **Qué existe:**
@@ -41,40 +41,17 @@ funcional, escalable y “production-ready”. Se basa en el estado actual del c
 
 ---
 
-## 2) Observabilidad y operación
+## 2) Seguridad y permisos
 
-### 2.1 Métricas sin exportador
+### 2.1 API keys y auditoría
 **Qué existe:**
-- `/api/metrics` con métricas en memoria (HTTP, sockets, ticks, economía básica).
+- Emisión, rotación y revocación.
+- Auditoría de eventos y endpoints de listado.
 
 **Qué falta:**
-- Exportador Prometheus / Grafana.
-- Métricas de latencia por evento y errores estructurados.
+- Panel/admin UX para gestión y monitoreo de keys.
 
-### 2.2 Logging estructurado con rotación
-**Qué existe:**
-- Winston con logs JSON y archivos rotativos.
-
-**Qué falta:**
-- Correlación por request / trace IDs.
-
----
-
-## 3) Tests y calidad
-
-### 3.1 Tests parciales
-**Qué existe:**
-- Tests unitarios básicos para WorldState, Voting, Economy y Registry.
-
-**Qué falta:**
-- Tests de integración (WebSocket y flujos reales).
-- Cobertura mínima definida y enforcement CI.
-
----
-
-## 4) Seguridad y permisos
-
-### 4.1 Permisos y roles
+### 2.2 Permisos granulares
 **Qué existe:**
 - Roles `viewer` / `agent` en socket.
 - `ADMIN_API_KEY` para rutas admin.
@@ -85,7 +62,38 @@ funcional, escalable y “production-ready”. Se basa en el estado actual del c
 
 ---
 
-## 5) Frontend y UX
+## 3) Observabilidad y operación
+
+### 3.1 Métricas sin exportador
+**Qué existe:**
+- `/api/metrics` con métricas en memoria (HTTP, sockets, ticks, economía básica).
+
+**Qué falta:**
+- Exportador Prometheus / Grafana.
+- Métricas de latencia por evento y errores estructurados.
+
+### 3.2 Logging estructurado con rotación
+**Qué existe:**
+- Winston con logs JSON y archivos rotativos.
+
+**Qué falta:**
+- Correlación por request / trace IDs.
+
+---
+
+## 4) Tests y calidad
+
+### 4.1 Tests parciales
+**Qué existe:**
+- Tests unitarios básicos para WorldState, Voting, Economy y Registry.
+
+**Qué falta:**
+- Tests de integración (WebSocket y flujos reales).
+- Cobertura mínima definida y enforcement CI.
+
+---
+
+## 5) UX / Frontend
 
 ### 5.1 Viewer sin pipeline de build
 **Qué existe:**
@@ -93,7 +101,8 @@ funcional, escalable y “production-ready”. Se basa en el estado actual del c
 
 **Qué falta:**
 - Pipeline de build o estructura modular.
-- UI/UX de acciones (contexto y tutoriales).
+- UI/UX de acciones (contexto, tutoriales, feedback claro).
+- Gráficos profesionales (assets de mayor calidad).
 
 ---
 
@@ -105,3 +114,12 @@ funcional, escalable y “production-ready”. Se basa en el estado actual del c
 
 **Qué falta:**
 - Estrategia multi-instancia (sharding, state sync, colas distribuidas).
+- Límite de agentes basado en capacidad + métricas de saturación.
+
+---
+
+## 7) Mundo vivo (funcionalidad faltante)
+
+- Interiores navegables (espacios internos + pathfinding).
+- Expansión urbana más avanzada (zonificación, reglas complejas).
+- Integración de decisiones LLM con objetivos y planificación.

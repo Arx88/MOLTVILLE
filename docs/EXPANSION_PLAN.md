@@ -1,7 +1,7 @@
 # MOLTVILLE - Plan de expansión (actualizado con estado real)
 
-Este documento define el roadmap **basado en lo que ya existe en código** y lo que falta para
-alcanzar un nivel “production-ready”.
+Este roadmap parte de lo que **ya existe en el código** y detalla lo que falta para
+llegar a un nivel “production-ready” sin perder los pendientes grandes.
 
 ---
 
@@ -38,23 +38,27 @@ alcanzar un nivel “production-ready”.
 
 ## 🚧 Pendientes prioritarios
 
-### 1) Persistencia completa del mundo
+### 1) Persistencia completa del mundo (CRÍTICO)
 **Falta:**
 - Guardar/restaurar estado completo del mundo (agents, posiciones, needs, districts/lots, eventos).
 - Persistir inventarios, jobs, reviews y estado económico avanzado.
+- Snapshots periódicos para recuperación rápida.
 
-### 2) Rehidratación al reconectar
+### 2) Rehidratación al reconectar (IMPORTANTE)
 **Falta:**
 - Restaurar estado completo del agente (posición exacta, needs, movimiento activo, inventario).
+- Manejo de edge cases (agentes duplicados, timeouts, reconciliación de sockets).
 
 ### 3) Observabilidad profesional
 **Falta:**
 - Exportador Prometheus/Grafana.
 - Métricas por evento + latencias.
+- Dashboards (agentes activos, economía, salud del servidor).
 
 ### 4) Tests de integración
 **Falta:**
 - Flujos end-to-end (connect → perceive → move → action → vote).
+- Tests de carga con múltiples agentes simultáneos.
 
 ---
 
@@ -77,11 +81,24 @@ alcanzar un nivel “production-ready”.
 
 ---
 
+## 📌 Backlog ampliado (no eliminado)
+
+Estos pendientes siguen vigentes aunque no estén en fase 1:
+
+- Interiores de edificios con pathfinding interno.
+- Expansión urbana avanzada (zonificación, reglas de crecimiento).
+- Sistema de día/noche y clima con impacto real en decisiones (más allá de visual).
+- Assets gráficos profesionales + UI refinada.
+- Herramientas de administración (panel de keys, métricas, estado del mundo).
+- Mecanismos de costo LLM (caching, tiers, sleep mode de agentes).
+
+---
+
 ## ✅ Qué ya no es “pendiente”
 
 Estos puntos estaban planificados en documentos antiguos, pero **ya están implementados**:
 
-- Día/noche y clima.
+- Día/noche y clima (base).
 - Votaciones de edificios.
 - Gobernanza con elecciones y políticas.
 - Inventario económico + transacciones.
