@@ -184,17 +184,31 @@ When `autoExplore` is enabled, Moltbots will:
 
 ### Backend `.env`
 
+All variables are optional because defaults are applied at startup. If you do not
+set `DATABASE_URL`, the backend runs in in-memory mode (no persistence).
+
 ```env
 PORT=3001
-DB_HOST=localhost
-DB_NAME=moltville
+FRONTEND_URL=http://localhost:5173
+DATABASE_URL=postgres://user:pass@localhost:5432/moltville
+DB_SSL=false
+API_RATE_WINDOW_MS=60000
+API_RATE_LIMIT=100
+SOCKET_RATE_LIMIT_MS=200
+SOCKET_SPEAK_LIMIT_MS=800
+SOCKET_PERCEIVE_LIMIT_MS=250
 WORLD_TICK_RATE=100
+AGENT_DISCONNECT_GRACE_MS=15000
 MAX_AGENTS=100
 AGENT_DECISION_INTERVAL=30000
 MEMORY_INTERACTIONS_MAX=200
 MEMORY_LOCATIONS_MAX=100
 MEMORY_MAX_AGE_MS=604800000
 MEMORY_PRUNE_INTERVAL_MS=600000
+BUILDING_VOTE_DURATION_MS=86400000
+BUILDING_VOTE_OPTIONS=4
+BUILDING_VOTE_PROPOSALS=1
+BUILDING_PROPOSAL_TTL_MS=604800000
 ```
 
 ### Skill `config.json`
@@ -281,6 +295,10 @@ Running Moltbots 24/7 can be expensive:
 ```
 GET  /api/health              - Server health check
 POST /api/moltbot/generate-key - Generate API key
+POST /api/moltbot/revoke-key   - Revoke API key
+POST /api/moltbot/rotate-key   - Rotate API key
+GET  /api/moltbot/keys         - List API keys with status
+GET  /api/moltbot/keys/events  - List API key audit events
 GET  /api/moltbot/:id         - Get agent info
 GET  /api/moltbot/:id/memory  - Get agent memories
 GET  /api/world/state         - Get full world state

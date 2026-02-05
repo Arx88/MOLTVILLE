@@ -3,6 +3,15 @@ import { v4 as uuidv4 } from 'uuid';
 
 const router = express.Router();
 
+const buildActorMeta = (body = {}) => {
+  const actorId = typeof body.actorId === 'string' ? body.actorId.trim() : '';
+  const actorType = typeof body.actorType === 'string' ? body.actorType.trim() : '';
+  return {
+    actorId: actorId.length > 0 ? actorId : null,
+    actorType: actorType.length > 0 ? actorType : null
+  };
+};
+
 // Generate API key for new moltbot
 router.post('/generate-key', async (req, res) => {
   try {
@@ -15,7 +24,10 @@ router.post('/generate-key', async (req, res) => {
     const trimmedName = moltbotName.trim();
     const apiKey = `moltville_${uuidv4().replace(/-/g, '')}`;
     const { moltbotRegistry } = req.app.locals;
-    await moltbotRegistry.issueApiKey(apiKey);
+    await moltbotRegistry.issueApiKey(apiKey, {
+      ...buildActorMeta(req.body),
+      metadata: { moltbotName: trimmedName }
+    });
 
     // In production, store this in database
     res.json({
@@ -61,7 +73,14 @@ router.post('/revoke-key', async (req, res) => {
       moltbotRegistry.unregisterAgent(agent.id);
     }
 
-    moltbotRegistry.revokeApiKey(normalizedKey);
+    const metadata = {};
+    if (typeof req.body.reason === 'string' && req.body.reason.trim().length > 0) {
+      metadata.reason = req.body.reason.trim();
+    }
+    moltbotRegistry.revokeApiKey(normalizedKey, {
+      ...buildActorMeta(req.body),
+      metadata: Object.keys(metadata).length ? metadata : null
+    });
 
     return res.json({ revoked: true });
   } catch (error) {
@@ -84,7 +103,14 @@ router.post('/rotate-key', async (req, res) => {
     }
 
     const newApiKey = `moltville_${uuidv4().replace(/-/g, '')}`;
-    const rotation = await moltbotRegistry.rotateApiKey(normalizedKey, newApiKey);
+    const metadata = {};
+    if (typeof req.body.reason === 'string' && req.body.reason.trim().length > 0) {
+      metadata.reason = req.body.reason.trim();
+    }
+    const rotation = await moltbotRegistry.rotateApiKey(normalizedKey, newApiKey, {
+      ...buildActorMeta(req.body),
+      metadata: Object.keys(metadata).length ? metadata : null
+    });
 
     if (rotation?.agentId) {
       const socketId = moltbotRegistry.getAgentSocket(rotation.agentId);
@@ -105,6 +131,29 @@ router.post('/rotate-key', async (req, res) => {
         }
       }
     });
+  } catch (error) {
+    res.status(500).json({ error: error.message });
+  }
+});
+
+// List API keys with status
+router.get('/keys', async (req, res) => {
+  try {
+    const { moltbotRegistry } = req.app.locals;
+    const keys = await moltbotRegistry.listApiKeys();
+    res.json(keys);
+  } catch (error) {
+    res.status(500).json({ error: error.message });
+  }
+});
+
+// List API key audit events
+router.get('/keys/events', async (req, res) => {
+  try {
+    const limit = parseInt(req.query.limit, 10) || 50;
+    const { moltbotRegistry } = req.app.locals;
+    const events = await moltbotRegistry.listApiKeyEvents(limit);
+    res.json(events);
   } catch (error) {
     res.status(500).json({ error: error.message });
   }
