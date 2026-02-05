@@ -3,10 +3,17 @@ import { createServer } from 'http';
 import { Server } from 'socket.io';
 import cors from 'cors';
 import helmet from 'helmet';
-import dotenv from 'dotenv';
 import rateLimit from 'express-rate-limit';
 
 import { logger } from './utils/logger.js';
+import { config } from './utils/config.js';
+import {
+  metrics,
+  recordTickDuration,
+  trackHttpRequest,
+  trackSocketEvent,
+  trackSocketRateLimit
+} from './utils/metrics.js';
 import { WorldStateManager } from './core/WorldStateManager.js';
 import { MoltbotRegistry } from './core/MoltbotRegistry.js';
 import { InteractionEngine } from './core/InteractionEngine.js';
@@ -26,13 +33,11 @@ import voteRoutes from './routes/vote.js';
 import governanceRoutes from './routes/governance.js';
 import { createAestheticsRouter } from './routes/aesthetics.js';
 
-dotenv.config();
-
 const app = express();
 const httpServer = createServer(app);
 const io = new Server(httpServer, {
   cors: {
-    origin: process.env.FRONTEND_URL || 'http://localhost:5173',
+    origin: config.frontendUrl,
     methods: ['GET', 'POST'],
     credentials: true
   }
@@ -41,22 +46,24 @@ const io = new Server(httpServer, {
 // Middleware
 app.use(helmet());
 app.use(cors({
-  origin: process.env.FRONTEND_URL || 'http://localhost:5173',
+  origin: config.frontendUrl,
   credentials: true
 }));
 app.use(express.json());
 app.use(express.urlencoded({ extended: true }));
+app.use(trackHttpRequest);
 
 const limiter = rateLimit({
-  windowMs: parseInt(process.env.API_RATE_WINDOW_MS) || 60000,
-  max: parseInt(process.env.API_RATE_LIMIT) || 100,
+  windowMs: config.apiRateWindowMs,
+  max: config.apiRateLimit,
   message: 'Too many requests from this IP, please try again later.'
 });
 app.use('/api/', limiter);
 
-const SOCKET_RATE_LIMIT_MS = parseInt(process.env.SOCKET_RATE_LIMIT_MS, 10) || 200;
-const SOCKET_SPEAK_LIMIT_MS = parseInt(process.env.SOCKET_SPEAK_LIMIT_MS, 10) || 800;
-const SOCKET_PERCEIVE_LIMIT_MS = parseInt(process.env.SOCKET_PERCEIVE_LIMIT_MS, 10) || 250;
+const SOCKET_RATE_LIMIT_MS = config.socketRateLimitMs;
+const SOCKET_SPEAK_LIMIT_MS = config.socketSpeakLimitMs;
+const SOCKET_PERCEIVE_LIMIT_MS = config.socketPerceiveLimitMs;
+const AGENT_DISCONNECT_GRACE_MS = config.agentDisconnectGraceMs;
 
 const isSocketRateLimited = (socket, eventName, minIntervalMs) => {
   if (!socket.rateLimits) {
@@ -81,6 +88,8 @@ const ensureActiveApiKey = (socket, registry) => {
   }
   return true;
 };
+
+const disconnectTimers = new Map();
 
 // Initialize core systems
 const worldState = new WorldStateManager();
@@ -129,12 +138,29 @@ app.get('/api/health', (req, res) => {
   });
 });
 
+app.get('/api/metrics', (req, res) => {
+  const viewersRoom = io.sockets.adapter.rooms.get('viewers');
+  res.json({
+    uptimeSec: Math.floor((Date.now() - metrics.startTime) / 1000),
+    http: metrics.http,
+    socket: {
+      ...metrics.socket,
+      connectedClients: io.sockets.sockets.size,
+      connectedAgents: moltbotRegistry.getAgentCount(),
+      connectedViewers: viewersRoom ? viewersRoom.size : 0
+    },
+    world: metrics.world
+  });
+});
+
 // ── WebSocket Handling ──
 io.on('connection', (socket) => {
+  metrics.socket.connections += 1;
   logger.info(`Client connected: ${socket.id}`);
 
   // Viewer joins
   socket.on('viewer:join', () => {
+    trackSocketEvent('viewer:join');
     if (socket.role && socket.role !== 'viewer') {
       socket.emit('error', { message: 'Viewer access denied' });
       return;
@@ -152,6 +178,7 @@ io.on('connection', (socket) => {
 
   // Moltbot agent connection
   socket.on('agent:connect', async (data) => {
+    trackSocketEvent('agent:connect');
     try {
       if (socket.role && socket.role !== 'agent') {
         socket.emit('error', { message: 'Agent access denied' });
@@ -183,10 +210,18 @@ io.on('connection', (socket) => {
         avatar: avatar || 'char1',
         socketId: socket.id, apiKey: normalizedApiKey
       });
+      const existingTimer = disconnectTimers.get(agent.id);
+      if (existingTimer) {
+        clearTimeout(existingTimer);
+        disconnectTimers.delete(agent.id);
+      }
       economyManager.registerAgent(agent.id);
 
-      const spawnPosition = worldState.getRandomSpawnPosition();
-      worldState.addAgent(agent.id, spawnPosition);
+      const existingPosition = worldState.getAgentPosition(agent.id);
+      const spawnPosition = existingPosition || worldState.getRandomSpawnPosition();
+      if (!existingPosition) {
+        worldState.addAgent(agent.id, spawnPosition);
+      }
 
       socket.role = 'agent';
       socket.agentId = agent.id;
@@ -202,10 +237,12 @@ io.on('connection', (socket) => {
         }
       });
 
-      io.emit('agent:spawned', {
-        id: agent.id, name: agent.name,
-        avatar: agent.avatar, position: spawnPosition
-      });
+      if (!existingPosition) {
+        io.emit('agent:spawned', {
+          id: agent.id, name: agent.name,
+          avatar: agent.avatar, position: spawnPosition
+        });
+      }
 
       logger.info(`Agent connected: ${agentName} (${agent.id})`);
     } catch (error) {
@@ -216,10 +253,12 @@ io.on('connection', (socket) => {
 
   // ── Single-step move (legacy) ──
   socket.on('agent:move', async (data) => {
+    trackSocketEvent('agent:move');
     try {
       if (!socket.agentId) { socket.emit('error', { message: 'Not authenticated' }); return; }
       if (!ensureActiveApiKey(socket, moltbotRegistry)) { return; }
       if (isSocketRateLimited(socket, 'agent:move', SOCKET_RATE_LIMIT_MS)) {
+        trackSocketRateLimit('agent:move');
         socket.emit('error', { message: 'Move rate limit exceeded' });
         return;
       }
@@ -240,10 +279,12 @@ io.on('connection', (socket) => {
 
   // ── Full pathfinding move: "go to this tile" ──
   socket.on('agent:moveTo', async (data) => {
+    trackSocketEvent('agent:moveTo');
     try {
       if (!socket.agentId) { socket.emit('error', { message: 'Not authenticated' }); return; }
       if (!ensureActiveApiKey(socket, moltbotRegistry)) { return; }
       if (isSocketRateLimited(socket, 'agent:moveTo', SOCKET_RATE_LIMIT_MS)) {
+        trackSocketRateLimit('agent:moveTo');
         socket.emit('error', { message: 'Move rate limit exceeded' });
         return;
       }
@@ -263,10 +304,12 @@ io.on('connection', (socket) => {
   });
 
   socket.on('agent:speak', async (data) => {
+    trackSocketEvent('agent:speak');
     try {
       if (!socket.agentId) { socket.emit('error', { message: 'Not authenticated' }); return; }
       if (!ensureActiveApiKey(socket, moltbotRegistry)) { return; }
       if (isSocketRateLimited(socket, 'agent:speak', SOCKET_SPEAK_LIMIT_MS)) {
+        trackSocketRateLimit('agent:speak');
         socket.emit('error', { message: 'Speak rate limit exceeded' });
         return;
       }
@@ -303,10 +346,12 @@ io.on('connection', (socket) => {
   });
 
   socket.on('agent:action', async (data) => {
+    trackSocketEvent('agent:action');
     try {
       if (!socket.agentId) { socket.emit('error', { message: 'Not authenticated' }); return; }
       if (!ensureActiveApiKey(socket, moltbotRegistry)) { return; }
       if (isSocketRateLimited(socket, 'agent:action', SOCKET_RATE_LIMIT_MS)) {
+        trackSocketRateLimit('agent:action');
         socket.emit('error', { message: 'Action rate limit exceeded' });
         return;
       }
@@ -326,10 +371,12 @@ io.on('connection', (socket) => {
   });
 
   socket.on('agent:perceive', (data) => {
+    trackSocketEvent('agent:perceive');
     try {
       if (!socket.agentId) { socket.emit('error', { message: 'Not authenticated' }); return; }
       if (!ensureActiveApiKey(socket, moltbotRegistry)) { return; }
       if (isSocketRateLimited(socket, 'agent:perceive', SOCKET_PERCEIVE_LIMIT_MS)) {
+        trackSocketRateLimit('agent:perceive');
         return;
       }
       socket.emit('perception:update', {
@@ -347,12 +394,23 @@ io.on('connection', (socket) => {
     if (socket.agentId) {
       const agent = moltbotRegistry.getAgent(socket.agentId);
       if (agent) {
-        worldState.removeAgent(socket.agentId);
-        moltbotRegistry.unregisterAgent(socket.agentId);
-        io.emit('agent:disconnected', { agentId: socket.agentId, agentName: agent.name });
-        logger.info(`Agent disconnected: ${agent.name} (${socket.agentId})`);
+        moltbotRegistry.setAgentConnection(socket.agentId, false);
+        const existingTimer = disconnectTimers.get(socket.agentId);
+        if (existingTimer) clearTimeout(existingTimer);
+        const timeoutId = setTimeout(() => {
+          const currentAgent = moltbotRegistry.getAgent(socket.agentId);
+          if (currentAgent && !currentAgent.connected) {
+            worldState.removeAgent(socket.agentId);
+            moltbotRegistry.unregisterAgent(socket.agentId);
+            io.emit('agent:disconnected', { agentId: socket.agentId, agentName: currentAgent.name });
+            logger.info(`Agent disconnected after grace: ${currentAgent.name} (${socket.agentId})`);
+          }
+          disconnectTimers.delete(socket.agentId);
+        }, AGENT_DISCONNECT_GRACE_MS);
+        disconnectTimers.set(socket.agentId, timeoutId);
       }
     }
+    metrics.socket.disconnections += 1;
     logger.info(`Client disconnected: ${socket.id}`);
   });
 });
@@ -360,6 +418,7 @@ io.on('connection', (socket) => {
 // ── World Update Loop ──
 // Now broadcasts interpolated positions for smooth client rendering
 setInterval(() => {
+  const tickStart = Date.now();
   worldState.tick();
   actionQueue.processQueue();
   economyManager.applyPolicies(governanceManager.getSummary().policies || []);
@@ -381,7 +440,8 @@ setInterval(() => {
     mood: cityMoodManager.getSummary(),
     aesthetics: aestheticsManager.getVoteSummary()
   });
-}, parseInt(process.env.WORLD_TICK_RATE) || 100);
+  recordTickDuration(Date.now() - tickStart);
+}, config.worldTickRate);
 
 // Error handling
 app.use((err, req, res, next) => {
@@ -392,11 +452,11 @@ app.use((err, req, res, next) => {
 });
 
 // Start server
-const PORT = process.env.PORT || 3001;
+const PORT = config.port;
 httpServer.listen(PORT, () => {
-  logger.info(`🏙️  MOLTVILLE Server running on port ${PORT}`);
+  logger.info(`🏙️  MOLTVILLE Server running on port ${config.port}`);
   logger.info(`📡 WebSocket ready for Moltbot connections`);
-  logger.info(`🌍 World tick rate: ${process.env.WORLD_TICK_RATE || 100}ms`);
+  logger.info(`🌍 World tick rate: ${config.worldTickRate}ms`);
 });
 
 process.on('SIGTERM', () => {

@@ -8,8 +8,8 @@ export class WorldStateManager {
     this.width = 64;
     this.height = 64;
     this.districts = this.initializeDistricts();
-    this.lots = this.initializeLots();
     this.tiles = this.initializeTiles();
+    this.lots = this.initializeLots();
     this.tileSize = 32;
     this.dayLengthMs = parseInt(process.env.DAY_LENGTH_MS, 10) || 7200000;
     this.weatherChangeMs = parseInt(process.env.WEATHER_CHANGE_MS, 10) || 3600000;
@@ -210,7 +210,7 @@ export class WorldStateManager {
               state.currentStep += 1;
 
               const dx = state.toX - state.fromX;
-              const dy = state.toX - state.fromY;
+              const dy = state.toY - state.fromY;
               if (Math.abs(dx) > Math.abs(dy)) agent.facing = dx > 0 ? 'right' : 'left';
               else agent.facing = dy > 0 ? 'down' : 'up';
             } else {
@@ -263,11 +263,12 @@ export class WorldStateManager {
   }
 
   isLotAreaAvailable(x, y, width, height) {
+    const existingLots = this.lots || [];
     for (let bx = x; bx < x + width; bx++) {
       for (let by = y; by < y + height; by++) {
         if (!this.isWalkable(bx, by)) return false;
         if (this.getBuildingAt(bx, by)) return false;
-        if (this.lots.some(lot => bx >= lot.x && bx < lot.x + lot.width && by >= lot.y && by < lot.y + lot.height)) {
+        if (existingLots.some(lot => bx >= lot.x && bx < lot.x + lot.width && by >= lot.y && by < lot.y + lot.height)) {
           return false;
         }
       }

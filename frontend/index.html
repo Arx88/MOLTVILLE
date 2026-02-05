@@ -311,6 +311,7 @@
 </div>
 
 <script src="https://cdnjs.cloudflare.com/ajax/libs/phaser/3.60.0/phaser.min.js"></script>
+<script src="https://cdn.socket.io/4.6.1/socket.io.min.js" crossorigin="anonymous"></script>
 <script>
 // ============================================================
 // MOLTVILLE — WORLD DATA
@@ -390,12 +391,16 @@ const WORLD_CONTEXT = {
   lastFailedSection: '',
   lastRefreshDurationMs: null,
   lastModalAutoOpenAt: null,
+  useLiveData: false,
   economy: {
     jobs: [],
     balance: null,
     properties: []
   }
 };
+const AGENT_DIRECTORY = new Map();
+const LIVE_AGENT_COLORS = new Map();
+let viewerSocket = null;
 const REFRESH_PERSIST_MS = 15000;
 const REFRESH_MODAL_AUTO_OPEN_MS = 60000;
 const REFRESH_MODAL_FAILURE_THRESHOLD = 3;
@@ -413,6 +418,118 @@ const DEFAULT_UI_STATE = {
   economyMode: 'jobs',
   aestheticsActionsOpen: false
 };
+let liveAgentPositions = {};
+
+function getAgentColor(agentId) {
+  if (LIVE_AGENT_COLORS.has(agentId)) {
+    return LIVE_AGENT_COLORS.get(agentId);
+  }
+  let hash = 0;
+  for (let i = 0; i < agentId.length; i += 1) {
+    hash = (hash * 31 + agentId.charCodeAt(i)) % 997;
+  }
+  const color = AGENT_COLORS[hash % AGENT_COLORS.length];
+  LIVE_AGENT_COLORS.set(agentId, color);
+  return color;
+}
+
+function syncLiveAgents(scene, agentsPayload) {
+  if (!scene || !agentsPayload) return;
+  const existing = new Map(scene.agents.map(agent => [agent.id, agent]));
+  const nextAgents = [];
+  Object.entries(agentsPayload).forEach(([id, payload]) => {
+    const existingAgent = existing.get(id);
+    const profile = AGENT_DIRECTORY.get(id);
+    const name = profile?.name || `Agent ${id.slice(0, 4)}`;
+    const agent = existingAgent || {
+      id,
+      name,
+      color: getAgentColor(id),
+      x: payload.x,
+      y: payload.y,
+      tx: payload.x,
+      ty: payload.y,
+      facing: payload.facing || 'down',
+      progress: 1,
+      walkCycle: 0,
+      state: payload.state || 'idle',
+      talkTimer: 0,
+      idleTimer: 0
+    };
+    agent.name = name;
+    agent.facing = payload.facing || agent.facing;
+    agent.state = payload.state || agent.state;
+    agent.progress = 1;
+    agent.x = payload.x;
+    agent.y = payload.y;
+    agent.tx = payload.x;
+    agent.ty = payload.y;
+    nextAgents.push(agent);
+  });
+  scene.agents = nextAgents;
+}
+
+function handleWorldState(scene, state) {
+  if (!state) return;
+  WORLD_CONTEXT.useLiveData = true;
+  WORLD_CONTEXT.worldTime = state.worldTime || null;
+  WORLD_CONTEXT.weather = state.weather || null;
+  WORLD_CONTEXT.mood = state.mood || null;
+  WORLD_CONTEXT.districts = state.districts || null;
+  WORLD_CONTEXT.agentCount = state.agents ? Object.keys(state.agents).length : 0;
+  liveAgentPositions = state.agents || {};
+  const themeHash = (state.districts || []).map(d => `${d.id}:${d.theme || 'classic'}`).join('|');
+  if (scene && themeHash !== WORLD_CONTEXT.districtThemeHash) {
+    WORLD_CONTEXT.districtThemeHash = themeHash;
+    scene.drawTiles();
+  }
+  LOTS = state.lots || [];
+  const newBuildings = mergeBuildingVisuals(state.buildings || []);
+  if (scene && newBuildings.length) {
+    scene.renderNewBuildings(newBuildings);
+  }
+  if (scene && scene.drawLots) {
+    scene.drawLots();
+  }
+  syncLiveAgents(scene, liveAgentPositions);
+}
+
+function handleWorldTick(scene, payload) {
+  if (!payload) return;
+  WORLD_CONTEXT.useLiveData = true;
+  WORLD_CONTEXT.worldTime = payload.worldTime || WORLD_CONTEXT.worldTime;
+  WORLD_CONTEXT.weather = payload.weather || WORLD_CONTEXT.weather;
+  WORLD_CONTEXT.vote = payload.vote || WORLD_CONTEXT.vote;
+  WORLD_CONTEXT.governance = payload.governance || WORLD_CONTEXT.governance;
+  WORLD_CONTEXT.mood = payload.mood || WORLD_CONTEXT.mood;
+  WORLD_CONTEXT.aestheticsVote = payload.aesthetics || WORLD_CONTEXT.aestheticsVote;
+  liveAgentPositions = payload.agents || liveAgentPositions;
+  WORLD_CONTEXT.agentCount = liveAgentPositions ? Object.keys(liveAgentPositions).length : WORLD_CONTEXT.agentCount;
+  syncLiveAgents(scene, liveAgentPositions);
+}
+
+function setupViewerSocket(scene) {
+  if (!window.io) return;
+  if (viewerSocket) return;
+  viewerSocket = window.io(API_BASE, { transports: ['websocket'] });
+  viewerSocket.on('connect', () => {
+    viewerSocket.emit('viewer:join');
+  });
+  viewerSocket.on('agents:list', (agents) => {
+    (agents || []).forEach(agent => {
+      AGENT_DIRECTORY.set(agent.id, agent);
+    });
+  });
+  viewerSocket.on('world:state', (state) => handleWorldState(scene, state));
+  viewerSocket.on('world:tick', (tick) => handleWorldTick(scene, tick));
+  viewerSocket.on('connect_error', () => {
+    WORLD_CONTEXT.useLiveData = false;
+    showStatusBanner('No se pudo conectar al viewer en vivo. Usando refresco.', true);
+  });
+  viewerSocket.on('disconnect', () => {
+    WORLD_CONTEXT.useLiveData = false;
+  });
+}
 
 function getStoredAgentId() {
   return localStorage.getItem(STORAGE_KEYS.agentId) || '';
@@ -1426,35 +1543,20 @@ async function refreshWorldData(scene) {
   setRefreshState(true);
   let hadError = false;
   try {
-    try {
-      const stateRes = await fetch(`${API_BASE}/api/world/state`);
-      if (!stateRes.ok) {
-        throw new Error(`HTTP ${stateRes.status}`);
+    if (!WORLD_CONTEXT.useLiveData) {
+      try {
+        const stateRes = await fetch(`${API_BASE}/api/world/state`);
+        if (!stateRes.ok) {
+          throw new Error(`HTTP ${stateRes.status}`);
+        }
+        const state = await stateRes.json();
+        handleWorldState(scene, state);
+      } catch (error) {
+        console.warn('Failed to fetch world state', error);
+        hadError = true;
+        WORLD_CONTEXT.lastFailedSection = 'world';
+        showStatusBanner(getStatusMessage(error), true);
       }
-      const state = await stateRes.json();
-      WORLD_CONTEXT.worldTime = state.worldTime || null;
-      WORLD_CONTEXT.weather = state.weather || null;
-      WORLD_CONTEXT.mood = state.mood || null;
-      WORLD_CONTEXT.districts = state.districts || null;
-      WORLD_CONTEXT.agentCount = state.agents ? Object.keys(state.agents).length : 0;
-      const themeHash = (state.districts || []).map(d => `${d.id}:${d.theme || 'classic'}`).join('|');
-      if (scene && themeHash !== WORLD_CONTEXT.districtThemeHash) {
-        WORLD_CONTEXT.districtThemeHash = themeHash;
-        scene.drawTiles();
-      }
-      LOTS = state.lots || [];
-      const newBuildings = mergeBuildingVisuals(state.buildings || []);
-      if (scene && newBuildings.length) {
-        scene.renderNewBuildings(newBuildings);
-      }
-      if (scene && scene.drawLots) {
-        scene.drawLots();
-      }
-    } catch (error) {
-      console.warn('Failed to fetch world state', error);
-      hadError = true;
-      WORLD_CONTEXT.lastFailedSection = 'world';
-      showStatusBanner(getStatusMessage(error), true);
     }
 
     try {
@@ -1882,7 +1984,8 @@ class MoltivilleScene extends Phaser.Scene {
     }
     this.tileMap = generateTileMap();
     this.decorations = generateDecorations();
-    this.agents = createDemoAgents();
+    this.agents = WORLD_CONTEXT.useLiveData ? [] : createDemoAgents();
+    setupViewerSocket(this);
 
     // Sky gradient background
     const skyGfx = this.add.graphics();
@@ -2606,6 +2709,15 @@ class MoltivilleScene extends Phaser.Scene {
   // ============================================================
   updateAgents(dt) {
     const dtSec = dt / 1000;
+
+    if (WORLD_CONTEXT.useLiveData) {
+      this.agents.forEach(agent => {
+        if (agent.progress < 1) {
+          agent.walkCycle += dtSec * 8;
+        }
+      });
+      return;
+    }
 
     this.agents.forEach(agent => {
       // Decrement timers
