@@ -4,11 +4,13 @@ import { Server } from 'socket.io';
 import cors from 'cors';
 import helmet from 'helmet';
 import rateLimit from 'express-rate-limit';
+import { randomUUID } from 'crypto';
 
 import { logger } from './utils/logger.js';
 import { config } from './utils/config.js';
 import {
   metrics,
+  recordSocketDuration,
   recordTickDuration,
   trackHttpRequest,
   trackSocketEvent,
@@ -34,6 +36,7 @@ import voteRoutes from './routes/vote.js';
 import governanceRoutes from './routes/governance.js';
 import { createAestheticsRouter } from './routes/aesthetics.js';
 import eventRoutes from './routes/events.js';
+import { createMetricsRouter } from './routes/metrics.js';
 
 const app = express();
 const httpServer = createServer(app);
@@ -51,14 +54,39 @@ app.use(cors({
   origin: config.frontendUrl,
   credentials: true
 }));
+app.use((req, res, next) => {
+  const requestId = randomUUID();
+  req.requestId = requestId;
+  res.setHeader('x-request-id', requestId);
+  next();
+});
 app.use(express.json());
 app.use(express.urlencoded({ extended: true }));
 app.use(trackHttpRequest);
+app.use((req, res, next) => {
+  const start = Date.now();
+  res.on('finish', () => {
+    logger.info('HTTP request', {
+      requestId: req.requestId,
+      method: req.method,
+      path: req.originalUrl,
+      status: res.statusCode,
+      durationMs: Date.now() - start
+    });
+  });
+  next();
+});
 
 const limiter = rateLimit({
   windowMs: config.apiRateWindowMs,
   max: config.apiRateLimit,
-  message: 'Too many requests from this IP, please try again later.'
+  message: 'Too many requests from this IP, please try again later.',
+  handler: (req, res) => {
+    res.status(429).json({
+      error: { message: 'Too many requests from this IP, please try again later.', status: 429 },
+      requestId: req.requestId
+    });
+  }
 });
 app.use('/api/', limiter);
 
@@ -171,36 +199,13 @@ app.get('/api/health', (req, res) => {
   });
 });
 
-app.get('/api/metrics', (req, res) => {
-  const viewersRoom = io.sockets.adapter.rooms.get('viewers');
-  const events = eventManager.getSummary();
-  const eventCounts = events.reduce(
-    (acc, event) => {
-      acc.total += 1;
-      acc[event.status] += 1;
-      return acc;
-    },
-    { total: 0, scheduled: 0, active: 0, ended: 0 }
-  );
-  res.json({
-    uptimeSec: Math.floor((Date.now() - metrics.startTime) / 1000),
-    http: metrics.http,
-    socket: {
-      ...metrics.socket,
-      connectedClients: io.sockets.sockets.size,
-      connectedAgents: moltbotRegistry.getAgentCount(),
-      connectedViewers: viewersRoom ? viewersRoom.size : 0
-    },
-    economy: {
-      agentsWithBalance: economyManager.balances.size,
-      averageBalance: economyManager.getAverageBalance(),
-      inventory: economyManager.getInventoryStats(),
-      itemTransactions: economyManager.getItemTransactions(500).length
-    },
-    events: eventCounts,
-    world: metrics.world
-  });
-});
+app.use('/api/metrics', createMetricsRouter({
+  io,
+  eventManager,
+  economyManager,
+  worldState,
+  moltbotRegistry
+}));
 
 // ── WebSocket Handling ──
 io.on('connection', (socket) => {
@@ -209,29 +214,35 @@ io.on('connection', (socket) => {
 
   // Viewer joins
   socket.on('viewer:join', () => {
+    const eventStart = Date.now();
     trackSocketEvent('viewer:join');
-    if (socket.role && socket.role !== 'viewer') {
-      socket.emit('error', { message: 'Viewer access denied' });
-      return;
-    }
-    socket.role = 'viewer';
-    socket.join('viewers');
-    socket.emit('world:state', {
-      ...worldState.getFullState(),
-      governance: governanceManager.getSummary(),
-      mood: cityMoodManager.getSummary(),
-      events: eventManager.getSummary(),
-      economy: {
-        inventorySummary: economyManager.getInventoryStats(),
-        itemTransactionCount: economyManager.getItemTransactions(500).length
+    try {
+      if (socket.role && socket.role !== 'viewer') {
+        socket.emit('error', { message: 'Viewer access denied' });
+        return;
       }
-    });
-    socket.emit('agents:list', moltbotRegistry.getAllAgents());
-    logger.info(`Viewer joined: ${socket.id}`);
+      socket.role = 'viewer';
+      socket.join('viewers');
+      socket.emit('world:state', {
+        ...worldState.getFullState(),
+        governance: governanceManager.getSummary(),
+        mood: cityMoodManager.getSummary(),
+        events: eventManager.getSummary(),
+        economy: {
+          inventorySummary: economyManager.getInventoryStats(),
+          itemTransactionCount: economyManager.getItemTransactions(500).length
+        }
+      });
+      socket.emit('agents:list', moltbotRegistry.getAllAgents());
+      logger.info(`Viewer joined: ${socket.id}`);
+    } finally {
+      recordSocketDuration('viewer:join', Date.now() - eventStart);
+    }
   });
 
   // Moltbot agent connection
   socket.on('agent:connect', async (data) => {
+    const eventStart = Date.now();
     trackSocketEvent('agent:connect');
     try {
       if (socket.role && socket.role !== 'agent') {
@@ -302,11 +313,14 @@ io.on('connection', (socket) => {
     } catch (error) {
       logger.error('Agent connection error:', error);
       socket.emit('error', { message: error.message });
+    } finally {
+      recordSocketDuration('agent:connect', Date.now() - eventStart);
     }
   });
 
   // ── Single-step move (legacy) ──
   socket.on('agent:move', async (data) => {
+    const eventStart = Date.now();
     trackSocketEvent('agent:move');
     try {
       if (!socket.agentId) { socket.emit('error', { message: 'Not authenticated' }); return; }
@@ -337,11 +351,14 @@ io.on('connection', (socket) => {
     } catch (error) {
       logger.error('Move error:', error);
       socket.emit('error', { message: error.message });
+    } finally {
+      recordSocketDuration('agent:move', Date.now() - eventStart);
     }
   });
 
   // ── Full pathfinding move: "go to this tile" ──
   socket.on('agent:moveTo', async (data) => {
+    const eventStart = Date.now();
     trackSocketEvent('agent:moveTo');
     try {
       if (!socket.agentId) { socket.emit('error', { message: 'Not authenticated' }); return; }
@@ -372,10 +389,13 @@ io.on('connection', (socket) => {
     } catch (error) {
       logger.error('MoveTo error:', error);
       socket.emit('error', { message: error.message });
+    } finally {
+      recordSocketDuration('agent:moveTo', Date.now() - eventStart);
     }
   });
 
   socket.on('agent:speak', async (data) => {
+    const eventStart = Date.now();
     trackSocketEvent('agent:speak');
     try {
       if (!socket.agentId) { socket.emit('error', { message: 'Not authenticated' }); return; }
@@ -423,10 +443,13 @@ io.on('connection', (socket) => {
     } catch (error) {
       logger.error('Speak error:', error);
       socket.emit('error', { message: error.message });
+    } finally {
+      recordSocketDuration('agent:speak', Date.now() - eventStart);
     }
   });
 
   socket.on('agent:action', async (data) => {
+    const eventStart = Date.now();
     trackSocketEvent('agent:action');
     try {
       if (!socket.agentId) { socket.emit('error', { message: 'Not authenticated' }); return; }
@@ -457,10 +480,13 @@ io.on('connection', (socket) => {
     } catch (error) {
       logger.error('Action error:', error);
       socket.emit('error', { message: error.message });
+    } finally {
+      recordSocketDuration('agent:action', Date.now() - eventStart);
     }
   });
 
   socket.on('agent:perceive', (data) => {
+    const eventStart = Date.now();
     trackSocketEvent('agent:perceive');
     try {
       if (!socket.agentId) { socket.emit('error', { message: 'Not authenticated' }); return; }
@@ -486,6 +512,8 @@ io.on('connection', (socket) => {
     } catch (error) {
       logger.error('Perceive error:', error);
       socket.emit('error', { message: error.message });
+    } finally {
+      recordSocketDuration('agent:perceive', Date.now() - eventStart);
     }
   });
 
@@ -548,9 +576,10 @@ setInterval(() => {
 
 // Error handling
 app.use((err, req, res, next) => {
-  logger.error('Express error:', err);
+  logger.error('Express error', { requestId: req.requestId, error: err });
   res.status(err.status || 500).json({
-    error: { message: err.message || 'Internal server error', status: err.status || 500 }
+    error: { message: err.message || 'Internal server error', status: err.status || 500 },
+    requestId: req.requestId
   });
 });
 
