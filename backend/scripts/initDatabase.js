@@ -15,6 +15,16 @@ CREATE TABLE IF NOT EXISTS api_keys (
   revoked_at TIMESTAMP
 );
 
+CREATE TABLE IF NOT EXISTS api_key_events (
+  id SERIAL PRIMARY KEY,
+  api_key TEXT NOT NULL,
+  action TEXT NOT NULL,
+  actor_id TEXT,
+  actor_type TEXT,
+  metadata JSONB,
+  created_at TIMESTAMP NOT NULL DEFAULT NOW()
+);
+
 CREATE TABLE IF NOT EXISTS economy_transactions (
   id SERIAL PRIMARY KEY,
   agent_id TEXT NOT NULL,

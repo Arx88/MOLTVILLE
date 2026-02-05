@@ -8,6 +8,7 @@ export class MoltbotRegistry {
     this.apiKeys = new Map(); // apiKey -> agentId
     this.sockets = new Map(); // agentId -> socketId
     this.issuedApiKeys = new Set();
+    this.apiKeyEvents = [];
     this.memoryLimits = {
       interactionsMax: parseInt(process.env.MEMORY_INTERACTIONS_MAX, 10) || 200,
       locationsMax: parseInt(process.env.MEMORY_LOCATIONS_MAX, 10) || 100,
@@ -25,21 +26,26 @@ export class MoltbotRegistry {
     result.rows.forEach(row => this.issuedApiKeys.add(row.api_key));
   }
 
-  async issueApiKey(apiKey) {
+  async issueApiKey(apiKey, options = {}) {
     this.issuedApiKeys.add(apiKey);
     this.persistApiKey(apiKey);
+    this.recordApiKeyEvent('issued', apiKey, options);
   }
 
-  revokeApiKey(apiKey) {
+  revokeApiKey(apiKey, options = {}) {
     if (!apiKey) return;
     this.issuedApiKeys.delete(apiKey);
     this.apiKeys.delete(apiKey);
     this.persistApiKeyRevocation(apiKey);
+    this.recordApiKeyEvent('revoked', apiKey, options);
   }
 
-  async rotateApiKey(oldKey, newKey) {
+  async rotateApiKey(oldKey, newKey, options = {}) {
     if (!oldKey || !newKey) return null;
     if (!this.issuedApiKeys.has(oldKey)) return null;
+    const baseMetadata = options.metadata && typeof options.metadata === 'object'
+      ? options.metadata
+      : {};
     const agentId = this.apiKeys.get(oldKey) || null;
     if (agentId) {
       const agent = this.agents.get(agentId);
@@ -51,11 +57,24 @@ export class MoltbotRegistry {
     if (agentId) {
       this.apiKeys.set(newKey, agentId);
     }
-    await this.issueApiKey(newKey);
-    this.revokeApiKey(oldKey);
+    await this.issueApiKey(newKey, options);
+    this.revokeApiKey(oldKey, {
+      ...options,
+      metadata: {
+        ...baseMetadata,
+        rotatedTo: newKey
+      }
+    });
     if (this.db && agentId) {
       await this.assignApiKeyToAgent(newKey, agentId);
     }
+    this.recordApiKeyEvent('rotated', oldKey, {
+      ...options,
+      metadata: {
+        ...baseMetadata,
+        newKey
+      }
+    });
     return { agentId };
   }
 
@@ -405,5 +424,81 @@ export class MoltbotRegistry {
 
   getOnlineAgentIds() {
     return Array.from(this.agents.keys());
+  }
+
+  async listApiKeys() {
+    if (this.db) {
+      const result = await this.db.query(
+        'SELECT api_key, agent_id, issued_at, revoked_at FROM api_keys ORDER BY issued_at DESC'
+      );
+      return result.rows.map(row => {
+        const agent = row.agent_id ? this.getAgent(row.agent_id) : null;
+        return {
+          apiKey: row.api_key,
+          agentId: row.agent_id,
+          agentName: agent?.name || null,
+          issuedAt: row.issued_at,
+          revokedAt: row.revoked_at,
+          status: row.revoked_at ? 'revoked' : 'active'
+        };
+      });
+    }
+
+    return Array.from(this.issuedApiKeys).map(apiKey => {
+      const agent = this.getAgentByApiKey(apiKey);
+      return {
+        apiKey,
+        agentId: agent?.id || null,
+        agentName: agent?.name || null,
+        issuedAt: null,
+        revokedAt: null,
+        status: 'active'
+      };
+    });
+  }
+
+  async listApiKeyEvents(limit = 50) {
+    if (this.db) {
+      const result = await this.db.query(
+        `SELECT api_key, action, actor_id, actor_type, metadata, created_at
+         FROM api_key_events
+         ORDER BY created_at DESC
+         LIMIT $1`,
+        [limit]
+      );
+      return result.rows.map(row => ({
+        apiKey: row.api_key,
+        action: row.action,
+        actorId: row.actor_id,
+        actorType: row.actor_type,
+        metadata: row.metadata,
+        createdAt: row.created_at
+      }));
+    }
+
+    return this.apiKeyEvents.slice(-limit).reverse();
+  }
+
+  recordApiKeyEvent(action, apiKey, options = {}) {
+    if (!apiKey) return;
+    const { actorId = null, actorType = null, metadata = null } = options;
+    const event = {
+      apiKey,
+      action,
+      actorId,
+      actorType,
+      metadata,
+      createdAt: new Date()
+    };
+    this.apiKeyEvents.push(event);
+    if (this.apiKeyEvents.length > 200) {
+      this.apiKeyEvents.shift();
+    }
+    if (!this.db) return;
+    this.db.query(
+      `INSERT INTO api_key_events (api_key, action, actor_id, actor_type, metadata)
+       VALUES ($1, $2, $3, $4, $5)`,
+      [apiKey, action, actorId, actorType, metadata]
+    ).catch(error => logger.error('API key event persist failed:', error));
   }
 }
