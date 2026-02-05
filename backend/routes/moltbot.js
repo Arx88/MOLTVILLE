@@ -15,7 +15,7 @@ router.post('/generate-key', async (req, res) => {
     const trimmedName = moltbotName.trim();
     const apiKey = `moltville_${uuidv4().replace(/-/g, '')}`;
     const { moltbotRegistry } = req.app.locals;
-    moltbotRegistry.issueApiKey(apiKey);
+    await moltbotRegistry.issueApiKey(apiKey);
 
     // In production, store this in database
     res.json({
@@ -33,6 +33,37 @@ router.post('/generate-key', async (req, res) => {
         }
       }
     });
+  } catch (error) {
+    res.status(500).json({ error: error.message });
+  }
+});
+
+// Revoke API key
+router.post('/revoke-key', async (req, res) => {
+  try {
+    const { apiKey } = req.body;
+    if (typeof apiKey !== 'string' || apiKey.trim().length === 0) {
+      return res.status(400).json({ error: 'API key is required' });
+    }
+    const normalizedKey = apiKey.trim();
+    const { moltbotRegistry, io } = req.app.locals;
+
+    if (!moltbotRegistry.isApiKeyIssued(normalizedKey)) {
+      return res.status(404).json({ error: 'API key not found' });
+    }
+
+    const agent = moltbotRegistry.getAgentByApiKey(normalizedKey);
+    if (agent) {
+      const socketId = moltbotRegistry.getAgentSocket(agent.id);
+      if (socketId && io) {
+        io.to(socketId).disconnectSockets(true);
+      }
+      moltbotRegistry.unregisterAgent(agent.id);
+    }
+
+    moltbotRegistry.revokeApiKey(normalizedKey);
+
+    return res.json({ revoked: true });
   } catch (error) {
     res.status(500).json({ error: error.message });
   }

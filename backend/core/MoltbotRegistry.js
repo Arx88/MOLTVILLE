@@ -10,8 +10,24 @@ export class MoltbotRegistry {
     this.issuedApiKeys = new Set();
   }
 
-  issueApiKey(apiKey) {
+  async initializeFromDb() {
+    if (!this.db) return;
+    const result = await this.db.query(
+      'SELECT api_key FROM api_keys WHERE revoked_at IS NULL'
+    );
+    result.rows.forEach(row => this.issuedApiKeys.add(row.api_key));
+  }
+
+  async issueApiKey(apiKey) {
     this.issuedApiKeys.add(apiKey);
+    this.persistApiKey(apiKey);
+  }
+
+  revokeApiKey(apiKey) {
+    if (!apiKey) return;
+    this.issuedApiKeys.delete(apiKey);
+    this.apiKeys.delete(apiKey);
+    this.persistApiKeyRevocation(apiKey);
   }
 
   isApiKeyIssued(apiKey) {
@@ -65,6 +81,7 @@ export class MoltbotRegistry {
 
     if (this.db) {
       await this.loadAgentState(agent.id);
+      await this.assignApiKeyToAgent(apiKey, agent.id);
     }
 
     logger.info(`Agent registered: ${name} (${agent.id})`);
@@ -291,6 +308,32 @@ export class MoltbotRegistry {
       'INSERT INTO agent_memories (agent_id, type, data, timestamp) VALUES ($1, $2, $3, $4)',
       [agentId, memory.type, memory.data, memory.timestamp]
     ).catch(error => logger.error('Memory persist failed:', error));
+  }
+
+  persistApiKey(apiKey) {
+    if (!this.db) return;
+    this.db.query(
+      `INSERT INTO api_keys (api_key)
+       VALUES ($1)
+       ON CONFLICT (api_key) DO UPDATE SET revoked_at = NULL`,
+      [apiKey]
+    ).catch(error => logger.error('API key persist failed:', error));
+  }
+
+  persistApiKeyRevocation(apiKey) {
+    if (!this.db) return;
+    this.db.query(
+      'UPDATE api_keys SET revoked_at = NOW() WHERE api_key = $1',
+      [apiKey]
+    ).catch(error => logger.error('API key revocation failed:', error));
+  }
+
+  async assignApiKeyToAgent(apiKey, agentId) {
+    if (!this.db) return;
+    await this.db.query(
+      'UPDATE api_keys SET agent_id = $2 WHERE api_key = $1',
+      [apiKey, agentId]
+    );
   }
 
   isAgentOnline(agentId) {

@@ -11,10 +11,18 @@ router.post('/verify', async (req, res) => {
     }
     const { moltbotRegistry } = req.app.locals;
     
-    const agent = moltbotRegistry.getAgentByApiKey(apiKey.trim());
+    const normalizedKey = apiKey.trim();
+    const agent = moltbotRegistry.getAgentByApiKey(normalizedKey);
     
     if (!agent) {
-      return res.status(401).json({ error: 'Invalid API key' });
+      if (!moltbotRegistry.isApiKeyIssued(normalizedKey)) {
+        return res.status(401).json({ error: 'Invalid API key' });
+      }
+      return res.json({
+        valid: true,
+        agentId: null,
+        agentName: null
+      });
     }
 
     res.json({

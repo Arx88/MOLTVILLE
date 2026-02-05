@@ -54,6 +54,34 @@ const limiter = rateLimit({
 });
 app.use('/api/', limiter);
 
+const SOCKET_RATE_LIMIT_MS = parseInt(process.env.SOCKET_RATE_LIMIT_MS, 10) || 200;
+const SOCKET_SPEAK_LIMIT_MS = parseInt(process.env.SOCKET_SPEAK_LIMIT_MS, 10) || 800;
+const SOCKET_PERCEIVE_LIMIT_MS = parseInt(process.env.SOCKET_PERCEIVE_LIMIT_MS, 10) || 250;
+
+const isSocketRateLimited = (socket, eventName, minIntervalMs) => {
+  if (!socket.rateLimits) {
+    socket.rateLimits = new Map();
+  }
+  const now = Date.now();
+  const lastAt = socket.rateLimits.get(eventName) || 0;
+  if (now - lastAt < minIntervalMs) {
+    return true;
+  }
+  socket.rateLimits.set(eventName, now);
+  return false;
+};
+
+const ensureActiveApiKey = (socket, registry) => {
+  if (!socket.agentId) return true;
+  const agent = registry.getAgent(socket.agentId);
+  if (!agent || !registry.isApiKeyIssued(agent.apiKey)) {
+    socket.emit('error', { message: 'API key revoked' });
+    socket.disconnect(true);
+    return false;
+  }
+  return true;
+};
+
 // Initialize core systems
 const worldState = new WorldStateManager();
 const moltbotRegistry = new MoltbotRegistry({ db });
@@ -77,6 +105,7 @@ app.locals.aestheticsManager = aestheticsManager;
 app.locals.io = io;
 
 if (db) {
+  moltbotRegistry.initializeFromDb().catch(error => logger.error('API key init failed:', error));
   economyManager.initializeFromDb().catch(error => logger.error('Economy init failed:', error));
   votingManager.initializeFromDb().catch(error => logger.error('Voting init failed:', error));
   governanceManager.initializeFromDb().catch(error => logger.error('Governance init failed:', error));
@@ -106,6 +135,11 @@ io.on('connection', (socket) => {
 
   // Viewer joins
   socket.on('viewer:join', () => {
+    if (socket.role && socket.role !== 'viewer') {
+      socket.emit('error', { message: 'Viewer access denied' });
+      return;
+    }
+    socket.role = 'viewer';
     socket.join('viewers');
     socket.emit('world:state', {
       ...worldState.getFullState(),
@@ -119,9 +153,13 @@ io.on('connection', (socket) => {
   // Moltbot agent connection
   socket.on('agent:connect', async (data) => {
     try {
+      if (socket.role && socket.role !== 'agent') {
+        socket.emit('error', { message: 'Agent access denied' });
+        return;
+      }
       const { apiKey, agentId, agentName, avatar } = data;
 
-      if (!apiKey || apiKey.length < 32) {
+      if (typeof apiKey !== 'string' || apiKey.trim().length < 32) {
         socket.emit('error', { message: 'Invalid API key' });
         return;
       }
@@ -129,8 +167,13 @@ io.on('connection', (socket) => {
         socket.emit('error', { message: 'Agent name is required' });
         return;
       }
+      const normalizedApiKey = apiKey.trim();
       const existingAgent = agentId ? moltbotRegistry.getAgent(agentId) : null;
-      if (existingAgent && existingAgent.apiKey && existingAgent.apiKey !== apiKey) {
+      if (!existingAgent && !moltbotRegistry.isApiKeyIssued(normalizedApiKey)) {
+        socket.emit('error', { message: 'API key not issued' });
+        return;
+      }
+      if (existingAgent && existingAgent.apiKey && existingAgent.apiKey !== normalizedApiKey) {
         socket.emit('error', { message: 'API key mismatch' });
         return;
       }
@@ -138,13 +181,14 @@ io.on('connection', (socket) => {
       const agent = await moltbotRegistry.registerAgent({
         id: agentId, name: agentName.trim(),
         avatar: avatar || 'char1',
-        socketId: socket.id, apiKey
+        socketId: socket.id, apiKey: normalizedApiKey
       });
       economyManager.registerAgent(agent.id);
 
       const spawnPosition = worldState.getRandomSpawnPosition();
       worldState.addAgent(agent.id, spawnPosition);
 
+      socket.role = 'agent';
       socket.agentId = agent.id;
       socket.join('agents');
 
@@ -174,6 +218,11 @@ io.on('connection', (socket) => {
   socket.on('agent:move', async (data) => {
     try {
       if (!socket.agentId) { socket.emit('error', { message: 'Not authenticated' }); return; }
+      if (!ensureActiveApiKey(socket, moltbotRegistry)) { return; }
+      if (isSocketRateLimited(socket, 'agent:move', SOCKET_RATE_LIMIT_MS)) {
+        socket.emit('error', { message: 'Move rate limit exceeded' });
+        return;
+      }
       const { targetX, targetY } = data;
       if (!Number.isFinite(targetX) || !Number.isFinite(targetY)) {
         socket.emit('error', { message: 'Invalid move target' });
@@ -193,6 +242,11 @@ io.on('connection', (socket) => {
   socket.on('agent:moveTo', async (data) => {
     try {
       if (!socket.agentId) { socket.emit('error', { message: 'Not authenticated' }); return; }
+      if (!ensureActiveApiKey(socket, moltbotRegistry)) { return; }
+      if (isSocketRateLimited(socket, 'agent:moveTo', SOCKET_RATE_LIMIT_MS)) {
+        socket.emit('error', { message: 'Move rate limit exceeded' });
+        return;
+      }
       const { targetX, targetY } = data;
       if (!Number.isFinite(targetX) || !Number.isFinite(targetY)) {
         socket.emit('error', { message: 'Invalid move target' });
@@ -211,6 +265,11 @@ io.on('connection', (socket) => {
   socket.on('agent:speak', async (data) => {
     try {
       if (!socket.agentId) { socket.emit('error', { message: 'Not authenticated' }); return; }
+      if (!ensureActiveApiKey(socket, moltbotRegistry)) { return; }
+      if (isSocketRateLimited(socket, 'agent:speak', SOCKET_SPEAK_LIMIT_MS)) {
+        socket.emit('error', { message: 'Speak rate limit exceeded' });
+        return;
+      }
       const { message } = data;
       if (typeof message !== 'string' || message.trim().length === 0) {
         socket.emit('error', { message: 'Message required' });
@@ -246,6 +305,11 @@ io.on('connection', (socket) => {
   socket.on('agent:action', async (data) => {
     try {
       if (!socket.agentId) { socket.emit('error', { message: 'Not authenticated' }); return; }
+      if (!ensureActiveApiKey(socket, moltbotRegistry)) { return; }
+      if (isSocketRateLimited(socket, 'agent:action', SOCKET_RATE_LIMIT_MS)) {
+        socket.emit('error', { message: 'Action rate limit exceeded' });
+        return;
+      }
       const { actionType, target, params } = data;
       if (!actionType) {
         socket.emit('error', { message: 'actionType is required' });
@@ -264,11 +328,10 @@ io.on('connection', (socket) => {
   socket.on('agent:perceive', (data) => {
     try {
       if (!socket.agentId) { socket.emit('error', { message: 'Not authenticated' }); return; }
-      const now = Date.now();
-      if (socket.lastPerceiveAt && now - socket.lastPerceiveAt < 250) {
+      if (!ensureActiveApiKey(socket, moltbotRegistry)) { return; }
+      if (isSocketRateLimited(socket, 'agent:perceive', SOCKET_PERCEIVE_LIMIT_MS)) {
         return;
       }
-      socket.lastPerceiveAt = now;
       socket.emit('perception:update', {
         ...worldState.getAgentView(socket.agentId),
         governance: governanceManager.getSummary(),
