@@ -370,6 +370,23 @@ export class EconomyManager {
     };
   }
 
+  getAgentSummary(agentId) {
+    const jobId = this.jobAssignments.get(agentId);
+    const job = jobId ? this.jobs.get(jobId) : null;
+    return {
+      balance: this.getBalance(agentId),
+      inventory: this.getInventory(agentId),
+      job: job ? {
+        id: job.id,
+        role: job.role,
+        salary: job.salary,
+        buildingId: job.buildingId,
+        buildingName: job.buildingName
+      } : null,
+      properties: this.getPropertiesByOwner(agentId)
+    };
+  }
+
   tick() {
     const now = Date.now();
     if (now - this.lastIncomeAt < this.incomeIntervalMs) return;

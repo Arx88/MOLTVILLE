@@ -75,6 +75,7 @@ export class EventManager {
   }
 
   tick() {
+    const transitions = [];
     const now = Date.now();
     this.events.forEach(event => {
       let nextStatus = event.status;
@@ -86,6 +87,7 @@ export class EventManager {
       }
       if (nextStatus !== event.status) {
         event.status = nextStatus;
+        transitions.push({ event: { ...event }, status: nextStatus });
         if (nextStatus === 'active') {
           this.emitEvent('event:started', event);
         } else if (nextStatus === 'ended') {
@@ -93,6 +95,7 @@ export class EventManager {
         }
       }
     });
+    return transitions;
   }
 
   emitEvent(channel, event) {

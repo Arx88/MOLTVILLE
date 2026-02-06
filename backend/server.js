@@ -152,6 +152,60 @@ const ensureActiveApiKey = (socket, registry) => {
 };
 
 const disconnectTimers = new Map();
+const EVENT_GOAL_RADIUS = parseInt(process.env.EVENT_GOAL_RADIUS || '8', 10);
+
+const buildAgentContext = (agentId) => ({
+  economy: economyManager.getAgentSummary(agentId),
+  relationships: moltbotRegistry.getAgentMemory(agentId)?.relationships || {}
+});
+
+const resolveEventLocation = (event) => {
+  if (!event) return null;
+  if (event.location && typeof event.location === 'object' && Number.isFinite(event.location.x)) {
+    return { x: event.location.x, y: event.location.y };
+  }
+  if (typeof event.location === 'string') {
+    const building = worldState.buildings.find(b => b.id === event.location);
+    if (building) {
+      return {
+        x: building.x + Math.floor(building.width / 2),
+        y: building.y + Math.floor(building.height / 2),
+        buildingId: building.id,
+        buildingName: building.name
+      };
+    }
+  }
+  return null;
+};
+
+const emitEventGoals = (transitions = []) => {
+  transitions
+    .filter(entry => entry.status === 'active')
+    .forEach(({ event }) => {
+      const location = resolveEventLocation(event);
+      if (!location) return;
+      const nearbyAgents = worldState.getAgentsInRadius(location, EVENT_GOAL_RADIUS);
+      nearbyAgents.forEach(agentId => {
+        const socketId = moltbotRegistry.getAgentSocket(agentId);
+        if (!socketId) return;
+        io.to(socketId).emit('agent:goal', {
+          id: `event_goal_${event.id}`,
+          type: 'attend_event',
+          event: {
+            id: event.id,
+            name: event.name,
+            type: event.type,
+            description: event.description,
+            startAt: event.startAt,
+            endAt: event.endAt
+          },
+          location,
+          urgency: 70,
+          reason: 'event_active'
+        });
+      });
+    });
+};
 
 // Initialize core systems
 const worldState = new WorldStateManager();
@@ -183,7 +237,8 @@ const saveWorldSnapshot = async () => {
   const snapshot = {
     ...worldState.createSnapshot(),
     economy: economyManager.createSnapshot(),
-    events: eventManager.createSnapshot()
+    events: eventManager.createSnapshot(),
+    conversations: interactionEngine.createSnapshot()
   };
   await saveSnapshotFile(snapshotPath, snapshot);
   if (db) {
@@ -199,6 +254,7 @@ const restoreWorldSnapshot = async () => {
   worldState.loadSnapshot(snapshot);
   economyManager.loadSnapshot(snapshot.economy);
   eventManager.loadSnapshot(snapshot.events);
+  interactionEngine.loadSnapshot(snapshot.conversations);
   logger.info('World snapshot restored', { path: snapshotPath, restoredAt: Date.now() });
 };
 
@@ -356,6 +412,7 @@ io.on('connection', (socket) => {
         movement: worldState.getAgentMovementState(agent.id),
         inventory: economyManager.getInventory(agent.id),
         balance: economyManager.getBalance(agent.id),
+        context: buildAgentContext(agent.id),
         worldState: {
           ...worldState.getAgentView(agent.id),
           governance: governanceManager.getSummary(),
@@ -573,7 +630,8 @@ io.on('connection', (socket) => {
       socket.emit('perception:update', {
         ...worldState.getAgentView(socket.agentId),
         governance: governanceManager.getSummary(),
-        mood: cityMoodManager.getSummary()
+        mood: cityMoodManager.getSummary(),
+        context: buildAgentContext(socket.agentId)
       });
     } catch (error) {
       logger.error('Perceive error:', error);
@@ -623,8 +681,11 @@ setInterval(() => {
   governanceManager.tick();
   cityMoodManager.tick();
   aestheticsManager.tick(moltbotRegistry.getAgentCount());
-  eventManager.tick();
+  const eventTransitions = eventManager.tick();
   interactionEngine.cleanupOldConversations();
+  if (eventTransitions?.length) {
+    emitEventGoals(eventTransitions);
+  }
 
   // Broadcast interpolated agent positions to viewers
   io.to('viewers').emit('world:tick', {

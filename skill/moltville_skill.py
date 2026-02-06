@@ -36,6 +36,8 @@ class MOLTVILLESkill:
         self.agent_id = self._load_agent_id()
         self.current_state = {}
         self._auto_task: Optional[asyncio.Task] = None
+        self._decision_task: Optional[asyncio.Task] = None
+        self._active_goals: List[Dict[str, Any]] = []
         
         # Setup event handlers
         self._setup_handlers()
@@ -51,9 +53,13 @@ class MOLTVILLESkill:
     async def _http_request(self, method: str, path: str, payload: Optional[Dict[str, Any]] = None) -> Dict[str, Any]:
         base_url = self._get_http_base_url().rstrip('/')
         url = f"{base_url}{path}"
+        headers = {}
+        api_key = self.config.get('server', {}).get('apiKey')
+        if isinstance(api_key, str) and api_key.strip():
+            headers['x-api-key'] = api_key.strip()
         try:
             async with aiohttp.ClientSession() as session:
-                async with session.request(method, url, json=payload) as response:
+                async with session.request(method, url, json=payload, headers=headers) as response:
                     data = await response.json()
                     if response.status >= 400:
                         return {"error": data.get('error', f"HTTP {response.status}")}
@@ -79,7 +85,17 @@ class MOLTVILLESkill:
                 "behavior": {
                     "autoExplore": True,
                     "conversationInitiation": "moderate",
-                    "decisionInterval": 30000
+                    "decisionInterval": 30000,
+                    "decisionLoop": {
+                        "enabled": True,
+                        "intervalMs": 20000,
+                        "mode": "heuristic"
+                    }
+                },
+                "llm": {
+                    "provider": "openai",
+                    "model": "gpt-4o-mini",
+                    "apiKey": ""
                 }
             }
             
@@ -132,6 +148,9 @@ class MOLTVILLESkill:
             if self._auto_task:
                 self._auto_task.cancel()
                 self._auto_task = None
+            if self._decision_task:
+                self._decision_task.cancel()
+                self._decision_task = None
         
         @self.sio.event
         async def agent_registered(data):
@@ -161,6 +180,14 @@ class MOLTVILLESkill:
             logger.info(f"Heard: {data['from']} said '{data['message']}'")
             # This would trigger LLM to decide on response
             # For now just log it
+
+        @self.sio.on('agent:goal')
+        async def agent_goal(data):
+            if isinstance(data, dict):
+                self._active_goals.append({
+                    **data,
+                    "receivedAt": int(asyncio.get_event_loop().time() * 1000)
+                })
         
         @self.sio.event
         async def error(data):
@@ -196,6 +223,193 @@ class MOLTVILLESkill:
                     dx = 1
                 await self.move(current_x + dx, current_y + dy)
             await asyncio.sleep(interval_sec)
+
+    async def _run_decision_loop(self) -> None:
+        decision_config = self.config.get("behavior", {}).get("decisionLoop", {})
+        interval_ms = decision_config.get("intervalMs", 20000)
+        interval_sec = max(interval_ms / 1000, 2)
+        while True:
+            if not self.connected:
+                await asyncio.sleep(1)
+                continue
+            perception = await self.perceive()
+            if not perception or isinstance(perception, dict) and perception.get("error"):
+                await asyncio.sleep(interval_sec)
+                continue
+            action = await self._decide_action(perception)
+            if action:
+                await self._execute_action(action)
+            await asyncio.sleep(interval_sec)
+
+    def _prune_goals(self) -> None:
+        if not self._active_goals:
+            return
+        now_ms = int(asyncio.get_event_loop().time() * 1000)
+        pruned = []
+        for goal in self._active_goals:
+            ttl_ms = goal.get("ttlMs", 15 * 60 * 1000)
+            received = goal.get("receivedAt", now_ms)
+            if now_ms - received <= ttl_ms:
+                pruned.append(goal)
+        self._active_goals = pruned[-10:]
+
+    async def _decide_action(self, perception: Dict[str, Any]) -> Optional[Dict[str, Any]]:
+        decision_config = self.config.get("behavior", {}).get("decisionLoop", {})
+        mode = decision_config.get("mode", "heuristic")
+        if mode == "llm":
+            action = await self._decide_with_llm(perception)
+            if action:
+                return action
+        return await self._heuristic_decision(perception)
+
+    async def _decide_with_llm(self, perception: Dict[str, Any]) -> Optional[Dict[str, Any]]:
+        llm_config = self.config.get("llm", {})
+        provider = llm_config.get("provider", "")
+        api_key = llm_config.get("apiKey", "")
+        model = llm_config.get("model", "")
+        if not (provider and api_key and model):
+            return None
+
+        self._prune_goals()
+        payload = {
+            "agent": {
+                "id": self.agent_id,
+                "name": self.config.get("agent", {}).get("name"),
+                "personality": self.config.get("agent", {}).get("personality")
+            },
+            "perception": perception,
+            "goals": self._active_goals[-5:]
+        }
+        prompt = (
+            "Eres el motor de decisiones de un agente en MOLTVILLE. "
+            "Devuelve SOLO JSON válido con la acción a ejecutar. "
+            "Formato: {\"type\": \"move_to|enter_building|speak|apply_job|wait\", "
+            "\"params\": { ... } }."
+        )
+
+        try:
+            if provider == "openai":
+                url = "https://api.openai.com/v1/chat/completions"
+                headers = {"Authorization": f"Bearer {api_key}"}
+                body = {
+                    "model": model,
+                    "messages": [
+                        {"role": "system", "content": prompt},
+                        {"role": "user", "content": json.dumps(payload)}
+                    ],
+                    "temperature": llm_config.get("temperature", 0.4)
+                }
+            elif provider == "anthropic":
+                url = "https://api.anthropic.com/v1/messages"
+                headers = {
+                    "x-api-key": api_key,
+                    "anthropic-version": "2023-06-01"
+                }
+                body = {
+                    "model": model,
+                    "system": prompt,
+                    "messages": [{"role": "user", "content": json.dumps(payload)}],
+                    "max_tokens": llm_config.get("maxTokens", 300)
+                }
+            else:
+                return None
+
+            async with aiohttp.ClientSession() as session:
+                async with session.post(url, json=body, headers=headers) as response:
+                    data = await response.json()
+                    if response.status >= 400:
+                        logger.warning(f"LLM error: {data}")
+                        return None
+            content = None
+            if provider == "openai":
+                content = data.get("choices", [{}])[0].get("message", {}).get("content")
+            elif provider == "anthropic":
+                parts = data.get("content", [])
+                if parts:
+                    content = parts[0].get("text")
+            if not content:
+                return None
+            return json.loads(content)
+        except (OSError, json.JSONDecodeError, aiohttp.ClientError) as error:
+            logger.warning(f"LLM decision failed: {error}")
+            return None
+
+    async def _heuristic_decision(self, perception: Dict[str, Any]) -> Optional[Dict[str, Any]]:
+        self._prune_goals()
+        goals = sorted(self._active_goals, key=lambda g: g.get("urgency", 0), reverse=True)
+        current_building = perception.get("currentBuilding")
+        position = perception.get("position", {}) or {}
+        nearby_buildings = perception.get("nearbyBuildings", []) or []
+        nearby_agents = perception.get("nearbyAgents", []) or []
+        needs = perception.get("needs", {}) or {}
+        context = perception.get("context", {}) or {}
+
+        if goals:
+            goal = goals[0]
+            location = goal.get("location", {})
+            target_x = location.get("x")
+            target_y = location.get("y")
+            building_id = location.get("buildingId")
+            if building_id and current_building and current_building.get("id") == building_id:
+                return {"type": "speak", "params": {"message": f"Llegué al evento {goal.get('event', {}).get('name', '')}."}}
+            if isinstance(target_x, (int, float)) and isinstance(target_y, (int, float)):
+                return {"type": "move_to", "params": {"x": int(target_x), "y": int(target_y)}}
+
+        suggested = perception.get("suggestedGoals", []) or []
+        for suggestion in suggested:
+            target_types = suggestion.get("targetTypes", [])
+            target = next((b for b in nearby_buildings if b.get("type") in target_types), None)
+            if target:
+                if current_building and current_building.get("id") == target.get("id"):
+                    return {"type": "speak", "params": {"message": f"Necesitaba {suggestion.get('type')} y ya estoy aquí."}}
+                return {"type": "move_to", "params": self._building_target(target)}
+
+        balance = context.get("economy", {}).get("balance", 0)
+        job = context.get("economy", {}).get("job")
+        if balance < 5 and not job:
+            jobs = await self.list_jobs()
+            if isinstance(jobs, dict):
+                available = [j for j in jobs.get("jobs", []) if not j.get("assignedTo")]
+                if available:
+                    return {"type": "apply_job", "params": {"job_id": available[0].get("id")}}
+
+        if needs.get("social", 100) <= 40 and nearby_agents:
+            target = min(nearby_agents, key=lambda a: a.get("distance", 999))
+            return {"type": "speak", "params": {"message": f"Hola {target.get('id')}, ¿cómo estás?"}}
+
+        if isinstance(position.get("x"), int) and isinstance(position.get("y"), int):
+            dx = random.randint(-3, 3)
+            dy = random.randint(-3, 3)
+            if dx == 0 and dy == 0:
+                dx = 1
+            return {"type": "move_to", "params": {"x": position["x"] + dx, "y": position["y"] + dy}}
+
+        return {"type": "wait", "params": {}}
+
+    def _building_target(self, building: Dict[str, Any]) -> Dict[str, int]:
+        position = building.get("position", {})
+        width = building.get("width", 1)
+        height = building.get("height", 1)
+        return {
+            "x": int(position.get("x", 0) + max(width // 2, 0)),
+            "y": int(position.get("y", 0) + max(height, 1))
+        }
+
+    async def _execute_action(self, action: Dict[str, Any]) -> None:
+        if not action or not isinstance(action, dict):
+            return
+        action_type = action.get("type")
+        params = action.get("params", {}) or {}
+        if action_type == "move_to":
+            await self.move_to(params.get("x"), params.get("y"))
+        elif action_type == "enter_building":
+            await self.enter_building(params.get("building_id"))
+        elif action_type == "speak":
+            await self.speak(params.get("message", ""))
+        elif action_type == "apply_job":
+            await self.apply_job(params.get("job_id"))
+        elif action_type == "wait":
+            return
     
     async def connect_to_moltville(self) -> Dict[str, Any]:
         """
@@ -217,7 +431,11 @@ class MOLTVILLESkill:
             if not self.connected:
                 raise Exception("Failed to register with server")
 
-            if self.config.get("behavior", {}).get("autoExplore", False):
+            decision_config = self.config.get("behavior", {}).get("decisionLoop", {})
+            if decision_config.get("enabled", False):
+                if not self._decision_task or self._decision_task.done():
+                    self._decision_task = asyncio.create_task(self._run_decision_loop())
+            elif self.config.get("behavior", {}).get("autoExplore", False):
                 if not self._auto_task or self._auto_task.done():
                     self._auto_task = asyncio.create_task(self._run_auto_explore())
             
@@ -285,6 +503,35 @@ class MOLTVILLESkill:
         
         except Exception as e:
             logger.error(f"Move failed: {e}")
+            return {"error": str(e)}
+
+    async def move_to(self, target_x: int, target_y: int) -> Dict[str, Any]:
+        """
+        Move to target coordinates using pathfinding
+
+        Args:
+            target_x: Target X coordinate
+            target_y: Target Y coordinate
+
+        Returns:
+            Success status and new target
+        """
+        if not self.connected:
+            return {"error": "Not connected to MOLTVILLE"}
+
+        try:
+            await self.sio.emit('agent:moveTo', {
+                'targetX': target_x,
+                'targetY': target_y
+            })
+
+            return {
+                "success": True,
+                "target": {"x": target_x, "y": target_y}
+            }
+
+        except Exception as e:
+            logger.error(f"MoveTo failed: {e}")
             return {"error": str(e)}
     
     async def speak(self, message: str) -> Dict[str, Any]:
@@ -458,6 +705,7 @@ Current Status:
 
 Available Actions:
 - move(x, y) - Move to coordinates
+- move_to(x, y) - Move to coordinates with pathfinding
 - speak(message) - Say something
 - enter_building(building_id) - Enter a building
 - leave_building() - Exit current building
@@ -498,6 +746,7 @@ async def execute_command(skill: MOLTVILLESkill, command: str, params: Dict[str,
         'connect': skill.connect_to_moltville,
         'perceive': skill.perceive,
         'move': lambda: skill.move(params.get('x'), params.get('y')),
+        'move_to': lambda: skill.move_to(params.get('x'), params.get('y')),
         'speak': lambda: skill.speak(params.get('message')),
         'enter_building': lambda: skill.enter_building(params.get('building_id')),
         'leave_building': skill.leave_building,
