@@ -406,7 +406,8 @@ const REFRESH_MODAL_AUTO_OPEN_MS = 60000;
 const REFRESH_MODAL_FAILURE_THRESHOLD = 3;
 const STORAGE_KEYS = {
   agentId: 'moltville_agent_id',
-  uiState: 'moltville_ui_state'
+  uiState: 'moltville_ui_state',
+  viewerKey: 'moltville_viewer_key'
 };
 const DEFAULT_UI_STATE = {
   voteActionsOpen: false,
@@ -513,7 +514,8 @@ function setupViewerSocket(scene) {
   if (viewerSocket) return;
   viewerSocket = window.io(API_BASE, { transports: ['websocket'] });
   viewerSocket.on('connect', () => {
-    viewerSocket.emit('viewer:join');
+    const viewerKey = getViewerKey();
+    viewerSocket.emit('viewer:join', viewerKey ? { apiKey: viewerKey } : {});
   });
   viewerSocket.on('agents:list', (agents) => {
     (agents || []).forEach(agent => {
@@ -533,6 +535,25 @@ function setupViewerSocket(scene) {
 
 function getStoredAgentId() {
   return localStorage.getItem(STORAGE_KEYS.agentId) || '';
+}
+
+function getViewerKey() {
+  if (window.MOLTVILLE_VIEWER_KEY) return window.MOLTVILLE_VIEWER_KEY;
+  return localStorage.getItem(STORAGE_KEYS.viewerKey) || '';
+}
+
+function getViewerHeaders() {
+  const viewerKey = getViewerKey();
+  if (!viewerKey) return {};
+  return { 'x-viewer-key': viewerKey };
+}
+
+function fetchWithViewerKey(url, options = {}) {
+  const headers = {
+    ...getViewerHeaders(),
+    ...(options.headers || {})
+  };
+  return fetch(url, { ...options, headers });
 }
 
 function storeAgentId(agentId) {
@@ -1545,7 +1566,7 @@ async function refreshWorldData(scene) {
   try {
     if (!WORLD_CONTEXT.useLiveData) {
       try {
-        const stateRes = await fetch(`${API_BASE}/api/world/state`);
+        const stateRes = await fetchWithViewerKey(`${API_BASE}/api/world/state`);
         if (!stateRes.ok) {
           throw new Error(`HTTP ${stateRes.status}`);
         }
@@ -1561,13 +1582,13 @@ async function refreshWorldData(scene) {
 
     try {
       const [voteRes, voteHistoryRes, govRes, networkRes, aestheticsRes, aestheticsHistoryRes, aestheticsMetaRes] = await Promise.all([
-        fetch(`${API_BASE}/api/vote/current`),
-        fetch(`${API_BASE}/api/vote/history?limit=3`),
-        fetch(`${API_BASE}/api/governance/current`),
-        fetch(`${API_BASE}/api/world/social-network`),
-        fetch(`${API_BASE}/api/aesthetics/current`),
-        fetch(`${API_BASE}/api/aesthetics/history?limit=3`),
-        fetch(`${API_BASE}/api/aesthetics/meta`)
+        fetchWithViewerKey(`${API_BASE}/api/vote/current`),
+        fetchWithViewerKey(`${API_BASE}/api/vote/history?limit=3`),
+        fetchWithViewerKey(`${API_BASE}/api/governance/current`),
+        fetchWithViewerKey(`${API_BASE}/api/world/social-network`),
+        fetchWithViewerKey(`${API_BASE}/api/aesthetics/current`),
+        fetchWithViewerKey(`${API_BASE}/api/aesthetics/history?limit=3`),
+        fetchWithViewerKey(`${API_BASE}/api/aesthetics/meta`)
       ]);
       if (!voteRes.ok || !voteHistoryRes.ok || !govRes.ok || !networkRes.ok || !aestheticsRes.ok || !aestheticsHistoryRes.ok || !aestheticsMetaRes.ok) {
         throw new Error('HTTP 503');
@@ -1595,7 +1616,7 @@ async function refreshWorldData(scene) {
 
     if (!WORLD_CONTEXT.voteCatalogLoaded) {
       try {
-        const catalogRes = await fetch(`${API_BASE}/api/vote/catalog`);
+        const catalogRes = await fetchWithViewerKey(`${API_BASE}/api/vote/catalog`);
         if (!catalogRes.ok) {
           throw new Error(`HTTP ${catalogRes.status}`);
         }

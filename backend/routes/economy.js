@@ -1,9 +1,53 @@
 import express from 'express';
 import { requireAdminKeyWithSuccess } from '../utils/adminAuth.js';
+import { requireAgentKey } from '../utils/agentAuth.js';
+import { JoiHelpers, validateBody } from '../utils/validation.js';
 
 const router = express.Router();
+const { Joi } = JoiHelpers;
 
-router.get('/balance/:agentId', (req, res) => {
+const applyJobSchema = Joi.object({
+  agentId: Joi.string().trim().required(),
+  jobId: Joi.string().trim().required()
+});
+
+const reviewSchema = Joi.object({
+  agentId: Joi.string().trim().required(),
+  reviewerId: Joi.string().trim().required(),
+  score: Joi.number().min(0).max(5).required(),
+  tags: Joi.array().items(Joi.string().trim()).default([]),
+  reason: Joi.string().allow('').default('')
+});
+
+const propertyBuySchema = Joi.object({
+  agentId: Joi.string().trim().required(),
+  propertyId: Joi.string().trim().required()
+});
+
+const propertyListSchema = Joi.object({
+  agentId: Joi.string().trim().required(),
+  propertyId: Joi.string().trim().required(),
+  price: Joi.number().positive().required()
+});
+
+const inventoryAddSchema = Joi.object({
+  agentId: Joi.string().trim().required(),
+  itemId: Joi.string().trim().required(),
+  name: Joi.string().trim().allow('', null),
+  quantity: Joi.number().positive().default(1)
+});
+
+const inventoryRemoveSchema = Joi.object({
+  agentId: Joi.string().trim().required(),
+  itemId: Joi.string().trim().required(),
+  quantity: Joi.number().positive().default(1)
+});
+
+router.get('/balance/:agentId', requireAgentKey({
+  allowAdmin: true,
+  useSuccessResponse: true,
+  getAgentId: (req) => req.params.agentId
+}), (req, res) => {
   const { agentId } = req.params;
   const economy = req.app.locals.economyManager;
   const balance = economy.getBalance(agentId);
@@ -15,12 +59,13 @@ router.get('/jobs', (req, res) => {
   res.json({ jobs: economy.listJobs() });
 });
 
-router.post('/jobs/apply', (req, res) => {
+router.post('/jobs/apply', requireAgentKey({
+  allowAdmin: true,
+  useSuccessResponse: true,
+  getAgentId: (req) => req.body?.agentId
+}), validateBody(applyJobSchema), (req, res) => {
   const { agentId, jobId } = req.body;
   const economy = req.app.locals.economyManager;
-  if (!agentId || !jobId) {
-    return res.status(400).json({ success: false, error: 'agentId and jobId are required' });
-  }
   try {
     const job = economy.applyForJob(agentId, jobId);
     res.json({ success: true, job });
@@ -29,24 +74,18 @@ router.post('/jobs/apply', (req, res) => {
   }
 });
 
-router.post('/reviews', (req, res) => {
+router.post('/reviews', requireAgentKey({
+  allowAdmin: true,
+  useSuccessResponse: true,
+  getAgentId: (req) => req.body?.reviewerId
+}), validateBody(reviewSchema), (req, res) => {
   const { agentId, reviewerId, score, tags, reason } = req.body;
   const economy = req.app.locals.economyManager;
-  if (!agentId || !reviewerId || score === undefined) {
-    return res.status(400).json({ success: false, error: 'agentId, reviewerId, and score are required' });
-  }
-  const numericScore = parseFloat(score);
-  if (Number.isNaN(numericScore)) {
-    return res.status(400).json({ success: false, error: 'score must be a number' });
-  }
-  if (numericScore < 0 || numericScore > 5) {
-    return res.status(400).json({ success: false, error: 'score must be between 0 and 5' });
-  }
   try {
     const result = economy.submitReview({
       agentId,
       reviewerId,
-      score: numericScore,
+      score,
       tags,
       reason
     });
@@ -56,7 +95,11 @@ router.post('/reviews', (req, res) => {
   }
 });
 
-router.get('/reviews/:agentId', (req, res) => {
+router.get('/reviews/:agentId', requireAgentKey({
+  allowAdmin: true,
+  useSuccessResponse: true,
+  getAgentId: (req) => req.params.agentId
+}), (req, res) => {
   const { agentId } = req.params;
   const economy = req.app.locals.economyManager;
   res.json({ agentId, reviews: economy.getReviews(agentId) });
@@ -67,12 +110,13 @@ router.get('/properties', (req, res) => {
   res.json({ properties: economy.listProperties() });
 });
 
-router.post('/properties/buy', (req, res) => {
+router.post('/properties/buy', requireAgentKey({
+  allowAdmin: true,
+  useSuccessResponse: true,
+  getAgentId: (req) => req.body?.agentId
+}), validateBody(propertyBuySchema), (req, res) => {
   const { agentId, propertyId } = req.body;
   const economy = req.app.locals.economyManager;
-  if (!agentId || !propertyId) {
-    return res.status(400).json({ success: false, error: 'agentId and propertyId are required' });
-  }
   try {
     const property = economy.buyProperty(agentId, propertyId);
     res.json({ success: true, property });
@@ -81,28 +125,26 @@ router.post('/properties/buy', (req, res) => {
   }
 });
 
-router.post('/properties/list', (req, res) => {
+router.post('/properties/list', requireAgentKey({
+  allowAdmin: true,
+  useSuccessResponse: true,
+  getAgentId: (req) => req.body?.agentId
+}), validateBody(propertyListSchema), (req, res) => {
   const { agentId, propertyId, price } = req.body;
   const economy = req.app.locals.economyManager;
-  if (!agentId || !propertyId || price === undefined) {
-    return res.status(400).json({ success: false, error: 'agentId, propertyId, and price are required' });
-  }
-  const numericPrice = parseFloat(price);
-  if (Number.isNaN(numericPrice)) {
-    return res.status(400).json({ success: false, error: 'price must be a number' });
-  }
-  if (numericPrice <= 0) {
-    return res.status(400).json({ success: false, error: 'price must be positive' });
-  }
   try {
-    const property = economy.listPropertyForSale(agentId, propertyId, numericPrice);
+    const property = economy.listPropertyForSale(agentId, propertyId, price);
     res.json({ success: true, property });
   } catch (error) {
     res.status(400).json({ success: false, error: error.message });
   }
 });
 
-router.get('/transactions/:agentId', (req, res) => {
+router.get('/transactions/:agentId', requireAgentKey({
+  allowAdmin: true,
+  useSuccessResponse: true,
+  getAgentId: (req) => req.params.agentId
+}), (req, res) => {
   const { agentId } = req.params;
   const economy = req.app.locals.economyManager;
   res.json({ agentId, transactions: economy.getTransactions(agentId) });
@@ -132,12 +174,9 @@ router.get('/inventory/transactions', requireAdminKeyWithSuccess, (req, res) => 
   res.json({ transactions: economy.getItemTransactions(limit) });
 });
 
-router.post('/inventory/add', requireAdminKeyWithSuccess, (req, res) => {
+router.post('/inventory/add', requireAdminKeyWithSuccess, validateBody(inventoryAddSchema), (req, res) => {
   const { agentId, itemId, name, quantity } = req.body;
   const economy = req.app.locals.economyManager;
-  if (!agentId || !itemId) {
-    return res.status(400).json({ success: false, error: 'agentId and itemId are required' });
-  }
   try {
     const item = economy.addItem(agentId, { itemId, name, quantity });
     res.json({ success: true, item });
@@ -146,12 +185,9 @@ router.post('/inventory/add', requireAdminKeyWithSuccess, (req, res) => {
   }
 });
 
-router.post('/inventory/remove', requireAdminKeyWithSuccess, (req, res) => {
+router.post('/inventory/remove', requireAdminKeyWithSuccess, validateBody(inventoryRemoveSchema), (req, res) => {
   const { agentId, itemId, quantity } = req.body;
   const economy = req.app.locals.economyManager;
-  if (!agentId || !itemId) {
-    return res.status(400).json({ success: false, error: 'agentId and itemId are required' });
-  }
   try {
     const item = economy.removeItem(agentId, { itemId, quantity });
     res.json({ success: true, item });
