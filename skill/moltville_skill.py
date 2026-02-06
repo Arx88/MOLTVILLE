@@ -262,6 +262,41 @@ class MOLTVILLESkill:
                 return action
         return await self._heuristic_decision(perception)
 
+    def _sanitize_llm_action(self, action: Any) -> Optional[Dict[str, Any]]:
+        if not isinstance(action, dict):
+            return None
+        action_type = action.get("type")
+        if not isinstance(action_type, str):
+            return None
+        params = action.get("params", {}) or {}
+        if not isinstance(params, dict):
+            params = {}
+
+        if action_type == "move_to":
+            x = params.get("x")
+            y = params.get("y")
+            if isinstance(x, (int, float)) and isinstance(y, (int, float)):
+                return {"type": "move_to", "params": {"x": int(x), "y": int(y)}}
+            return None
+        if action_type == "enter_building":
+            building_id = params.get("building_id")
+            if isinstance(building_id, str) and building_id.strip():
+                return {"type": "enter_building", "params": {"building_id": building_id.strip()}}
+            return None
+        if action_type == "speak":
+            message = params.get("message")
+            if isinstance(message, str):
+                return {"type": "speak", "params": {"message": message}}
+            return None
+        if action_type == "apply_job":
+            job_id = params.get("job_id")
+            if isinstance(job_id, str) and job_id.strip():
+                return {"type": "apply_job", "params": {"job_id": job_id.strip()}}
+            return None
+        if action_type == "wait":
+            return {"type": "wait", "params": {}}
+        return None
+
     async def _decide_with_llm(self, perception: Dict[str, Any]) -> Optional[Dict[str, Any]]:
         llm_config = self.config.get("llm", {})
         provider = llm_config.get("provider", "")
@@ -329,7 +364,11 @@ class MOLTVILLESkill:
                     content = parts[0].get("text")
             if not content:
                 return None
-            return json.loads(content)
+            parsed = json.loads(content)
+            sanitized = self._sanitize_llm_action(parsed)
+            if not sanitized:
+                logger.warning("LLM returned invalid action, falling back to heuristic.")
+            return sanitized
         except (OSError, json.JSONDecodeError, aiohttp.ClientError) as error:
             logger.warning(f"LLM decision failed: {error}")
             return None
@@ -672,6 +711,14 @@ class MOLTVILLESkill:
         if not self.agent_id:
             return {"error": "Agent not registered yet"}
         return await self._http_request('GET', f"/api/economy/transactions/{self.agent_id}")
+
+    async def consume_item(self, item_id: str, quantity: float = 1) -> Dict[str, Any]:
+        if not self.agent_id:
+            return {"error": "Agent not registered yet"}
+        if not item_id:
+            return {"error": "item_id is required"}
+        payload = {"agentId": self.agent_id, "itemId": item_id, "quantity": quantity}
+        return await self._http_request('POST', "/api/economy/inventory/consume", payload)
     
     def get_system_prompt(self) -> str:
         """
@@ -767,6 +814,10 @@ async def execute_command(skill: MOLTVILLESkill, command: str, params: Dict[str,
             params.get('price')
         ),
         'get_transactions': skill.get_transactions,
+        'consume_item': lambda: skill.consume_item(
+            params.get('item_id'),
+            params.get('quantity', 1)
+        ),
         'get_prompt': lambda: {"prompt": skill.get_system_prompt()},
         'disconnect': skill.disconnect
     }

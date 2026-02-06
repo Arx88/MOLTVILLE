@@ -153,6 +153,7 @@ const ensureActiveApiKey = (socket, registry) => {
 
 const disconnectTimers = new Map();
 const EVENT_GOAL_RADIUS = parseInt(process.env.EVENT_GOAL_RADIUS || '8', 10);
+const DEFAULT_EVENT_GOAL_TTL_MS = 15 * 60 * 1000;
 
 const buildAgentContext = (agentId) => ({
   economy: economyManager.getAgentSummary(agentId),
@@ -178,14 +179,31 @@ const resolveEventLocation = (event) => {
   return null;
 };
 
+const computeGoalTtlMs = (event) => {
+  if (!event) return DEFAULT_EVENT_GOAL_TTL_MS;
+  const now = Date.now();
+  if (Number.isFinite(event.endAt) && event.endAt > now) {
+    return Math.max(event.endAt - now, 60 * 1000);
+  }
+  return DEFAULT_EVENT_GOAL_TTL_MS;
+};
+
+const getEventGoalRecipients = (event, location) => {
+  if (event?.goalScope === 'global') {
+    return moltbotRegistry.getAllAgents().map(agent => agent.id);
+  }
+  return worldState.getAgentsInRadius(location, EVENT_GOAL_RADIUS);
+};
+
 const emitEventGoals = (transitions = []) => {
   transitions
     .filter(entry => entry.status === 'active')
     .forEach(({ event }) => {
       const location = resolveEventLocation(event);
       if (!location) return;
-      const nearbyAgents = worldState.getAgentsInRadius(location, EVENT_GOAL_RADIUS);
-      nearbyAgents.forEach(agentId => {
+      const ttlMs = computeGoalTtlMs(event);
+      const targetAgents = getEventGoalRecipients(event, location);
+      targetAgents.forEach(agentId => {
         const socketId = moltbotRegistry.getAgentSocket(agentId);
         if (!socketId) return;
         io.to(socketId).emit('agent:goal', {
@@ -201,7 +219,8 @@ const emitEventGoals = (transitions = []) => {
           },
           location,
           urgency: 70,
-          reason: 'event_active'
+          reason: 'event_active',
+          ttlMs
         });
       });
     });
@@ -263,6 +282,9 @@ if (db) {
   economyManager.initializeFromDb().catch(error => logger.error('Economy init failed:', error));
   votingManager.initializeFromDb().catch(error => logger.error('Voting init failed:', error));
   governanceManager.initializeFromDb().catch(error => logger.error('Governance init failed:', error));
+  if (!config.worldSnapshotOnStart) {
+    interactionEngine.initializeFromDb().catch(error => logger.error('Conversation init failed:', error));
+  }
 }
 
 if (config.worldSnapshotOnStart) {
