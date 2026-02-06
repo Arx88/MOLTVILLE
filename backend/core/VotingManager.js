@@ -330,4 +330,46 @@ export class VotingManager {
       ]
     ).catch(error => logger.error('Vote persist failed:', error));
   }
+
+  createSnapshot() {
+    return {
+      currentVote: this.currentVote
+        ? {
+            id: this.currentVote.id,
+            lotId: this.currentVote.lotId,
+            options: this.currentVote.options.map(option => ({ ...option })),
+            votes: { ...this.currentVote.votes },
+            voters: Array.from(this.currentVote.voters),
+            startsAt: this.currentVote.startsAt,
+            endsAt: this.currentVote.endsAt
+          }
+        : null,
+      pendingProposals: this.pendingProposals.map(proposal => ({ ...proposal })),
+      voteHistory: this.voteHistory.map(entry => ({ ...entry }))
+    };
+  }
+
+  loadSnapshot(snapshot) {
+    if (!snapshot) return;
+    if (snapshot.currentVote) {
+      const vote = snapshot.currentVote;
+      this.currentVote = {
+        id: vote.id,
+        lotId: vote.lotId,
+        options: (vote.options || []).map(option => ({ ...option })),
+        votes: vote.votes || {},
+        voters: new Set(vote.voters || []),
+        startsAt: Number(vote.startsAt),
+        endsAt: Number(vote.endsAt)
+      };
+    } else {
+      this.currentVote = null;
+    }
+    this.pendingProposals = Array.isArray(snapshot.pendingProposals)
+      ? snapshot.pendingProposals.map(proposal => ({ ...proposal }))
+      : [];
+    this.voteHistory = Array.isArray(snapshot.voteHistory)
+      ? snapshot.voteHistory.map(entry => ({ ...entry }))
+      : [];
+  }
 }

@@ -255,9 +255,15 @@ const snapshotPath = resolveSnapshotPath(config.worldSnapshotPath);
 const saveWorldSnapshot = async () => {
   const snapshot = {
     ...worldState.createSnapshot(),
+    registry: moltbotRegistry.createSnapshot(),
+    actionQueue: actionQueue.createSnapshot(),
     economy: economyManager.createSnapshot(),
     events: eventManager.createSnapshot(),
-    conversations: interactionEngine.createSnapshot()
+    conversations: interactionEngine.createSnapshot(),
+    aesthetics: aestheticsManager.createSnapshot(),
+    mood: cityMoodManager.createSnapshot(),
+    governance: governanceManager.createSnapshot(),
+    voting: votingManager.createSnapshot()
   };
   await saveSnapshotFile(snapshotPath, snapshot);
   if (db) {
@@ -271,9 +277,15 @@ const restoreWorldSnapshot = async () => {
     ? await loadLatestSnapshotDb(db)
     : await loadSnapshotFile(snapshotPath);
   worldState.loadSnapshot(snapshot);
+  moltbotRegistry.loadSnapshot(snapshot.registry);
+  actionQueue.loadSnapshot(snapshot.actionQueue);
   economyManager.loadSnapshot(snapshot.economy);
   eventManager.loadSnapshot(snapshot.events);
   interactionEngine.loadSnapshot(snapshot.conversations);
+  aestheticsManager.loadSnapshot(snapshot.aesthetics);
+  cityMoodManager.loadSnapshot(snapshot.mood);
+  governanceManager.loadSnapshot(snapshot.governance);
+  votingManager.loadSnapshot(snapshot.voting);
   logger.info('World snapshot restored', { path: snapshotPath, restoredAt: Date.now() });
 };
 

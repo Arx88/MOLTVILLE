@@ -84,13 +84,31 @@ router.get('/conversations', requireViewerKey, async (req, res) => {
   }
 });
 
-  router.post('/snapshot', requireAdminKey, async (req, res) => {
+router.post('/snapshot', requireAdminKey, async (req, res) => {
   try {
-    const { worldState, economyManager, eventManager } = req.app.locals;
+    const {
+      worldState,
+      moltbotRegistry,
+      actionQueue,
+      economyManager,
+      eventManager,
+      interactionEngine,
+      aestheticsManager,
+      cityMoodManager,
+      governanceManager,
+      votingManager
+    } = req.app.locals;
     const snapshot = {
       ...worldState.createSnapshot(),
+      registry: moltbotRegistry.createSnapshot(),
+      actionQueue: actionQueue.createSnapshot(),
       economy: economyManager.createSnapshot(),
-      events: eventManager.createSnapshot()
+      events: eventManager.createSnapshot(),
+      conversations: interactionEngine.createSnapshot(),
+      aesthetics: aestheticsManager.createSnapshot(),
+      mood: cityMoodManager.createSnapshot(),
+      governance: governanceManager.createSnapshot(),
+      voting: votingManager.createSnapshot()
     };
     const snapshotPath = resolveSnapshotPath(config.worldSnapshotPath);
     await saveSnapshotFile(snapshotPath, snapshot);
@@ -105,14 +123,32 @@ router.get('/conversations', requireViewerKey, async (req, res) => {
 
 router.post('/snapshot/restore', requireAdminKey, async (req, res) => {
   try {
-    const { worldState, economyManager, eventManager } = req.app.locals;
+    const {
+      worldState,
+      moltbotRegistry,
+      actionQueue,
+      economyManager,
+      eventManager,
+      interactionEngine,
+      aestheticsManager,
+      cityMoodManager,
+      governanceManager,
+      votingManager
+    } = req.app.locals;
     const snapshotPath = resolveSnapshotPath(config.worldSnapshotPath);
     const snapshot = config.worldSnapshotSource === 'db'
       ? await loadLatestSnapshotDb(req.app.locals.db)
       : await loadSnapshotFile(snapshotPath);
     worldState.loadSnapshot(snapshot);
+    moltbotRegistry.loadSnapshot(snapshot.registry);
+    actionQueue.loadSnapshot(snapshot.actionQueue);
     economyManager.loadSnapshot(snapshot.economy);
     eventManager.loadSnapshot(snapshot.events);
+    interactionEngine.loadSnapshot(snapshot.conversations);
+    aestheticsManager.loadSnapshot(snapshot.aesthetics);
+    cityMoodManager.loadSnapshot(snapshot.mood);
+    governanceManager.loadSnapshot(snapshot.governance);
+    votingManager.loadSnapshot(snapshot.voting);
     res.json({ success: true, restoredAt: Date.now() });
   } catch (error) {
     if (error.code === 'ENOENT') {

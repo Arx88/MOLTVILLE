@@ -19,7 +19,12 @@ export class WorldStateManager {
       lastChange: Date.now()
     };
     this.lastExpansionCheck = 0;
-    this.lastNeedUpdate = Date.now();
+    if (!Number.isFinite(this.lastNeedUpdate)) {
+      this.lastNeedUpdate = Date.now();
+    }
+    if (!Number.isFinite(this.lastExpansionCheck)) {
+      this.lastExpansionCheck = 0;
+    }
     this.needRates = {
       hungerPerMinute: parseFloat(process.env.NEED_HUNGER_PER_MINUTE || '1.2'),
       energyPerMinute: parseFloat(process.env.NEED_ENERGY_PER_MINUTE || '0.6'),
@@ -780,7 +785,11 @@ export class WorldStateManager {
         dayLengthMs: this.dayLengthMs,
         weatherChangeMs: this.weatherChangeMs,
         weatherState: this.weatherState,
-        worldTime: this.getTimeState()
+        worldTime: this.getTimeState(),
+        lastNeedUpdate: this.lastNeedUpdate,
+        lastExpansionCheck: this.lastExpansionCheck,
+        needRates: { ...this.needRates },
+        needThresholds: { ...this.needThresholds }
       },
       buildings: this.buildings,
       lots: this.lots,
@@ -819,6 +828,14 @@ export class WorldStateManager {
     this.weatherChangeMs = world.weatherChangeMs || this.weatherChangeMs;
     this.weatherState = world.weatherState || this.weatherState;
     this.worldTime = world.worldTime || this.worldTime;
+    this.lastNeedUpdate = Number(world.lastNeedUpdate ?? this.lastNeedUpdate);
+    this.lastExpansionCheck = Number(world.lastExpansionCheck ?? this.lastExpansionCheck);
+    if (world.needRates) {
+      this.needRates = { ...this.needRates, ...world.needRates };
+    }
+    if (world.needThresholds) {
+      this.needThresholds = { ...this.needThresholds, ...world.needThresholds };
+    }
 
     this.buildings = (snapshot.buildings || this.initializeBuildings()).map(building => ({
       ...building,
@@ -863,7 +880,12 @@ export class WorldStateManager {
       this.movementState.set(agentId, { ...rest });
     });
 
-    this.lastNeedUpdate = Date.now();
+    if (!Number.isFinite(this.lastNeedUpdate)) {
+      this.lastNeedUpdate = Date.now();
+    }
+    if (!Number.isFinite(this.lastExpansionCheck)) {
+      this.lastExpansionCheck = 0;
+    }
   }
 
   addBuildingFromLot(building) {

@@ -392,6 +392,63 @@ export class MoltbotRegistry {
     ).catch(error => logger.error('Memory persist failed:', error));
   }
 
+  createSnapshot() {
+    return {
+      issuedApiKeys: Array.from(this.issuedApiKeys),
+      apiKeyEvents: this.apiKeyEvents.map(event => ({ ...event })),
+      agents: Array.from(this.agents.values()).map(agent => ({
+        id: agent.id,
+        name: agent.name,
+        avatar: agent.avatar,
+        apiKey: agent.apiKey,
+        connectedAt: agent.connectedAt,
+        lastSeen: agent.lastSeen,
+        stats: { ...agent.stats },
+        memory: {
+          interactions: agent.memory.interactions.map(entry => ({ ...entry })),
+          locations: agent.memory.locations.map(entry => ({ ...entry })),
+          relationships: { ...agent.memory.relationships }
+        }
+      }))
+    };
+  }
+
+  loadSnapshot(snapshot) {
+    if (!snapshot) return;
+    this.issuedApiKeys = new Set(snapshot.issuedApiKeys || []);
+    this.apiKeyEvents = Array.isArray(snapshot.apiKeyEvents)
+      ? snapshot.apiKeyEvents.map(event => ({ ...event }))
+      : [];
+
+    this.agents = new Map();
+    this.apiKeys = new Map();
+    this.sockets = new Map();
+    (snapshot.agents || []).forEach(agent => {
+      if (!agent || !agent.id) return;
+      const restored = {
+        id: agent.id,
+        name: agent.name,
+        avatar: agent.avatar,
+        socketId: null,
+        apiKey: agent.apiKey,
+        connected: false,
+        connectedAt: agent.connectedAt || null,
+        lastSeen: agent.lastSeen || null,
+        stats: agent.stats ? { ...agent.stats } : { messagesSent: 0, actionsTaken: 0, interactionCount: 0 },
+        memory: {
+          interactions: Array.isArray(agent.memory?.interactions) ? agent.memory.interactions.map(entry => ({ ...entry })) : [],
+          locations: Array.isArray(agent.memory?.locations) ? agent.memory.locations.map(entry => ({ ...entry })) : [],
+          relationships: agent.memory?.relationships ? { ...agent.memory.relationships } : {},
+          loadedFromDb: true
+        }
+      };
+      this.agents.set(restored.id, restored);
+      if (restored.apiKey) {
+        this.apiKeys.set(restored.apiKey, restored.id);
+      }
+    });
+  }
+
   persistApiKey(apiKey) {
     if (!this.db) return;
     this.db.query(

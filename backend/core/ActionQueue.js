@@ -161,4 +161,16 @@ export class ActionQueue {
 
   getQueueLength() { return this.queue.length; }
   clearQueue() { this.queue = []; logger.info('Action queue cleared'); }
+
+  createSnapshot() {
+    return {
+      queue: this.queue.map(action => ({ ...action }))
+    };
+  }
+
+  loadSnapshot(snapshot) {
+    if (!snapshot) return;
+    this.queue = Array.isArray(snapshot.queue) ? snapshot.queue.map(action => ({ ...action })) : [];
+    this.processing = false;
+  }
 }
