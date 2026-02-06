@@ -178,4 +178,32 @@ export class AestheticsManager {
   getHistory(limit = this.historyLimit) {
     return this.history.slice(0, limit);
   }
+
+  createSnapshot() {
+    return {
+      currentVote: this.currentVote
+        ? {
+            ...this.currentVote,
+            voters: Array.from(this.currentVote.voters || [])
+          }
+        : null,
+      history: this.history.map(entry => ({ ...entry }))
+    };
+  }
+
+  loadSnapshot(snapshot) {
+    if (!snapshot) return;
+    if (snapshot.currentVote) {
+      const voters = new Set(snapshot.currentVote.voters || []);
+      this.currentVote = {
+        ...snapshot.currentVote,
+        voters
+      };
+    } else {
+      this.currentVote = null;
+    }
+    this.history = Array.isArray(snapshot.history)
+      ? snapshot.history.map(entry => ({ ...entry }))
+      : [];
+  }
 }

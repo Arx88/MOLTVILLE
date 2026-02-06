@@ -35,4 +35,18 @@ export class CityMoodManager {
   getSummary() {
     return this.mood;
   }
+
+  createSnapshot() {
+    return {
+      mood: this.mood
+    };
+  }
+
+  loadSnapshot(snapshot) {
+    if (!snapshot || !snapshot.mood) {
+      this.mood = this.calculateMood();
+      return;
+    }
+    this.mood = { ...snapshot.mood };
+  }
 }

@@ -232,4 +232,42 @@ export class GovernanceManager {
       [policy.id, policy, status]
     ).catch(error => logger.error('Policy persist failed:', error));
   }
+
+  createSnapshot() {
+    return {
+      currentPresident: this.currentPresident ? { ...this.currentPresident } : null,
+      currentElection: this.currentElection
+        ? {
+            id: this.currentElection.id,
+            candidates: Array.from(this.currentElection.candidates.values()),
+            votes: { ...this.currentElection.votes },
+            voters: Array.from(this.currentElection.voters),
+            startsAt: this.currentElection.startsAt,
+            endsAt: this.currentElection.endsAt
+          }
+        : null,
+      policies: this.policies.map(policy => ({ ...policy }))
+    };
+  }
+
+  loadSnapshot(snapshot) {
+    if (!snapshot) return;
+    this.currentPresident = snapshot.currentPresident ? { ...snapshot.currentPresident } : null;
+    if (snapshot.currentElection) {
+      const election = snapshot.currentElection;
+      this.currentElection = {
+        id: election.id,
+        candidates: new Map((election.candidates || []).map(candidate => [candidate.agentId, candidate])),
+        votes: election.votes || {},
+        voters: new Set(election.voters || []),
+        startsAt: Number(election.startsAt),
+        endsAt: Number(election.endsAt)
+      };
+    } else {
+      this.currentElection = null;
+    }
+    this.policies = Array.isArray(snapshot.policies)
+      ? snapshot.policies.map(policy => ({ ...policy }))
+      : [];
+  }
 }
