@@ -8,6 +8,52 @@ export class InteractionEngine {
     this.db = options.db || null;
   }
 
+  async initializeFromDb({ maxMessages = 50 } = {}) {
+    if (!this.db) return;
+    const sessionsResult = await this.db.query(
+      `SELECT conversation_id, initiator_id, target_id, started_at, last_activity, ended_at, active
+       FROM conversation_sessions
+       WHERE active = TRUE
+       ORDER BY last_activity DESC`
+    );
+    const conversations = new Map();
+    for (const row of sessionsResult.rows) {
+      const messagesResult = await this.db.query(
+        `SELECT from_id, to_id, message, timestamp
+         FROM conversation_messages
+         WHERE conversation_id = $1
+         ORDER BY timestamp DESC
+         LIMIT $2`,
+        [row.conversation_id, maxMessages]
+      );
+      const messages = messagesResult.rows.reverse().map(message => {
+        const fromAgent = this.moltbotRegistry.getAgent(message.from_id);
+        const toAgent = this.moltbotRegistry.getAgent(message.to_id);
+        return {
+          from: message.from_id,
+          fromName: fromAgent?.name,
+          to: message.to_id,
+          toName: toAgent?.name,
+          message: message.message,
+          timestamp: Number(message.timestamp)
+        };
+      });
+      conversations.set(row.conversation_id, {
+        id: row.conversation_id,
+        participants: [row.initiator_id, row.target_id],
+        messages,
+        startedAt: Number(row.started_at),
+        lastActivity: Number(row.last_activity),
+        endedAt: row.ended_at ? Number(row.ended_at) : null,
+        active: row.active
+      });
+    }
+    this.conversations = conversations;
+    if (conversations.size) {
+      logger.info(`Rehydrated ${conversations.size} active conversations from DB.`);
+    }
+  }
+
   async initiateConversation(initiatorId, targetId, initialMessage) {
     const initiator = this.moltbotRegistry.getAgent(initiatorId);
     const target = this.moltbotRegistry.getAgent(targetId);

@@ -9,7 +9,7 @@ router.get('/', (req, res) => {
 
 router.post('/', (req, res) => {
   const eventManager = req.app.locals.eventManager;
-  const { id, name, type, startAt, endAt, location, description } = req.body;
+  const { id, name, type, startAt, endAt, location, description, goalScope } = req.body;
   try {
     const event = eventManager.createEvent({
       id,
@@ -18,7 +18,8 @@ router.post('/', (req, res) => {
       startAt,
       endAt,
       location,
-      description
+      description,
+      goalScope
     });
     res.status(201).json({ success: true, event });
   } catch (error) {

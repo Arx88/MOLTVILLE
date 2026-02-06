@@ -13,7 +13,8 @@ export class EventManager {
     startAt,
     endAt,
     location = null,
-    description = ''
+    description = '',
+    goalScope = 'radius'
   }) {
     if (!name) {
       throw new Error('name is required');
@@ -45,6 +46,7 @@ export class EventManager {
       endAt: endTimestamp,
       location,
       description,
+      goalScope,
       status,
       lastEmittedStatus: status === 'active' ? 'started' : null
     };
@@ -70,6 +72,7 @@ export class EventManager {
       endAt: event.endAt,
       location: event.location,
       description: event.description,
+      goalScope: event.goalScope,
       status: event.status
     }));
   }
@@ -108,6 +111,7 @@ export class EventManager {
       endAt: event.endAt,
       location: event.location,
       description: event.description,
+      goalScope: event.goalScope,
       status: event.status
     });
   }
@@ -141,6 +145,7 @@ export class EventManager {
         endAt,
         location: event.location || null,
         description: event.description || '',
+        goalScope: event.goalScope || 'radius',
         status,
         lastEmittedStatus: event.lastEmittedStatus || (status === 'active' ? 'started' : null)
       });

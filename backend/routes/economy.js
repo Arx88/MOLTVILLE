@@ -196,4 +196,19 @@ router.post('/inventory/remove', requireAdminKeyWithSuccess, validateBody(invent
   }
 });
 
+router.post('/inventory/consume', requireAgentKey({
+  allowAdmin: true,
+  useSuccessResponse: true,
+  getAgentId: (req) => req.body?.agentId
+}), validateBody(inventoryRemoveSchema), (req, res) => {
+  const { agentId, itemId, quantity } = req.body;
+  const economy = req.app.locals.economyManager;
+  try {
+    const item = economy.removeItem(agentId, { itemId, quantity });
+    res.json({ success: true, item });
+  } catch (error) {
+    res.status(400).json({ success: false, error: error.message });
+  }
+});
+
 export default router;
