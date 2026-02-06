@@ -21,7 +21,10 @@ const schema = Joi.object({
   AGENT_DISCONNECT_GRACE_MS: Joi.number().integer().min(1000).default(15000),
   ADMIN_API_KEY: Joi.string().optional().allow('', null),
   DATABASE_URL: Joi.string().uri().optional().allow('', null),
-  DB_SSL: Joi.string().valid('true', 'false').default('false')
+  DB_SSL: Joi.string().valid('true', 'false').default('false'),
+  WORLD_SNAPSHOT_PATH: Joi.string().default('world_snapshot.json'),
+  WORLD_SNAPSHOT_INTERVAL_MS: Joi.number().integer().min(1000).optional(),
+  WORLD_SNAPSHOT_ON_START: Joi.string().valid('true', 'false').default('false')
 }).unknown(true);
 
 const { value, error } = schema.validate(process.env, {
@@ -46,5 +49,8 @@ export const config = {
   socketRateBlockMs: value.SOCKET_RATE_BLOCK_MS,
   worldTickRate: value.WORLD_TICK_RATE,
   agentDisconnectGraceMs: value.AGENT_DISCONNECT_GRACE_MS,
-  adminApiKey: value.ADMIN_API_KEY
+  adminApiKey: value.ADMIN_API_KEY,
+  worldSnapshotPath: value.WORLD_SNAPSHOT_PATH,
+  worldSnapshotIntervalMs: value.WORLD_SNAPSHOT_INTERVAL_MS,
+  worldSnapshotOnStart: value.WORLD_SNAPSHOT_ON_START === 'true'
 };

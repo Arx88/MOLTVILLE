@@ -595,6 +595,20 @@ export class WorldStateManager {
     return { x: agent.x, y: agent.y, facing: agent.facing };
   }
 
+  getAgentMovementState(agentId) {
+    const state = this.movementState.get(agentId);
+    if (!state) return null;
+    return {
+      fromX: state.fromX,
+      fromY: state.fromY,
+      toX: state.toX,
+      toY: state.toY,
+      progress: state.progress,
+      fullPath: state.fullPath || null,
+      currentStep: typeof state.currentStep === 'number' ? state.currentStep : null
+    };
+  }
+
   findNearestWalkable(targetX, targetY, maxRadius = 2, excludeAgentId = null) {
     for (let radius = 1; radius <= maxRadius; radius++) {
       for (let dx = -radius; dx <= radius; dx++) {
@@ -750,6 +764,105 @@ export class WorldStateManager {
       worldTime: this.getTimeState(),
       weather: this.getWeatherState()
     };
+  }
+
+  createSnapshot() {
+    return {
+      version: 1,
+      createdAt: Date.now(),
+      world: {
+        width: this.width,
+        height: this.height,
+        tileSize: this.tileSize,
+        tickCount: this.tickCount,
+        worldStart: this.worldStart,
+        dayLengthMs: this.dayLengthMs,
+        weatherChangeMs: this.weatherChangeMs,
+        weatherState: this.weatherState,
+        worldTime: this.getTimeState()
+      },
+      buildings: this.buildings,
+      lots: this.lots,
+      districts: this.districts,
+      agents: Array.from(this.agents.values()).map(agent => ({
+        id: agent.id,
+        x: agent.x,
+        y: agent.y,
+        facing: agent.facing,
+        state: agent.state,
+        currentBuilding: agent.currentBuilding,
+        needs: agent.needs,
+        lastUpdate: agent.lastUpdate
+      })),
+      movementState: Array.from(this.movementState.entries()).map(([agentId, state]) => ({
+        agentId,
+        ...state
+      }))
+    };
+  }
+
+  loadSnapshot(snapshot) {
+    if (!snapshot || typeof snapshot !== 'object') {
+      throw new Error('Snapshot inválido');
+    }
+    if (snapshot.version && snapshot.version !== 1) {
+      throw new Error(`Snapshot versión no soportada: ${snapshot.version}`);
+    }
+    const world = snapshot.world || {};
+    this.width = world.width || this.width;
+    this.height = world.height || this.height;
+    this.tileSize = world.tileSize || this.tileSize;
+    this.tickCount = world.tickCount || 0;
+    this.worldStart = world.worldStart || Date.now();
+    this.dayLengthMs = world.dayLengthMs || this.dayLengthMs;
+    this.weatherChangeMs = world.weatherChangeMs || this.weatherChangeMs;
+    this.weatherState = world.weatherState || this.weatherState;
+    this.worldTime = world.worldTime || this.worldTime;
+
+    this.buildings = (snapshot.buildings || this.initializeBuildings()).map(building => ({
+      ...building,
+      occupancy: Array.isArray(building.occupancy) ? [...building.occupancy] : []
+    }));
+    this.districts = snapshot.districts || this.initializeDistricts();
+    this.lots = snapshot.lots || [];
+    this.tiles = this.initializeTiles();
+
+    this.agents = new Map();
+    (snapshot.agents || []).forEach(agent => {
+      this.agents.set(agent.id, {
+        id: agent.id,
+        x: agent.x,
+        y: agent.y,
+        facing: agent.facing || 'down',
+        state: agent.state || 'idle',
+        currentBuilding: agent.currentBuilding || null,
+        needs: agent.needs || this.initializeNeeds(),
+        lastUpdate: agent.lastUpdate || Date.now()
+      });
+    });
+
+    this.buildings.forEach(building => {
+      building.occupancy = [];
+    });
+    for (const agent of this.agents.values()) {
+      const building = this.getBuildingAt(agent.x, agent.y);
+      if (building) {
+        building.occupancy.push(agent.id);
+        agent.currentBuilding = building.id;
+      } else {
+        agent.currentBuilding = null;
+      }
+    }
+
+    this.movementState = new Map();
+    (snapshot.movementState || []).forEach(state => {
+      if (!state || !state.agentId) return;
+      if (!this.agents.has(state.agentId)) return;
+      const { agentId, ...rest } = state;
+      this.movementState.set(agentId, { ...rest });
+    });
+
+    this.lastNeedUpdate = Date.now();
   }
 
   addBuildingFromLot(building) {

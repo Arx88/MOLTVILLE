@@ -1,4 +1,12 @@
 import express from 'express';
+import { requireAdminKey } from '../utils/adminAuth.js';
+import { config } from '../utils/config.js';
+import {
+  getSnapshotStats,
+  loadSnapshotFile,
+  resolveSnapshotPath,
+  saveSnapshotFile
+} from '../utils/snapshot.js';
 
 const router = express.Router();
 
@@ -71,6 +79,52 @@ router.get('/conversations', async (req, res) => {
     res.json(conversations);
   } catch (error) {
     res.status(500).json({ error: error.message });
+  }
+});
+
+router.post('/snapshot', requireAdminKey, async (req, res) => {
+  try {
+    const { worldState, economyManager, eventManager } = req.app.locals;
+    const snapshot = {
+      ...worldState.createSnapshot(),
+      economy: economyManager.createSnapshot(),
+      events: eventManager.createSnapshot()
+    };
+    const snapshotPath = resolveSnapshotPath(config.worldSnapshotPath);
+    await saveSnapshotFile(snapshotPath, snapshot);
+    res.json({ success: true, path: snapshotPath, createdAt: snapshot.createdAt });
+  } catch (error) {
+    res.status(500).json({ success: false, error: error.message });
+  }
+});
+
+router.post('/snapshot/restore', requireAdminKey, async (req, res) => {
+  try {
+    const { worldState, economyManager, eventManager } = req.app.locals;
+    const snapshotPath = resolveSnapshotPath(config.worldSnapshotPath);
+    const snapshot = await loadSnapshotFile(snapshotPath);
+    worldState.loadSnapshot(snapshot);
+    economyManager.loadSnapshot(snapshot.economy);
+    eventManager.loadSnapshot(snapshot.events);
+    res.json({ success: true, restoredAt: Date.now() });
+  } catch (error) {
+    if (error.code === 'ENOENT') {
+      return res.status(404).json({ success: false, error: 'Snapshot not found' });
+    }
+    res.status(500).json({ success: false, error: error.message });
+  }
+});
+
+router.get('/snapshot/status', requireAdminKey, async (req, res) => {
+  try {
+    const snapshotPath = resolveSnapshotPath(config.worldSnapshotPath);
+    const stats = await getSnapshotStats(snapshotPath);
+    res.json({ exists: true, path: snapshotPath, ...stats });
+  } catch (error) {
+    if (error.code === 'ENOENT') {
+      return res.json({ exists: false, path: resolveSnapshotPath(config.worldSnapshotPath) });
+    }
+    res.status(500).json({ success: false, error: error.message });
   }
 });
 

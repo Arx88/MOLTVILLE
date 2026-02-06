@@ -108,4 +108,39 @@ export class EventManager {
       status: event.status
     });
   }
+
+  createSnapshot() {
+    return {
+      events: this.listEvents().map(event => ({
+        ...event
+      }))
+    };
+  }
+
+  loadSnapshot(snapshot) {
+    if (!snapshot) return;
+    this.events = new Map();
+    const now = Date.now();
+    (snapshot.events || []).forEach(event => {
+      if (!event || !event.id || !event.name) return;
+      const startAt = Number(event.startAt ?? now);
+      if (!Number.isFinite(startAt)) return;
+      const endAt = event.endAt === undefined || event.endAt === null ? null : Number(event.endAt);
+      if (endAt !== null && (!Number.isFinite(endAt) || endAt <= startAt)) return;
+      const status = startAt <= now
+        ? (endAt && endAt <= now ? 'ended' : 'active')
+        : 'scheduled';
+      this.events.set(event.id, {
+        id: event.id,
+        name: event.name,
+        type: event.type || 'festival',
+        startAt,
+        endAt,
+        location: event.location || null,
+        description: event.description || '',
+        status,
+        lastEmittedStatus: event.lastEmittedStatus || (status === 'active' ? 'started' : null)
+      });
+    });
+  }
 }
