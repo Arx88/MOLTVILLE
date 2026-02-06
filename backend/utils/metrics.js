@@ -8,6 +8,19 @@ export const metrics = {
     byStatus: buildCounter(),
     byRoute: buildCounter()
   },
+  errors: {
+    http: {
+      total: 0,
+      byStatus: buildCounter(),
+      byRoute: buildCounter(),
+      byMessage: buildCounter()
+    },
+    socket: {
+      total: 0,
+      byEvent: buildCounter(),
+      byMessage: buildCounter()
+    }
+  },
   socket: {
     connections: 0,
     disconnections: 0,
@@ -35,6 +48,11 @@ export const trackHttpRequest = (req, res, next) => {
     metrics.http.byStatus[status] = (metrics.http.byStatus[status] || 0) + 1;
     metrics.http.byRoute[route] = (metrics.http.byRoute[route] || 0) + 1;
     metrics.http.lastDurationMs = Date.now() - start;
+    if (res.statusCode >= 400) {
+      metrics.errors.http.total += 1;
+      metrics.errors.http.byStatus[status] = (metrics.errors.http.byStatus[status] || 0) + 1;
+      metrics.errors.http.byRoute[route] = (metrics.errors.http.byRoute[route] || 0) + 1;
+    }
   });
   next();
 };
@@ -61,6 +79,20 @@ export const recordSocketDuration = (eventName, durationMs) => {
     lastMs: durationMs,
     maxMs: Math.max(existing.maxMs, durationMs)
   };
+};
+
+export const recordHttpError = (req, res, error) => {
+  if (!error) return;
+  const message = error.message || 'Unknown error';
+  metrics.errors.http.byMessage[message] = (metrics.errors.http.byMessage[message] || 0) + 1;
+};
+
+export const recordSocketError = (eventName, error) => {
+  if (!error) return;
+  const message = typeof error === 'string' ? error : (error.message || 'Unknown error');
+  metrics.errors.socket.total += 1;
+  metrics.errors.socket.byEvent[eventName] = (metrics.errors.socket.byEvent[eventName] || 0) + 1;
+  metrics.errors.socket.byMessage[message] = (metrics.errors.socket.byMessage[message] || 0) + 1;
 };
 
 export const recordTickDuration = (durationMs) => {

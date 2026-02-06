@@ -719,6 +719,72 @@ export class EconomyManager {
     ).catch(error => logger.error('Review persist failed:', error));
   }
 
+  createSnapshot() {
+    return {
+      balances: Array.from(this.balances.entries()),
+      jobs: Array.from(this.jobs.entries()),
+      jobAssignments: Array.from(this.jobAssignments.entries()),
+      reviews: Array.from(this.reviews.entries()),
+      properties: Array.from(this.properties.entries()),
+      transactions: Array.from(this.transactions.entries()),
+      inventories: Array.from(this.inventories.entries()).map(([agentId, inventory]) => ([
+        agentId,
+        Array.from(inventory.values()).map(item => ({ ...item }))
+      ])),
+      itemTransactions: [...this.itemTransactions],
+      itemTransactionsByAgent: Array.from(this.itemTransactionsByAgent.entries()),
+      policyState: { ...this.policyState },
+      lastIncomeAt: this.lastIncomeAt
+    };
+  }
+
+  loadSnapshot(snapshot) {
+    if (!snapshot) return;
+    this.balances = new Map(snapshot.balances || []);
+
+    if (Array.isArray(snapshot.jobs) && snapshot.jobs.length) {
+      this.jobs = new Map(snapshot.jobs);
+    } else {
+      this.jobs = new Map();
+      this.initializeJobs();
+    }
+
+    this.jobAssignments = new Map(snapshot.jobAssignments || []);
+    this.jobAssignments.forEach((jobId, agentId) => {
+      const job = this.jobs.get(jobId);
+      if (job) {
+        job.assignedTo = agentId;
+      }
+    });
+
+    this.reviews = new Map(snapshot.reviews || []);
+
+    if (Array.isArray(snapshot.properties) && snapshot.properties.length) {
+      this.properties = new Map(snapshot.properties);
+    } else {
+      this.properties = new Map();
+      this.initializeProperties();
+    }
+
+    this.transactions = new Map(snapshot.transactions || []);
+
+    this.inventories = new Map();
+    (snapshot.inventories || []).forEach(([agentId, items]) => {
+      const inventory = new Map();
+      (items || []).forEach(item => {
+        if (item && item.id) {
+          inventory.set(item.id, { ...item });
+        }
+      });
+      this.inventories.set(agentId, inventory);
+    });
+
+    this.itemTransactions = Array.isArray(snapshot.itemTransactions) ? [...snapshot.itemTransactions] : [];
+    this.itemTransactionsByAgent = new Map(snapshot.itemTransactionsByAgent || []);
+    this.policyState = snapshot.policyState ? { ...snapshot.policyState } : { ...this.policyState };
+    this.lastIncomeAt = snapshot.lastIncomeAt || Date.now();
+  }
+
   persistProperties() {
     if (!this.db) return;
     this.properties.forEach(property => this.persistProperty(property));

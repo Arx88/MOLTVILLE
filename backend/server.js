@@ -5,11 +5,14 @@ import cors from 'cors';
 import helmet from 'helmet';
 import rateLimit from 'express-rate-limit';
 import { randomUUID } from 'crypto';
+import { loadSnapshotFile, resolveSnapshotPath, saveSnapshotFile } from './utils/snapshot.js';
 
 import { logger } from './utils/logger.js';
 import { config } from './utils/config.js';
 import {
   metrics,
+  recordHttpError,
+  recordSocketError,
   recordSocketDuration,
   recordTickDuration,
   trackHttpRequest,
@@ -173,11 +176,44 @@ app.locals.aestheticsManager = aestheticsManager;
 app.locals.eventManager = eventManager;
 app.locals.io = io;
 
+const snapshotPath = resolveSnapshotPath(config.worldSnapshotPath);
+const saveWorldSnapshot = async () => {
+  const snapshot = {
+    ...worldState.createSnapshot(),
+    economy: economyManager.createSnapshot(),
+    events: eventManager.createSnapshot()
+  };
+  await saveSnapshotFile(snapshotPath, snapshot);
+  logger.info('World snapshot saved', { path: snapshotPath, createdAt: snapshot.createdAt });
+};
+
+const restoreWorldSnapshot = async () => {
+  const snapshot = await loadSnapshotFile(snapshotPath);
+  worldState.loadSnapshot(snapshot);
+  economyManager.loadSnapshot(snapshot.economy);
+  eventManager.loadSnapshot(snapshot.events);
+  logger.info('World snapshot restored', { path: snapshotPath, restoredAt: Date.now() });
+};
+
 if (db) {
   moltbotRegistry.initializeFromDb().catch(error => logger.error('API key init failed:', error));
   economyManager.initializeFromDb().catch(error => logger.error('Economy init failed:', error));
   votingManager.initializeFromDb().catch(error => logger.error('Voting init failed:', error));
   governanceManager.initializeFromDb().catch(error => logger.error('Governance init failed:', error));
+}
+
+if (config.worldSnapshotOnStart) {
+  restoreWorldSnapshot().catch(error => {
+    logger.warn('World snapshot restore skipped', { error: error.message });
+  });
+}
+
+if (config.worldSnapshotIntervalMs) {
+  setInterval(() => {
+    saveWorldSnapshot().catch(error => {
+      logger.error('World snapshot save failed', { error: error.message });
+    });
+  }, config.worldSnapshotIntervalMs);
 }
 
 // Routes
@@ -269,6 +305,13 @@ io.on('connection', (socket) => {
         socket.emit('error', { message: 'API key mismatch' });
         return;
       }
+      if (existingAgent && existingAgent.connected && existingAgent.socketId && existingAgent.socketId !== socket.id) {
+        const previousSocket = io.sockets.sockets.get(existingAgent.socketId);
+        if (previousSocket) {
+          previousSocket.emit('error', { message: 'Session replaced by new connection' });
+          previousSocket.disconnect(true);
+        }
+      }
 
       const agent = await moltbotRegistry.registerAgent({
         id: agentId, name: agentName.trim(),
@@ -295,6 +338,9 @@ io.on('connection', (socket) => {
       socket.emit('agent:registered', {
         agentId: agent.id,
         position: spawnPosition,
+        movement: worldState.getAgentMovementState(agent.id),
+        inventory: economyManager.getInventory(agent.id),
+        balance: economyManager.getBalance(agent.id),
         worldState: {
           ...worldState.getAgentView(agent.id),
           governance: governanceManager.getSummary(),
@@ -312,6 +358,7 @@ io.on('connection', (socket) => {
       logger.info(`Agent connected: ${agentName} (${agent.id})`);
     } catch (error) {
       logger.error('Agent connection error:', error);
+      recordSocketError('agent:connect', error);
       socket.emit('error', { message: error.message });
     } finally {
       recordSocketDuration('agent:connect', Date.now() - eventStart);
@@ -350,6 +397,7 @@ io.on('connection', (socket) => {
       });
     } catch (error) {
       logger.error('Move error:', error);
+      recordSocketError('agent:move', error);
       socket.emit('error', { message: error.message });
     } finally {
       recordSocketDuration('agent:move', Date.now() - eventStart);
@@ -388,6 +436,7 @@ io.on('connection', (socket) => {
       });
     } catch (error) {
       logger.error('MoveTo error:', error);
+      recordSocketError('agent:moveTo', error);
       socket.emit('error', { message: error.message });
     } finally {
       recordSocketDuration('agent:moveTo', Date.now() - eventStart);
@@ -442,6 +491,7 @@ io.on('connection', (socket) => {
       logger.info(`${agent.name} spoke: "${message}"`);
     } catch (error) {
       logger.error('Speak error:', error);
+      recordSocketError('agent:speak', error);
       socket.emit('error', { message: error.message });
     } finally {
       recordSocketDuration('agent:speak', Date.now() - eventStart);
@@ -479,6 +529,7 @@ io.on('connection', (socket) => {
       });
     } catch (error) {
       logger.error('Action error:', error);
+      recordSocketError('agent:action', error);
       socket.emit('error', { message: error.message });
     } finally {
       recordSocketDuration('agent:action', Date.now() - eventStart);
@@ -511,6 +562,7 @@ io.on('connection', (socket) => {
       });
     } catch (error) {
       logger.error('Perceive error:', error);
+      recordSocketError('agent:perceive', error);
       socket.emit('error', { message: error.message });
     } finally {
       recordSocketDuration('agent:perceive', Date.now() - eventStart);
@@ -577,6 +629,7 @@ setInterval(() => {
 // Error handling
 app.use((err, req, res, next) => {
   logger.error('Express error', { requestId: req.requestId, error: err });
+  recordHttpError(req, res, err);
   res.status(err.status || 500).json({
     error: { message: err.message || 'Internal server error', status: err.status || 500 },
     requestId: req.requestId

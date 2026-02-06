@@ -44,10 +44,19 @@ llegar a un nivel “production-ready” sin perder los pendientes grandes.
 - Persistir estado económico avanzado restante (más allá de balances, propiedades, inventarios, jobs y reviews).
 - Snapshots periódicos para recuperación rápida.
 
+**Implementado recientemente:**
+- Snapshot manual del estado del mundo vía `/api/world/snapshot` y restauración vía `/api/world/snapshot/restore`.
+- Auto-guardado opcional y restauración al inicio configurables por variables de entorno.
+- Endpoint admin para consultar estado del snapshot (`/api/world/snapshot/status`).
+- Los snapshots incluyen estado económico avanzado e inventarios, además de eventos activos/programados.
+
 ### 2) Rehidratación al reconectar (IMPORTANTE)
 **Falta:**
 - Restaurar estado completo del agente (posición exacta, needs, movimiento activo, inventario).
 - Manejo de edge cases (agentes duplicados, timeouts, reconciliación de sockets).
+
+**Implementado recientemente:**
+- Al reconectar se rehidrata movimiento activo, needs, inventario y balance, y se reemplaza la sesión previa si existe.
 
 ### 3) Observabilidad profesional
 **Falta:**
@@ -58,11 +67,15 @@ llegar a un nivel “production-ready” sin perder los pendientes grandes.
 **Implementado recientemente:**
 - Exportador Prometheus en `/api/metrics/prometheus`.
 - Latencias por evento de socket (avg/last/max).
+- Métricas de error por status/route y por evento de socket, más ejemplos de dashboards en `docs/observability/`.
 
 ### 4) Tests de integración
 **Falta:**
 - Flujos end-to-end (connect → perceive → move → action → vote).
 - Tests de carga con múltiples agentes simultáneos.
+
+**Implementado recientemente:**
+- Tests de integración con flujo completo de acción/votación y simulación de carga multi-agente.
 
 ---
 
