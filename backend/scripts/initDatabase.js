@@ -136,6 +136,31 @@ CREATE TABLE IF NOT EXISTS agent_memories (
   data JSONB NOT NULL,
   timestamp BIGINT NOT NULL
 );
+
+CREATE TABLE IF NOT EXISTS world_snapshots (
+  id SERIAL PRIMARY KEY,
+  snapshot JSONB NOT NULL,
+  created_at TIMESTAMP NOT NULL DEFAULT NOW()
+);
+
+CREATE TABLE IF NOT EXISTS conversation_sessions (
+  conversation_id TEXT PRIMARY KEY,
+  initiator_id TEXT NOT NULL,
+  target_id TEXT NOT NULL,
+  started_at BIGINT NOT NULL,
+  last_activity BIGINT NOT NULL,
+  ended_at BIGINT,
+  active BOOLEAN NOT NULL DEFAULT TRUE
+);
+
+CREATE TABLE IF NOT EXISTS conversation_messages (
+  id SERIAL PRIMARY KEY,
+  conversation_id TEXT NOT NULL,
+  from_id TEXT NOT NULL,
+  to_id TEXT NOT NULL,
+  message TEXT NOT NULL,
+  timestamp BIGINT NOT NULL
+);
 `;
 
 async function main() {

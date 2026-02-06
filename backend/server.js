@@ -6,6 +6,7 @@ import helmet from 'helmet';
 import rateLimit from 'express-rate-limit';
 import { randomUUID } from 'crypto';
 import { loadSnapshotFile, resolveSnapshotPath, saveSnapshotFile } from './utils/snapshot.js';
+import { loadLatestSnapshotDb, saveSnapshotDb } from './utils/snapshotDb.js';
 
 import { logger } from './utils/logger.js';
 import { config } from './utils/config.js';
@@ -156,7 +157,7 @@ const disconnectTimers = new Map();
 const worldState = new WorldStateManager();
 const moltbotRegistry = new MoltbotRegistry({ db });
 const actionQueue = new ActionQueue(worldState, moltbotRegistry);
-const interactionEngine = new InteractionEngine(worldState, moltbotRegistry);
+const interactionEngine = new InteractionEngine(worldState, moltbotRegistry, { db });
 const economyManager = new EconomyManager(worldState, { db, io });
 const votingManager = new VotingManager(worldState, io, { db, economyManager });
 const governanceManager = new GovernanceManager(io, { db });
@@ -175,6 +176,7 @@ app.locals.cityMoodManager = cityMoodManager;
 app.locals.aestheticsManager = aestheticsManager;
 app.locals.eventManager = eventManager;
 app.locals.io = io;
+app.locals.db = db;
 
 const snapshotPath = resolveSnapshotPath(config.worldSnapshotPath);
 const saveWorldSnapshot = async () => {
@@ -184,11 +186,16 @@ const saveWorldSnapshot = async () => {
     events: eventManager.createSnapshot()
   };
   await saveSnapshotFile(snapshotPath, snapshot);
+  if (db) {
+    await saveSnapshotDb(db, snapshot);
+  }
   logger.info('World snapshot saved', { path: snapshotPath, createdAt: snapshot.createdAt });
 };
 
 const restoreWorldSnapshot = async () => {
-  const snapshot = await loadSnapshotFile(snapshotPath);
+  const snapshot = config.worldSnapshotSource === 'db'
+    ? await loadLatestSnapshotDb(db)
+    : await loadSnapshotFile(snapshotPath);
   worldState.loadSnapshot(snapshot);
   economyManager.loadSnapshot(snapshot.economy);
   eventManager.loadSnapshot(snapshot.events);
@@ -249,13 +256,21 @@ io.on('connection', (socket) => {
   logger.info(`Client connected: ${socket.id}`);
 
   // Viewer joins
-  socket.on('viewer:join', () => {
+  socket.on('viewer:join', (payload = {}) => {
     const eventStart = Date.now();
     trackSocketEvent('viewer:join');
     try {
       if (socket.role && socket.role !== 'viewer') {
         socket.emit('error', { message: 'Viewer access denied' });
         return;
+      }
+      if (config.viewerApiKey) {
+        const hasViewerKey = payload.apiKey && payload.apiKey === config.viewerApiKey;
+        const hasAdminKey = config.adminApiKey && payload.adminKey === config.adminApiKey;
+        if (!hasViewerKey && !hasAdminKey) {
+          socket.emit('error', { message: 'Viewer API key required' });
+          return;
+        }
       }
       socket.role = 'viewer';
       socket.join('viewers');

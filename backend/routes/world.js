@@ -1,5 +1,6 @@
 import express from 'express';
 import { requireAdminKey } from '../utils/adminAuth.js';
+import { requireViewerKey } from '../utils/viewerAuth.js';
 import { config } from '../utils/config.js';
 import {
   getSnapshotStats,
@@ -7,11 +8,12 @@ import {
   resolveSnapshotPath,
   saveSnapshotFile
 } from '../utils/snapshot.js';
+import { loadLatestSnapshotDb, saveSnapshotDb } from '../utils/snapshotDb.js';
 
 const router = express.Router();
 
 // Get full world state
-router.get('/state', async (req, res) => {
+router.get('/state', requireViewerKey, async (req, res) => {
   try {
     const { worldState, cityMoodManager } = req.app.locals;
     res.json({
@@ -24,7 +26,7 @@ router.get('/state', async (req, res) => {
 });
 
 // Get buildings
-router.get('/buildings', async (req, res) => {
+router.get('/buildings', requireViewerKey, async (req, res) => {
   try {
     const { worldState } = req.app.locals;
     res.json(worldState.buildings);
@@ -34,7 +36,7 @@ router.get('/buildings', async (req, res) => {
 });
 
 // Get available lots
-router.get('/lots', async (req, res) => {
+router.get('/lots', requireViewerKey, async (req, res) => {
   try {
     const { worldState } = req.app.locals;
     res.json(worldState.lots);
@@ -44,7 +46,7 @@ router.get('/lots', async (req, res) => {
 });
 
 // Get building info
-router.get('/buildings/:buildingId', async (req, res) => {
+router.get('/buildings/:buildingId', requireViewerKey, async (req, res) => {
   try {
     const { buildingId } = req.params;
     const { worldState } = req.app.locals;
@@ -61,7 +63,7 @@ router.get('/buildings/:buildingId', async (req, res) => {
 });
 
 // Get social network
-router.get('/social-network', async (req, res) => {
+router.get('/social-network', requireViewerKey, async (req, res) => {
   try {
     const { interactionEngine } = req.app.locals;
     const network = interactionEngine.getSocialNetwork();
@@ -72,7 +74,7 @@ router.get('/social-network', async (req, res) => {
 });
 
 // Get active conversations
-router.get('/conversations', async (req, res) => {
+router.get('/conversations', requireViewerKey, async (req, res) => {
   try {
     const { interactionEngine } = req.app.locals;
     const conversations = interactionEngine.getActiveConversations();
@@ -82,7 +84,7 @@ router.get('/conversations', async (req, res) => {
   }
 });
 
-router.post('/snapshot', requireAdminKey, async (req, res) => {
+  router.post('/snapshot', requireAdminKey, async (req, res) => {
   try {
     const { worldState, economyManager, eventManager } = req.app.locals;
     const snapshot = {
@@ -92,6 +94,9 @@ router.post('/snapshot', requireAdminKey, async (req, res) => {
     };
     const snapshotPath = resolveSnapshotPath(config.worldSnapshotPath);
     await saveSnapshotFile(snapshotPath, snapshot);
+    if (req.app.locals.db) {
+      await saveSnapshotDb(req.app.locals.db, snapshot);
+    }
     res.json({ success: true, path: snapshotPath, createdAt: snapshot.createdAt });
   } catch (error) {
     res.status(500).json({ success: false, error: error.message });
@@ -102,7 +107,9 @@ router.post('/snapshot/restore', requireAdminKey, async (req, res) => {
   try {
     const { worldState, economyManager, eventManager } = req.app.locals;
     const snapshotPath = resolveSnapshotPath(config.worldSnapshotPath);
-    const snapshot = await loadSnapshotFile(snapshotPath);
+    const snapshot = config.worldSnapshotSource === 'db'
+      ? await loadLatestSnapshotDb(req.app.locals.db)
+      : await loadSnapshotFile(snapshotPath);
     worldState.loadSnapshot(snapshot);
     economyManager.loadSnapshot(snapshot.economy);
     eventManager.loadSnapshot(snapshot.events);

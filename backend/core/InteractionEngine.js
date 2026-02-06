@@ -1,10 +1,11 @@
 import { logger } from '../utils/logger.js';
 
 export class InteractionEngine {
-  constructor(worldState, moltbotRegistry) {
+  constructor(worldState, moltbotRegistry, options = {}) {
     this.worldState = worldState;
     this.moltbotRegistry = moltbotRegistry;
     this.conversations = new Map(); // conversationId -> conversation data
+    this.db = options.db || null;
   }
 
   async initiateConversation(initiatorId, targetId, initialMessage) {
@@ -44,6 +45,7 @@ export class InteractionEngine {
     };
 
     this.conversations.set(conversationId, conversation);
+    await this.persistConversationStart(conversation);
 
     // Update relationships
     this.moltbotRegistry.updateRelationship(initiatorId, targetId, 2, { trust: 1 });
@@ -86,6 +88,7 @@ export class InteractionEngine {
     });
 
     conversation.lastActivity = Date.now();
+    await this.persistConversationMessage(conversation, fromId, toId, message);
 
     // Update relationship
     this.moltbotRegistry.updateRelationship(fromId, toId, 1, { trust: 1 });
@@ -113,6 +116,7 @@ export class InteractionEngine {
 
     conversation.active = false;
     conversation.endedAt = Date.now();
+    await this.persistConversationEnd(conversation);
 
     // Archive conversation
     conversation.participants.forEach(agentId => {
@@ -264,6 +268,58 @@ export class InteractionEngine {
       averageTrust: totals.trust / activeEdges,
       averageRespect: totals.respect / activeEdges
     };
+  }
+
+  async persistConversationStart(conversation) {
+    if (!this.db || !conversation) return;
+    const [initiatorId, targetId] = conversation.participants;
+    await this.db.query(
+      `INSERT INTO conversation_sessions
+        (conversation_id, initiator_id, target_id, started_at, last_activity, active)
+       VALUES ($1, $2, $3, $4, $5, $6)
+       ON CONFLICT (conversation_id)
+       DO UPDATE SET last_activity = EXCLUDED.last_activity, active = EXCLUDED.active`,
+      [
+        conversation.id,
+        initiatorId,
+        targetId,
+        conversation.startedAt,
+        conversation.lastActivity,
+        conversation.active
+      ]
+    );
+  }
+
+  async persistConversationMessage(conversation, fromId, toId, message) {
+    if (!this.db || !conversation) return;
+    await this.db.query(
+      `INSERT INTO conversation_messages
+        (conversation_id, from_id, to_id, message, timestamp)
+       VALUES ($1, $2, $3, $4, $5)`,
+      [
+        conversation.id,
+        fromId,
+        toId,
+        message,
+        conversation.lastActivity
+      ]
+    );
+    await this.db.query(
+      `UPDATE conversation_sessions
+       SET last_activity = $1
+       WHERE conversation_id = $2`,
+      [conversation.lastActivity, conversation.id]
+    );
+  }
+
+  async persistConversationEnd(conversation) {
+    if (!this.db || !conversation) return;
+    await this.db.query(
+      `UPDATE conversation_sessions
+       SET active = FALSE, ended_at = $1, last_activity = $2
+       WHERE conversation_id = $3`,
+      [conversation.endedAt, conversation.lastActivity, conversation.id]
+    );
   }
 
   cleanupOldConversations(maxAge = 3600000) {
