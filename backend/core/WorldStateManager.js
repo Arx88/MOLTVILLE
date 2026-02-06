@@ -683,7 +683,8 @@ export class WorldStateManager {
         return this.getDistance({ x: agent.x, y: agent.y }, { x: cx, y: cy }) <= viewRadius;
       }).map(b => ({
         id: b.id, name: b.name, type: b.type,
-        position: { x: b.x, y: b.y }, occupants: b.occupancy.length
+        position: { x: b.x, y: b.y }, width: b.width, height: b.height,
+        occupants: b.occupancy.length
       })),
       needs: agent.needs,
       suggestedGoals: this.getSuggestedGoals(agent),

@@ -332,4 +332,25 @@ export class InteractionEngine {
       }
     }
   }
+
+  createSnapshot({ maxMessages = 50 } = {}) {
+    return {
+      conversations: Array.from(this.conversations.values()).map(conversation => ({
+        ...conversation,
+        messages: conversation.messages.slice(-maxMessages)
+      }))
+    };
+  }
+
+  loadSnapshot(snapshot) {
+    if (!snapshot || !Array.isArray(snapshot.conversations)) return;
+    this.conversations = new Map();
+    snapshot.conversations.forEach(conversation => {
+      if (!conversation || !conversation.id || !Array.isArray(conversation.participants)) return;
+      this.conversations.set(conversation.id, {
+        ...conversation,
+        messages: Array.isArray(conversation.messages) ? conversation.messages : []
+      });
+    });
+  }
 }
