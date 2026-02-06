@@ -1,0 +1,88 @@
+{
+  "uid": "moltville-observability",
+  "title": "MOLTVILLE Observability",
+  "schemaVersion": 36,
+  "version": 1,
+  "refresh": "10s",
+  "panels": [
+    {
+      "id": 1,
+      "type": "timeseries",
+      "title": "HTTP Requests",
+      "targets": [
+        {
+          "expr": "sum(rate(moltville_http_requests_total[5m]))",
+          "legendFormat": "requests/s"
+        }
+      ]
+    },
+    {
+      "id": 2,
+      "type": "timeseries",
+      "title": "HTTP Errors by Status",
+      "targets": [
+        {
+          "expr": "sum(rate(moltville_http_errors_by_status_total[5m])) by (status)",
+          "legendFormat": "{{status}}"
+        }
+      ]
+    },
+    {
+      "id": 3,
+      "type": "timeseries",
+      "title": "Socket Connections",
+      "targets": [
+        {
+          "expr": "moltville_socket_connected_clients",
+          "legendFormat": "clients"
+        },
+        {
+          "expr": "moltville_socket_connected_agents",
+          "legendFormat": "agents"
+        },
+        {
+          "expr": "moltville_socket_connected_viewers",
+          "legendFormat": "viewers"
+        }
+      ]
+    },
+    {
+      "id": 4,
+      "type": "timeseries",
+      "title": "Socket Errors",
+      "targets": [
+        {
+          "expr": "sum(rate(moltville_socket_errors_by_event_total[5m])) by (event)",
+          "legendFormat": "{{event}}"
+        }
+      ]
+    },
+    {
+      "id": 5,
+      "type": "timeseries",
+      "title": "World Tick Duration (avg)",
+      "targets": [
+        {
+          "expr": "moltville_world_tick_avg_ms",
+          "legendFormat": "avg ms"
+        }
+      ]
+    },
+    {
+      "id": 6,
+      "type": "timeseries",
+      "title": "Economy Average Balance",
+      "targets": [
+        {
+          "expr": "moltville_economy_average_balance",
+          "legendFormat": "avg balance"
+        }
+      ]
+    }
+  ],
+  "timezone": "browser",
+  "time": {
+    "from": "now-15m",
+    "to": "now"
+  }
+}

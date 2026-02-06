@@ -35,6 +35,7 @@ export const createMetricsRouter = ({
     res.json({
       uptimeSec: Math.floor((Date.now() - metrics.startTime) / 1000),
       http: metrics.http,
+      errors: metrics.errors,
       socket: {
         ...metrics.socket,
         connectedClients: io.sockets.sockets.size,
@@ -87,6 +88,15 @@ export const createMetricsRouter = ({
       '# HELP moltville_http_last_duration_ms Duration of the most recent HTTP request.',
       '# TYPE moltville_http_last_duration_ms gauge',
       formatPrometheusMetric('moltville_http_last_duration_ms', metrics.http.lastDurationMs || 0),
+      '# HELP moltville_http_errors_total Total HTTP error responses (status >= 400).',
+      '# TYPE moltville_http_errors_total counter',
+      formatPrometheusMetric('moltville_http_errors_total', metrics.errors.http.total),
+      ...Object.entries(metrics.errors.http.byStatus).map(([status, value]) =>
+        formatPrometheusMetric('moltville_http_errors_by_status_total', value, { status })
+      ),
+      ...Object.entries(metrics.errors.http.byRoute).map(([route, value]) =>
+        formatPrometheusMetric('moltville_http_errors_by_route_total', value, { route })
+      ),
       '# HELP moltville_socket_connections_total Total socket connections.',
       '# TYPE moltville_socket_connections_total counter',
       formatPrometheusMetric('moltville_socket_connections_total', metrics.socket.connections),
@@ -111,6 +121,12 @@ export const createMetricsRouter = ({
         formatPrometheusMetric('moltville_socket_event_latency_ms', stats.maxMs, { event: eventName, stat: 'max' }),
         formatPrometheusMetric('moltville_socket_event_latency_ms', stats.count, { event: eventName, stat: 'count' })
       ])),
+      '# HELP moltville_socket_errors_total Total socket errors.',
+      '# TYPE moltville_socket_errors_total counter',
+      formatPrometheusMetric('moltville_socket_errors_total', metrics.errors.socket.total),
+      ...Object.entries(metrics.errors.socket.byEvent).map(([eventName, value]) =>
+        formatPrometheusMetric('moltville_socket_errors_by_event_total', value, { event: eventName })
+      ),
       '# HELP moltville_socket_connected_clients Current connected socket clients.',
       '# TYPE moltville_socket_connected_clients gauge',
       formatPrometheusMetric('moltville_socket_connected_clients', io.sockets.sockets.size),

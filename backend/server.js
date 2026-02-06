@@ -11,6 +11,8 @@ import { logger } from './utils/logger.js';
 import { config } from './utils/config.js';
 import {
   metrics,
+  recordHttpError,
+  recordSocketError,
   recordSocketDuration,
   recordTickDuration,
   trackHttpRequest,
@@ -356,6 +358,7 @@ io.on('connection', (socket) => {
       logger.info(`Agent connected: ${agentName} (${agent.id})`);
     } catch (error) {
       logger.error('Agent connection error:', error);
+      recordSocketError('agent:connect', error);
       socket.emit('error', { message: error.message });
     } finally {
       recordSocketDuration('agent:connect', Date.now() - eventStart);
@@ -394,6 +397,7 @@ io.on('connection', (socket) => {
       });
     } catch (error) {
       logger.error('Move error:', error);
+      recordSocketError('agent:move', error);
       socket.emit('error', { message: error.message });
     } finally {
       recordSocketDuration('agent:move', Date.now() - eventStart);
@@ -432,6 +436,7 @@ io.on('connection', (socket) => {
       });
     } catch (error) {
       logger.error('MoveTo error:', error);
+      recordSocketError('agent:moveTo', error);
       socket.emit('error', { message: error.message });
     } finally {
       recordSocketDuration('agent:moveTo', Date.now() - eventStart);
@@ -486,6 +491,7 @@ io.on('connection', (socket) => {
       logger.info(`${agent.name} spoke: "${message}"`);
     } catch (error) {
       logger.error('Speak error:', error);
+      recordSocketError('agent:speak', error);
       socket.emit('error', { message: error.message });
     } finally {
       recordSocketDuration('agent:speak', Date.now() - eventStart);
@@ -523,6 +529,7 @@ io.on('connection', (socket) => {
       });
     } catch (error) {
       logger.error('Action error:', error);
+      recordSocketError('agent:action', error);
       socket.emit('error', { message: error.message });
     } finally {
       recordSocketDuration('agent:action', Date.now() - eventStart);
@@ -555,6 +562,7 @@ io.on('connection', (socket) => {
       });
     } catch (error) {
       logger.error('Perceive error:', error);
+      recordSocketError('agent:perceive', error);
       socket.emit('error', { message: error.message });
     } finally {
       recordSocketDuration('agent:perceive', Date.now() - eventStart);
@@ -621,6 +629,7 @@ setInterval(() => {
 // Error handling
 app.use((err, req, res, next) => {
   logger.error('Express error', { requestId: req.requestId, error: err });
+  recordHttpError(req, res, err);
   res.status(err.status || 500).json({
     error: { message: err.message || 'Internal server error', status: err.status || 500 },
     requestId: req.requestId

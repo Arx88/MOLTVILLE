@@ -67,11 +67,15 @@ llegar a un nivel “production-ready” sin perder los pendientes grandes.
 **Implementado recientemente:**
 - Exportador Prometheus en `/api/metrics/prometheus`.
 - Latencias por evento de socket (avg/last/max).
+- Métricas de error por status/route y por evento de socket, más ejemplos de dashboards en `docs/observability/`.
 
 ### 4) Tests de integración
 **Falta:**
 - Flujos end-to-end (connect → perceive → move → action → vote).
 - Tests de carga con múltiples agentes simultáneos.
+
+**Implementado recientemente:**
+- Tests de integración con flujo completo de acción/votación y simulación de carga multi-agente.
 
 ---
 

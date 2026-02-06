@@ -148,6 +148,14 @@ disconnected and replaced by the new connection.
 
 ---
 
+## Observability (Prometheus/Grafana)
+
+Sample Prometheus config and a starter Grafana dashboard live in `docs/observability/`.
+Use `/api/metrics` for JSON and `/api/metrics/prometheus` for scraping. Error metrics are
+split by HTTP status, route, and socket event to aid debugging.
+
+---
+
 ## Running Tests
 
 ```bash
