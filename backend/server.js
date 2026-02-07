@@ -157,7 +157,8 @@ const DEFAULT_EVENT_GOAL_TTL_MS = 15 * 60 * 1000;
 
 const buildAgentContext = (agentId) => ({
   economy: economyManager.getAgentSummary(agentId),
-  relationships: moltbotRegistry.getAgentMemory(agentId)?.relationships || {}
+  relationships: moltbotRegistry.getRelationshipSummaries(agentId),
+  favorites: moltbotRegistry.getAgentMemory(agentId)?.favorites || { personId: null, locationId: null }
 });
 
 const resolveEventLocation = (event) => {
@@ -601,6 +602,170 @@ io.on('connection', (socket) => {
       socket.emit('error', { message: error.message });
     } finally {
       recordSocketDuration('agent:speak', Date.now() - eventStart);
+    }
+  });
+
+  socket.on('agent:conversation:start', async (data = {}) => {
+    const eventStart = Date.now();
+    trackSocketEvent('agent:conversation:start');
+    try {
+      if (!socket.agentId) { socket.emit('error', { message: 'Not authenticated' }); return; }
+      if (!ensureActiveApiKey(socket, moltbotRegistry)) { return; }
+      if (shouldBlockSocket(socket)) {
+        socket.emit('error', { message: 'Conversation rate limit blocked' });
+        return;
+      }
+      if (isSocketRateLimited(socket, 'agent:conversation:start', SOCKET_SPEAK_LIMIT_MS)) {
+        trackSocketRateLimit('agent:conversation:start');
+        const blockDuration = applySocketBackoff(socket);
+        if (blockDuration) {
+          socket.emit('error', { message: `Conversation rate limit blocked for ${Math.ceil(blockDuration / 1000)}s` });
+          return;
+        }
+        socket.emit('error', { message: 'Conversation rate limit exceeded' });
+        return;
+      }
+      const { targetId, message } = data;
+      if (typeof targetId !== 'string' || targetId.trim().length === 0) {
+        socket.emit('error', { message: 'targetId is required' });
+        return;
+      }
+      if (typeof message !== 'string' || message.trim().length === 0) {
+        socket.emit('error', { message: 'message is required' });
+        return;
+      }
+      const conversation = await interactionEngine.initiateConversation(socket.agentId, targetId, message.trim());
+      const recipients = conversation.participants;
+      recipients.forEach(participantId => {
+        const socketId = moltbotRegistry.getAgentSocket(participantId);
+        if (socketId) {
+          io.to(socketId).emit('conversation:started', conversation);
+        }
+      });
+    } catch (error) {
+      logger.error('Conversation start error:', error);
+      recordSocketError('agent:conversation:start', error);
+      socket.emit('error', { message: error.message });
+    } finally {
+      recordSocketDuration('agent:conversation:start', Date.now() - eventStart);
+    }
+  });
+
+  socket.on('agent:conversation:message', async (data = {}) => {
+    const eventStart = Date.now();
+    trackSocketEvent('agent:conversation:message');
+    try {
+      if (!socket.agentId) { socket.emit('error', { message: 'Not authenticated' }); return; }
+      if (!ensureActiveApiKey(socket, moltbotRegistry)) { return; }
+      if (shouldBlockSocket(socket)) {
+        socket.emit('error', { message: 'Conversation rate limit blocked' });
+        return;
+      }
+      if (isSocketRateLimited(socket, 'agent:conversation:message', SOCKET_SPEAK_LIMIT_MS)) {
+        trackSocketRateLimit('agent:conversation:message');
+        const blockDuration = applySocketBackoff(socket);
+        if (blockDuration) {
+          socket.emit('error', { message: `Conversation rate limit blocked for ${Math.ceil(blockDuration / 1000)}s` });
+          return;
+        }
+        socket.emit('error', { message: 'Conversation rate limit exceeded' });
+        return;
+      }
+      const { conversationId, message } = data;
+      if (typeof conversationId !== 'string' || conversationId.trim().length === 0) {
+        socket.emit('error', { message: 'conversationId is required' });
+        return;
+      }
+      if (typeof message !== 'string' || message.trim().length === 0) {
+        socket.emit('error', { message: 'message is required' });
+        return;
+      }
+      const conversation = await interactionEngine.addMessageToConversation(conversationId, socket.agentId, message.trim());
+      conversation.participants.forEach(participantId => {
+        const socketId = moltbotRegistry.getAgentSocket(participantId);
+        if (socketId) {
+          io.to(socketId).emit('conversation:message', {
+            conversationId,
+            message: conversation.messages[conversation.messages.length - 1]
+          });
+        }
+      });
+    } catch (error) {
+      logger.error('Conversation message error:', error);
+      recordSocketError('agent:conversation:message', error);
+      socket.emit('error', { message: error.message });
+    } finally {
+      recordSocketDuration('agent:conversation:message', Date.now() - eventStart);
+    }
+  });
+
+  socket.on('agent:conversation:end', async (data = {}) => {
+    const eventStart = Date.now();
+    trackSocketEvent('agent:conversation:end');
+    try {
+      if (!socket.agentId) { socket.emit('error', { message: 'Not authenticated' }); return; }
+      if (!ensureActiveApiKey(socket, moltbotRegistry)) { return; }
+      const { conversationId } = data;
+      if (typeof conversationId !== 'string' || conversationId.trim().length === 0) {
+        socket.emit('error', { message: 'conversationId is required' });
+        return;
+      }
+      const conversation = await interactionEngine.endConversation(conversationId);
+      conversation.participants.forEach(participantId => {
+        const socketId = moltbotRegistry.getAgentSocket(participantId);
+        if (socketId) {
+          io.to(socketId).emit('conversation:ended', {
+            conversationId,
+            endedAt: conversation.endedAt
+          });
+        }
+      });
+    } catch (error) {
+      logger.error('Conversation end error:', error);
+      recordSocketError('agent:conversation:end', error);
+      socket.emit('error', { message: error.message });
+    } finally {
+      recordSocketDuration('agent:conversation:end', Date.now() - eventStart);
+    }
+  });
+
+  socket.on('agent:social', async (data = {}) => {
+    const eventStart = Date.now();
+    trackSocketEvent('agent:social');
+    try {
+      if (!socket.agentId) { socket.emit('error', { message: 'Not authenticated' }); return; }
+      if (!ensureActiveApiKey(socket, moltbotRegistry)) { return; }
+      if (shouldBlockSocket(socket)) {
+        socket.emit('error', { message: 'Social rate limit blocked' });
+        return;
+      }
+      if (isSocketRateLimited(socket, 'agent:social', SOCKET_RATE_LIMIT_MS)) {
+        trackSocketRateLimit('agent:social');
+        const blockDuration = applySocketBackoff(socket);
+        if (blockDuration) {
+          socket.emit('error', { message: `Social rate limit blocked for ${Math.ceil(blockDuration / 1000)}s` });
+          return;
+        }
+        socket.emit('error', { message: 'Social rate limit exceeded' });
+        return;
+      }
+      const { actionType, targetId, data: payload } = data;
+      if (typeof actionType !== 'string' || actionType.trim().length === 0) {
+        socket.emit('error', { message: 'actionType is required' });
+        return;
+      }
+      if (typeof targetId !== 'string' || targetId.trim().length === 0) {
+        socket.emit('error', { message: 'targetId is required' });
+        return;
+      }
+      const result = await interactionEngine.performSocialAction(socket.agentId, actionType, targetId, payload || {});
+      socket.emit('agent:social:result', result);
+    } catch (error) {
+      logger.error('Social action error:', error);
+      recordSocketError('agent:social', error);
+      socket.emit('error', { message: error.message });
+    } finally {
+      recordSocketDuration('agent:social', Date.now() - eventStart);
     }
   });
 

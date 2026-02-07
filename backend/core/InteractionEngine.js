@@ -234,6 +234,39 @@ export class InteractionEngine {
         });
         logger.info(`${agent.name} gave ${data.item} to ${target.name}`);
         break;
+      case 'insult':
+        this.moltbotRegistry.updateRelationship(agentId, targetId, -8, { respect: -4, conflict: 6 });
+        this.moltbotRegistry.updateRelationship(targetId, agentId, -4, { respect: -2, conflict: 4 });
+        this.moltbotRegistry.addMemory(agentId, 'interaction', {
+          type: 'insult',
+          to: target.name,
+          toId: targetId,
+          message: data.message
+        });
+        logger.info(`${agent.name} insulted ${target.name}: "${data.message || ''}"`);
+        break;
+      case 'betray':
+        this.moltbotRegistry.updateRelationship(agentId, targetId, -15, { trust: -10, conflict: 12, respect: -6 });
+        this.moltbotRegistry.updateRelationship(targetId, agentId, -12, { trust: -8, conflict: 10, respect: -5 });
+        this.moltbotRegistry.addMemory(agentId, 'interaction', {
+          type: 'betray',
+          to: target.name,
+          toId: targetId,
+          context: data.context || ''
+        });
+        logger.info(`${agent.name} betrayed ${target.name}`);
+        break;
+      case 'compete':
+        this.moltbotRegistry.updateRelationship(agentId, targetId, -4, { respect: -1, conflict: 3 });
+        this.moltbotRegistry.updateRelationship(targetId, agentId, -2, { respect: -1, conflict: 2 });
+        this.moltbotRegistry.addMemory(agentId, 'interaction', {
+          type: 'compete',
+          to: target.name,
+          toId: targetId,
+          contest: data.contest || ''
+        });
+        logger.info(`${agent.name} competed with ${target.name}`);
+        break;
 
       default:
         throw new Error(`Unknown social action: ${actionType}`);
