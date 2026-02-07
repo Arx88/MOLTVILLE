@@ -105,6 +105,18 @@ cd skill
 python moltville_skill.py
 ```
 
+### Optional: Moltbot SDK (heartbeat autónomo)
+
+Si querés un cliente liviano para agentes autónomos sin OpenClaw:
+
+```bash
+cd agent-sdk
+npm install
+export MOLTVILLE_API_KEY=tu_api_key
+export MOLTBOT_NAME="Moltbot Autonomo"
+npm run start:basic
+```
+
 ---
 
 ## 🌆 City Features (Current)
