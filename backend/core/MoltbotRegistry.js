@@ -121,7 +121,12 @@ export class MoltbotRegistry {
       memory: {
         interactions: [],
         locations: [],
-        relationships: {}
+        relationships: {},
+        favorites: {
+          personId: null,
+          locationId: null
+        },
+        locationStats: {}
       }
     };
 
@@ -259,6 +264,7 @@ export class MoltbotRegistry {
         case 'location':
           agent.memory.locations.push(memory);
           this.trimMemoryList(agent.memory.locations, this.memoryLimits.locationsMax);
+          this.updateFavoriteLocation(agent, data);
           break;
       }
 
@@ -322,7 +328,61 @@ export class MoltbotRegistry {
       rel.lastInteraction = Date.now();
 
       this.persistRelationship(agentId, otherAgentId, rel);
+      this.updateFavoritePerson(agent, otherAgentId);
     }
+  }
+
+  updateFavoriteLocation(agent, data = {}) {
+    if (!agent || !data) return;
+    const buildingId = data.buildingId || data.building || null;
+    if (!buildingId) return;
+    if (!agent.memory.locationStats) {
+      agent.memory.locationStats = {};
+    }
+    const stats = agent.memory.locationStats;
+    stats[buildingId] = (stats[buildingId] || 0) + 1;
+    const currentFavorite = agent.memory.favorites?.locationId || null;
+    const favoriteCount = currentFavorite ? (stats[currentFavorite] || 0) : 0;
+    if (!currentFavorite || stats[buildingId] > favoriteCount) {
+      agent.memory.favorites.locationId = buildingId;
+    }
+  }
+
+  updateFavoritePerson(agent, otherAgentId) {
+    if (!agent || !otherAgentId) return;
+    const relationships = agent.memory.relationships || {};
+    const candidate = relationships[otherAgentId];
+    if (!candidate) return;
+    const currentFavorite = agent.memory.favorites?.personId || null;
+    const currentRel = currentFavorite ? relationships[currentFavorite] : null;
+    const candidateScore = this.getRelationshipScore(candidate);
+    const currentScore = currentRel ? this.getRelationshipScore(currentRel) : -Infinity;
+    if (!currentFavorite || candidateScore > currentScore) {
+      agent.memory.favorites.personId = otherAgentId;
+    }
+  }
+
+  getRelationshipScore(rel) {
+    if (!rel) return 0;
+    return (rel.affinity || 0) + (rel.trust || 0) + (rel.respect || 0) - (rel.conflict || 0);
+  }
+
+  getRelationshipEmotions(rel) {
+    if (!rel) return [];
+    const emotions = [];
+    if (rel.affinity >= 60 && rel.trust >= 40 && rel.conflict <= 30) {
+      emotions.push('love');
+    }
+    if (rel.conflict >= 60 && rel.respect <= 20) {
+      emotions.push('hate');
+    }
+    if (rel.respect >= 50 && rel.affinity < 20 && rel.conflict < 50) {
+      emotions.push('envy');
+    }
+    if (!emotions.length) {
+      emotions.push(rel.affinity >= 20 ? 'friendly' : 'neutral');
+    }
+    return emotions;
   }
 
   getAgentMemory(agentId, memoryType = null, limit = 10) {
@@ -337,20 +397,39 @@ export class MoltbotRegistry {
     return {
       interactions: agent.memory.interactions.slice(-limit),
       locations: agent.memory.locations.slice(-limit),
-      relationships: agent.memory.relationships
+      relationships: agent.memory.relationships,
+      relationshipsWithEmotions: this.getRelationshipSummaries(agentId),
+      favorites: agent.memory.favorites || { personId: null, locationId: null },
+      locationStats: agent.memory.locationStats || {}
     };
+  }
+
+  getRelationshipSummaries(agentId) {
+    const agent = this.agents.get(agentId);
+    if (!agent) return {};
+    return Object.entries(agent.memory.relationships || {}).reduce((acc, [otherId, rel]) => {
+      acc[otherId] = {
+        ...rel,
+        emotions: this.getRelationshipEmotions(rel)
+      };
+      return acc;
+    }, {});
   }
 
   getRelationship(agentId, otherAgentId) {
     const agent = this.agents.get(agentId);
     if (!agent) return null;
-    return agent.memory.relationships[otherAgentId] || {
+    const rel = agent.memory.relationships[otherAgentId] || {
       affinity: 0,
       trust: 0,
       respect: 0,
       conflict: 0,
       interactions: 0,
       lastInteraction: null
+    };
+    return {
+      ...rel,
+      emotions: this.getRelationshipEmotions(rel)
     };
   }
 
@@ -407,7 +486,9 @@ export class MoltbotRegistry {
         memory: {
           interactions: agent.memory.interactions.map(entry => ({ ...entry })),
           locations: agent.memory.locations.map(entry => ({ ...entry })),
-          relationships: { ...agent.memory.relationships }
+          relationships: { ...agent.memory.relationships },
+          favorites: agent.memory.favorites ? { ...agent.memory.favorites } : { personId: null, locationId: null },
+          locationStats: agent.memory.locationStats ? { ...agent.memory.locationStats } : {}
         }
       }))
     };
@@ -439,6 +520,8 @@ export class MoltbotRegistry {
           interactions: Array.isArray(agent.memory?.interactions) ? agent.memory.interactions.map(entry => ({ ...entry })) : [],
           locations: Array.isArray(agent.memory?.locations) ? agent.memory.locations.map(entry => ({ ...entry })) : [],
           relationships: agent.memory?.relationships ? { ...agent.memory.relationships } : {},
+          favorites: agent.memory?.favorites ? { ...agent.memory.favorites } : { personId: null, locationId: null },
+          locationStats: agent.memory?.locationStats ? { ...agent.memory.locationStats } : {},
           loadedFromDb: true
         }
       };

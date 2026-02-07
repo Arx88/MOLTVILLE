@@ -60,7 +60,10 @@ export class ActionQueue {
       const building = this.worldState.getBuildingAt(targetX, targetY);
       if (building) {
         this.moltbotRegistry.addMemory(agent.id, 'location', {
-          building: building.name, buildingType: building.type, action: 'entered'
+          buildingId: building.id,
+          building: building.name,
+          buildingType: building.type,
+          action: 'entered'
         });
       }
       logger.debug(`${agent.name} moved to (${targetX}, ${targetY})`);
@@ -122,7 +125,10 @@ export class ActionQueue {
     }
 
     this.moltbotRegistry.addMemory(agent.id, 'location', {
-      building: building.name, buildingType: building.type, action: 'entered'
+      buildingId: building.id,
+      building: building.name,
+      buildingType: building.type,
+      action: 'entered'
     });
     logger.info(`${agent.name} entered ${building.name}`);
   }
@@ -133,7 +139,10 @@ export class ActionQueue {
       const building = this.worldState.buildings.find(b => b.id === agentData.currentBuilding);
       if (building) {
         this.moltbotRegistry.addMemory(agent.id, 'location', {
-          building: building.name, buildingType: building.type, action: 'left'
+          buildingId: building.id,
+          building: building.name,
+          buildingType: building.type,
+          action: 'left'
         });
         logger.info(`${agent.name} left ${building.name}`);
       }

@@ -1,8 +1,26 @@
 import express from 'express';
 import { v4 as uuidv4 } from 'uuid';
 import { requireAdminKey } from '../utils/adminAuth.js';
+import { requireAgentKey } from '../utils/agentAuth.js';
+import { JoiHelpers, validateBody } from '../utils/validation.js';
 
 const router = express.Router();
+const { Joi } = JoiHelpers;
+
+const conversationStartSchema = Joi.object({
+  targetId: Joi.string().trim().required(),
+  message: Joi.string().trim().required()
+});
+
+const conversationMessageSchema = Joi.object({
+  message: Joi.string().trim().required()
+});
+
+const socialActionSchema = Joi.object({
+  actionType: Joi.string().trim().required(),
+  targetId: Joi.string().trim().required(),
+  data: Joi.object().unknown(true).default({})
+});
 
 const buildActorMeta = (body = {}) => {
   const actorId = typeof body.actorId === 'string' ? body.actorId.trim() : '';
@@ -207,6 +225,141 @@ router.get('/:agentId/memory', requireAdminKey, async (req, res) => {
   }
 });
 
+// Agent conversations
+router.get('/:agentId/conversations', requireAgentKey({
+  allowAdmin: true,
+  useSuccessResponse: true,
+  getAgentId: (req) => req.params.agentId
+}), (req, res) => {
+  const { agentId } = req.params;
+  const { interactionEngine } = req.app.locals;
+  res.json({ conversations: interactionEngine.getAgentConversations(agentId) });
+});
+
+router.post('/:agentId/conversations/start', requireAgentKey({
+  allowAdmin: true,
+  useSuccessResponse: true,
+  getAgentId: (req) => req.params.agentId
+}), validateBody(conversationStartSchema), async (req, res) => {
+  const { agentId } = req.params;
+  const { targetId, message } = req.body;
+  const { interactionEngine, moltbotRegistry, io } = req.app.locals;
+  try {
+    const conversation = await interactionEngine.initiateConversation(agentId, targetId, message);
+    if (io) {
+      conversation.participants.forEach(participantId => {
+        const socketId = moltbotRegistry.getAgentSocket(participantId);
+        if (socketId) {
+          io.to(socketId).emit('conversation:started', conversation);
+        }
+      });
+    }
+    return res.json({ success: true, conversation });
+  } catch (error) {
+    return res.status(400).json({ success: false, error: error.message });
+  }
+});
+
+router.post('/:agentId/conversations/:conversationId/message', requireAgentKey({
+  allowAdmin: true,
+  useSuccessResponse: true,
+  getAgentId: (req) => req.params.agentId
+}), validateBody(conversationMessageSchema), async (req, res) => {
+  const { agentId, conversationId } = req.params;
+  const { message } = req.body;
+  const { interactionEngine, moltbotRegistry, io } = req.app.locals;
+  try {
+    const conversation = await interactionEngine.addMessageToConversation(conversationId, agentId, message);
+    const lastMessage = conversation.messages[conversation.messages.length - 1];
+    if (io) {
+      conversation.participants.forEach(participantId => {
+        const socketId = moltbotRegistry.getAgentSocket(participantId);
+        if (socketId) {
+          io.to(socketId).emit('conversation:message', { conversationId, message: lastMessage });
+        }
+      });
+    }
+    return res.json({ success: true, conversationId, message: lastMessage });
+  } catch (error) {
+    return res.status(400).json({ success: false, error: error.message });
+  }
+});
+
+router.post('/:agentId/conversations/:conversationId/end', requireAgentKey({
+  allowAdmin: true,
+  useSuccessResponse: true,
+  getAgentId: (req) => req.params.agentId
+}), async (req, res) => {
+  const { conversationId } = req.params;
+  const { interactionEngine, moltbotRegistry, io } = req.app.locals;
+  try {
+    const conversation = await interactionEngine.endConversation(conversationId);
+    if (io) {
+      conversation.participants.forEach(participantId => {
+        const socketId = moltbotRegistry.getAgentSocket(participantId);
+        if (socketId) {
+          io.to(socketId).emit('conversation:ended', {
+            conversationId,
+            endedAt: conversation.endedAt
+          });
+        }
+      });
+    }
+    return res.json({ success: true, conversationId, endedAt: conversation.endedAt });
+  } catch (error) {
+    return res.status(400).json({ success: false, error: error.message });
+  }
+});
+
+// Agent social actions
+router.post('/:agentId/social', requireAgentKey({
+  allowAdmin: true,
+  useSuccessResponse: true,
+  getAgentId: (req) => req.params.agentId
+}), validateBody(socialActionSchema), async (req, res) => {
+  const { agentId } = req.params;
+  const { actionType, targetId, data } = req.body;
+  const { interactionEngine } = req.app.locals;
+  try {
+    const result = await interactionEngine.performSocialAction(agentId, actionType, targetId, data);
+    return res.json({ success: true, result });
+  } catch (error) {
+    return res.status(400).json({ success: false, error: error.message });
+  }
+});
+
+// Get agent favorites
+router.get('/:agentId/favorites', requireAgentKey({
+  allowAdmin: true,
+  useSuccessResponse: true,
+  getAgentId: (req) => req.params.agentId
+}), async (req, res) => {
+  try {
+    const { agentId } = req.params;
+    const { moltbotRegistry, worldState } = req.app.locals;
+    const agent = moltbotRegistry.getAgent(agentId);
+    if (!agent) {
+      return res.status(404).json({ error: 'Agent not found' });
+    }
+    const favorites = agent.memory.favorites || { personId: null, locationId: null };
+    const favoritePerson = favorites.personId ? moltbotRegistry.getAgent(favorites.personId) : null;
+    const favoriteLocation = favorites.locationId
+      ? worldState.buildings.find(building => building.id === favorites.locationId)
+      : null;
+
+    return res.json({
+      person: favoritePerson
+        ? { id: favoritePerson.id, name: favoritePerson.name }
+        : null,
+      location: favoriteLocation
+        ? { id: favoriteLocation.id, name: favoriteLocation.name, type: favoriteLocation.type }
+        : null
+    });
+  } catch (error) {
+    return res.status(500).json({ error: error.message });
+  }
+});
+
 // Get agent relationships
 router.get('/:agentId/relationships', requireAdminKey, async (req, res) => {
   try {
@@ -220,6 +373,7 @@ router.get('/:agentId/relationships', requireAdminKey, async (req, res) => {
 
     const relationships = Object.entries(agent.memory.relationships).map(([otherId, rel]) => {
       const other = moltbotRegistry.getAgent(otherId);
+      const summary = moltbotRegistry.getRelationship(agentId, otherId);
       return {
         agentId: otherId,
         agentName: other ? other.name : 'Unknown',
@@ -228,7 +382,8 @@ router.get('/:agentId/relationships', requireAdminKey, async (req, res) => {
         respect: rel.respect,
         conflict: rel.conflict,
         interactions: rel.interactions,
-        lastInteraction: rel.lastInteraction
+        lastInteraction: rel.lastInteraction,
+        emotions: summary?.emotions || []
       };
     });
 
