@@ -43,6 +43,7 @@ import { createAestheticsRouter } from './routes/aesthetics.js';
 import eventRoutes from './routes/events.js';
 import { createMetricsRouter } from './routes/metrics.js';
 import adminRoutes from './routes/admin.js';
+import showRoutes from './routes/show.js';
 
 const app = express();
 const httpServer = createServer(app);
@@ -378,6 +379,7 @@ app.use('/api/vote', voteRoutes);
 app.use('/api/governance', governanceRoutes);
 app.use('/api/aesthetics', createAestheticsRouter({ aestheticsManager }));
 app.use('/api/events', eventRoutes);
+app.use('/api/show', showRoutes);
 app.use('/api/admin', adminRoutes);
 
 app.get('/api/health', (req, res) => {

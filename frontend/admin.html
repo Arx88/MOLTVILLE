@@ -23,6 +23,7 @@
         <button class="nav-item" data-tab="economy">Economía</button>
         <button class="nav-item" data-tab="governance">Gobernanza</button>
         <button class="nav-item" data-tab="events">Eventos</button>
+        <button class="nav-item" data-tab="show-mode">Show Mode</button>
         <button class="nav-item" data-tab="observability">Observabilidad</button>
       </nav>
       <a class="back-link" href="./portal.html">← Volver al portal</a>
@@ -193,6 +194,124 @@
           <label>
             Cambio de clima (ms)
             <input type="number" name="WEATHER_CHANGE_MS" value="3600000">
+          </label>
+        </div>
+      </section>
+
+      <section class="admin-panel" id="panel-show-mode">
+        <h2>Show Mode 2.0</h2>
+        <div class="panel-grid">
+          <label>
+            Min escena (ms)
+            <input type="number" name="SHOW_MODE_MIN_SCENE_MS" value="10000">
+          </label>
+          <label>
+            Ventana de decay (ms)
+            <input type="number" name="SHOW_MODE_DECAY_WINDOW_MS" value="30000">
+          </label>
+          <label>
+            Umbral de switch
+            <input type="number" name="SHOW_MODE_SWITCH_THRESHOLD" value="15">
+          </label>
+          <label>
+            Límite de cola
+            <input type="number" name="SHOW_MODE_QUEUE_LIMIT" value="3">
+          </label>
+          <label>
+            Límite de tramas
+            <input type="number" name="SHOW_MODE_THREADS_LIMIT" value="6">
+          </label>
+          <label>
+            Predicciones activas
+            <select name="SHOW_MODE_PREDICTIONS_ENABLED">
+              <option value="true">true</option>
+              <option value="false">false</option>
+            </select>
+          </label>
+          <label>
+            Arcos activos
+            <select name="SHOW_MODE_ARCS_ENABLED">
+              <option value="true">true</option>
+              <option value="false">false</option>
+            </select>
+          </label>
+          <label>
+            Estadísticas activas
+            <select name="SHOW_MODE_STATS_ENABLED">
+              <option value="true">true</option>
+              <option value="false">false</option>
+            </select>
+          </label>
+          <label>
+            Heatmap activo
+            <select name="SHOW_MODE_HEATMAP_ENABLED">
+              <option value="true">true</option>
+              <option value="false">false</option>
+            </select>
+          </label>
+          <label>
+            Delta afinidad
+            <input type="number" name="SHOW_MODE_REL_AFFINITY_DELTA" value="10">
+          </label>
+          <label>
+            Delta conflicto
+            <input type="number" name="SHOW_MODE_REL_CONFLICT_DELTA" value="8">
+          </label>
+          <label>
+            Score afinidad
+            <input type="number" name="SHOW_MODE_SCORE_AFFINITY" value="18">
+          </label>
+          <label>
+            Score conflicto
+            <input type="number" name="SHOW_MODE_SCORE_CONFLICT" value="22">
+          </label>
+          <label>
+            Mult afinidad
+            <input type="number" step="0.1" name="SHOW_MODE_AFFINITY_MULTIPLIER" value="1.4">
+          </label>
+          <label>
+            Mult conflicto
+            <input type="number" step="0.1" name="SHOW_MODE_CONFLICT_MULTIPLIER" value="1.5">
+          </label>
+          <label>
+            Mult clímax
+            <input type="number" step="0.1" name="SHOW_MODE_CLIMAX_MULTIPLIER" value="1.8">
+          </label>
+          <label>
+            Bonus novedad
+            <input type="number" name="SHOW_MODE_NOVELTY_BONUS" value="12">
+          </label>
+          <label>
+            Radio testigos
+            <input type="number" name="SHOW_MODE_WITNESS_RADIUS" value="6">
+          </label>
+          <label>
+            Score por testigo
+            <input type="number" name="SHOW_MODE_WITNESS_SCORE_PER" value="3">
+          </label>
+          <label>
+            Score max testigos
+            <input type="number" name="SHOW_MODE_WITNESS_SCORE_MAX" value="20">
+          </label>
+          <label>
+            Mult keywords drama
+            <input type="number" step="0.1" name="SHOW_MODE_KEYWORD_MULTIPLIER" value="1.3">
+          </label>
+          <label>
+            Bonus política
+            <input type="number" name="SHOW_MODE_POLITICA_BONUS" value="18">
+          </label>
+          <label>
+            Bonus negocio
+            <input type="number" name="SHOW_MODE_NEGOCIO_BONUS" value="10">
+          </label>
+          <label>
+            Límite predicciones
+            <input type="number" name="SHOW_MODE_PREDICTIONS_LIMIT" value="4">
+          </label>
+          <label>
+            Retención heatmap (min)
+            <input type="number" name="SHOW_MODE_HEATMAP_RETENTION_MIN" value="5">
           </label>
         </div>
       </section>
