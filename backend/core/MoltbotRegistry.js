@@ -1,5 +1,6 @@
 import { v4 as uuidv4 } from 'uuid';
 import { logger } from '../utils/logger.js';
+import { normalizePermissions } from '../utils/permissions.js';
 
 export class MoltbotRegistry {
   constructor(options = {}) {
@@ -83,7 +84,8 @@ export class MoltbotRegistry {
   }
 
   async registerAgent(data) {
-    const { id, name, avatar, socketId, apiKey } = data;
+    const { id, name, avatar, socketId, apiKey, permissions } = data;
+    const normalizedPermissions = permissions ? normalizePermissions(permissions) : null;
 
     // Check if already registered
     if (this.agents.has(id)) {
@@ -95,6 +97,10 @@ export class MoltbotRegistry {
       existing.socketId = socketId;
       existing.lastSeen = Date.now();
       existing.connected = true;
+      if (normalizedPermissions) {
+        existing.permissions = normalizedPermissions;
+        this.persistPermissions(existing.id, normalizedPermissions);
+      }
       this.sockets.set(id, socketId);
       if (this.db && !existing.memory.loadedFromDb) {
         await this.loadAgentState(existing.id);
@@ -110,6 +116,7 @@ export class MoltbotRegistry {
       avatar,
       socketId,
       apiKey,
+      permissions: normalizedPermissions || normalizePermissions(),
       connected: true,
       connectedAt: Date.now(),
       lastSeen: Date.now(),
@@ -136,6 +143,7 @@ export class MoltbotRegistry {
 
     if (this.db) {
       await this.loadAgentState(agent.id);
+      this.persistPermissions(agent.id, agent.permissions);
       await this.assignApiKeyToAgent(apiKey, agent.id);
     }
 
@@ -148,13 +156,17 @@ export class MoltbotRegistry {
     const agent = this.agents.get(agentId);
     if (!agent) return;
 
-    const [relationshipsResult, memoriesResult] = await Promise.all([
+    const [relationshipsResult, memoriesResult, permissionsResult] = await Promise.all([
       this.db.query(
         'SELECT * FROM agent_relationships WHERE agent_id = $1',
         [agentId]
       ),
       this.db.query(
         'SELECT type, data, timestamp FROM agent_memories WHERE agent_id = $1 ORDER BY timestamp ASC',
+        [agentId]
+      ),
+      this.db.query(
+        'SELECT permissions FROM agent_permissions WHERE agent_id = $1',
         [agentId]
       )
     ]);
@@ -177,6 +189,10 @@ export class MoltbotRegistry {
         timestamp: Number(row.timestamp)
       });
     });
+
+    if (permissionsResult.rows.length) {
+      agent.permissions = normalizePermissions(permissionsResult.rows[0].permissions);
+    }
 
     agent.memory.loadedFromDb = true;
   }
@@ -212,7 +228,8 @@ export class MoltbotRegistry {
       connected: agent.connected,
       connectedAt: agent.connectedAt,
       lastSeen: agent.lastSeen,
-      stats: agent.stats
+      stats: agent.stats,
+      permissions: agent.permissions || []
     }));
   }
 
@@ -471,6 +488,26 @@ export class MoltbotRegistry {
     ).catch(error => logger.error('Memory persist failed:', error));
   }
 
+  persistPermissions(agentId, permissions) {
+    if (!this.db) return;
+    this.db.query(
+      `INSERT INTO agent_permissions (agent_id, permissions)
+       VALUES ($1, $2)
+       ON CONFLICT (agent_id) DO UPDATE SET permissions = EXCLUDED.permissions`,
+      [agentId, JSON.stringify(permissions || [])]
+    ).catch(error => logger.error('Permissions persist failed:', error));
+  }
+
+  setAgentPermissions(agentId, permissions) {
+    const agent = this.agents.get(agentId);
+    const normalized = normalizePermissions(permissions);
+    if (agent) {
+      agent.permissions = normalized;
+      this.persistPermissions(agentId, normalized);
+    }
+    return normalized;
+  }
+
   createSnapshot() {
     return {
       issuedApiKeys: Array.from(this.issuedApiKeys),
@@ -480,6 +517,7 @@ export class MoltbotRegistry {
         name: agent.name,
         avatar: agent.avatar,
         apiKey: agent.apiKey,
+        permissions: agent.permissions || [],
         connectedAt: agent.connectedAt,
         lastSeen: agent.lastSeen,
         stats: { ...agent.stats },
@@ -512,6 +550,7 @@ export class MoltbotRegistry {
         avatar: agent.avatar,
         socketId: null,
         apiKey: agent.apiKey,
+        permissions: normalizePermissions(agent.permissions),
         connected: false,
         connectedAt: agent.connectedAt || null,
         lastSeen: agent.lastSeen || null,

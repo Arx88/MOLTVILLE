@@ -31,6 +31,7 @@ import { db } from './utils/db.js';
 import { CityMoodManager } from './core/CityMoodManager.js';
 import { AestheticsManager } from './core/AestheticsManager.js';
 import { EventManager } from './core/EventManager.js';
+import { hasPermission } from './utils/permissions.js';
 
 import authRoutes from './routes/auth.js';
 import moltbotRoutes from './routes/moltbot.js';
@@ -138,6 +139,16 @@ const shouldBlockSocket = (socket) => {
   if (!socket.agentId) return false;
   const state = socketRateState.get(socket.agentId);
   return Boolean(state && state.blockedUntil > Date.now());
+};
+
+const sanitizeText = (value, maxLength = 280) => {
+  if (typeof value !== 'string') return '';
+  return value.trim().slice(0, maxLength);
+};
+
+const sanitizeId = (value, maxLength = 64) => {
+  if (typeof value !== 'string') return '';
+  return value.trim().slice(0, maxLength);
 };
 
 const ensureActiveApiKey = (socket, registry) => {
@@ -431,6 +442,7 @@ io.on('connection', (socket) => {
         return;
       }
       const { apiKey, agentId, agentName, avatar } = data;
+      const permissions = Array.isArray(data?.permissions) ? data.permissions : undefined;
 
       if (typeof apiKey !== 'string' || apiKey.trim().length < 32) {
         socket.emit('error', { message: 'Invalid API key' });
@@ -461,6 +473,7 @@ io.on('connection', (socket) => {
       const agent = await moltbotRegistry.registerAgent({
         id: agentId, name: agentName.trim(),
         avatar: avatar || 'char1',
+        permissions,
         socketId: socket.id, apiKey: normalizedApiKey
       });
       const existingTimer = disconnectTimers.get(agent.id);
@@ -487,6 +500,7 @@ io.on('connection', (socket) => {
         inventory: economyManager.getInventory(agent.id),
         balance: economyManager.getBalance(agent.id),
         context: buildAgentContext(agent.id),
+        permissions: agent.permissions,
         worldState: {
           ...worldState.getAgentView(agent.id),
           governance: governanceManager.getSummary(),
@@ -517,6 +531,10 @@ io.on('connection', (socket) => {
     trackSocketEvent('agent:move');
     try {
       if (!socket.agentId) { socket.emit('error', { message: 'Not authenticated' }); return; }
+      if (!hasPermission(moltbotRegistry.getAgent(socket.agentId)?.permissions, 'move')) {
+        socket.emit('error', { message: 'Permission denied' });
+        return;
+      }
       if (!ensureActiveApiKey(socket, moltbotRegistry)) { return; }
       if (shouldBlockSocket(socket)) {
         socket.emit('error', { message: 'Move rate limit blocked' });
@@ -556,6 +574,10 @@ io.on('connection', (socket) => {
     trackSocketEvent('agent:moveTo');
     try {
       if (!socket.agentId) { socket.emit('error', { message: 'Not authenticated' }); return; }
+      if (!hasPermission(moltbotRegistry.getAgent(socket.agentId)?.permissions, 'move')) {
+        socket.emit('error', { message: 'Permission denied' });
+        return;
+      }
       if (!ensureActiveApiKey(socket, moltbotRegistry)) { return; }
       if (shouldBlockSocket(socket)) {
         socket.emit('error', { message: 'Move rate limit blocked' });
@@ -594,6 +616,10 @@ io.on('connection', (socket) => {
     trackSocketEvent('agent:speak');
     try {
       if (!socket.agentId) { socket.emit('error', { message: 'Not authenticated' }); return; }
+      if (!hasPermission(moltbotRegistry.getAgent(socket.agentId)?.permissions, 'speak')) {
+        socket.emit('error', { message: 'Permission denied' });
+        return;
+      }
       if (!ensureActiveApiKey(socket, moltbotRegistry)) { return; }
       if (shouldBlockSocket(socket)) {
         socket.emit('error', { message: 'Speak rate limit blocked' });
@@ -609,8 +635,8 @@ io.on('connection', (socket) => {
         socket.emit('error', { message: 'Speak rate limit exceeded' });
         return;
       }
-      const { message } = data;
-      if (typeof message !== 'string' || message.trim().length === 0) {
+      const message = sanitizeText(data?.message, 500);
+      if (!message) {
         socket.emit('error', { message: 'Message required' });
         return;
       }
@@ -649,6 +675,10 @@ io.on('connection', (socket) => {
     trackSocketEvent('agent:conversation:start');
     try {
       if (!socket.agentId) { socket.emit('error', { message: 'Not authenticated' }); return; }
+      if (!hasPermission(moltbotRegistry.getAgent(socket.agentId)?.permissions, 'converse')) {
+        socket.emit('error', { message: 'Permission denied' });
+        return;
+      }
       if (!ensureActiveApiKey(socket, moltbotRegistry)) { return; }
       if (shouldBlockSocket(socket)) {
         socket.emit('error', { message: 'Conversation rate limit blocked' });
@@ -664,12 +694,13 @@ io.on('connection', (socket) => {
         socket.emit('error', { message: 'Conversation rate limit exceeded' });
         return;
       }
-      const { targetId, message } = data;
-      if (typeof targetId !== 'string' || targetId.trim().length === 0) {
+      const targetId = sanitizeId(data?.targetId);
+      const message = sanitizeText(data?.message, 500);
+      if (!targetId) {
         socket.emit('error', { message: 'targetId is required' });
         return;
       }
-      if (typeof message !== 'string' || message.trim().length === 0) {
+      if (!message) {
         socket.emit('error', { message: 'message is required' });
         return;
       }
@@ -704,6 +735,10 @@ io.on('connection', (socket) => {
     trackSocketEvent('agent:conversation:message');
     try {
       if (!socket.agentId) { socket.emit('error', { message: 'Not authenticated' }); return; }
+      if (!hasPermission(moltbotRegistry.getAgent(socket.agentId)?.permissions, 'converse')) {
+        socket.emit('error', { message: 'Permission denied' });
+        return;
+      }
       if (!ensureActiveApiKey(socket, moltbotRegistry)) { return; }
       if (shouldBlockSocket(socket)) {
         socket.emit('error', { message: 'Conversation rate limit blocked' });
@@ -719,12 +754,13 @@ io.on('connection', (socket) => {
         socket.emit('error', { message: 'Conversation rate limit exceeded' });
         return;
       }
-      const { conversationId, message } = data;
-      if (typeof conversationId !== 'string' || conversationId.trim().length === 0) {
+      const conversationId = sanitizeId(data?.conversationId);
+      const message = sanitizeText(data?.message, 500);
+      if (!conversationId) {
         socket.emit('error', { message: 'conversationId is required' });
         return;
       }
-      if (typeof message !== 'string' || message.trim().length === 0) {
+      if (!message) {
         socket.emit('error', { message: 'message is required' });
         return;
       }
@@ -757,9 +793,13 @@ io.on('connection', (socket) => {
     trackSocketEvent('agent:conversation:end');
     try {
       if (!socket.agentId) { socket.emit('error', { message: 'Not authenticated' }); return; }
+      if (!hasPermission(moltbotRegistry.getAgent(socket.agentId)?.permissions, 'converse')) {
+        socket.emit('error', { message: 'Permission denied' });
+        return;
+      }
       if (!ensureActiveApiKey(socket, moltbotRegistry)) { return; }
-      const { conversationId } = data;
-      if (typeof conversationId !== 'string' || conversationId.trim().length === 0) {
+      const conversationId = sanitizeId(data?.conversationId);
+      if (!conversationId) {
         socket.emit('error', { message: 'conversationId is required' });
         return;
       }
@@ -791,6 +831,10 @@ io.on('connection', (socket) => {
     trackSocketEvent('agent:social');
     try {
       if (!socket.agentId) { socket.emit('error', { message: 'Not authenticated' }); return; }
+      if (!hasPermission(moltbotRegistry.getAgent(socket.agentId)?.permissions, 'social')) {
+        socket.emit('error', { message: 'Permission denied' });
+        return;
+      }
       if (!ensureActiveApiKey(socket, moltbotRegistry)) { return; }
       if (shouldBlockSocket(socket)) {
         socket.emit('error', { message: 'Social rate limit blocked' });
@@ -806,12 +850,14 @@ io.on('connection', (socket) => {
         socket.emit('error', { message: 'Social rate limit exceeded' });
         return;
       }
-      const { actionType, targetId, data: payload } = data;
-      if (typeof actionType !== 'string' || actionType.trim().length === 0) {
+      const actionType = sanitizeId(data?.actionType);
+      const targetId = sanitizeId(data?.targetId);
+      const payload = data?.data;
+      if (!actionType) {
         socket.emit('error', { message: 'actionType is required' });
         return;
       }
-      if (typeof targetId !== 'string' || targetId.trim().length === 0) {
+      if (!targetId) {
         socket.emit('error', { message: 'targetId is required' });
         return;
       }
@@ -836,6 +882,10 @@ io.on('connection', (socket) => {
     trackSocketEvent('agent:action');
     try {
       if (!socket.agentId) { socket.emit('error', { message: 'Not authenticated' }); return; }
+      if (!hasPermission(moltbotRegistry.getAgent(socket.agentId)?.permissions, 'action')) {
+        socket.emit('error', { message: 'Permission denied' });
+        return;
+      }
       if (!ensureActiveApiKey(socket, moltbotRegistry)) { return; }
       if (shouldBlockSocket(socket)) {
         socket.emit('error', { message: 'Action rate limit blocked' });
@@ -851,7 +901,9 @@ io.on('connection', (socket) => {
         socket.emit('error', { message: 'Action rate limit exceeded' });
         return;
       }
-      const { actionType, target, params } = data;
+      const actionType = sanitizeId(data?.actionType);
+      const target = data?.target;
+      const params = data?.params;
       if (!actionType) {
         socket.emit('error', { message: 'actionType is required' });
         return;
@@ -880,6 +932,10 @@ io.on('connection', (socket) => {
     trackSocketEvent('agent:perceive');
     try {
       if (!socket.agentId) { socket.emit('error', { message: 'Not authenticated' }); return; }
+      if (!hasPermission(moltbotRegistry.getAgent(socket.agentId)?.permissions, 'perceive')) {
+        socket.emit('error', { message: 'Permission denied' });
+        return;
+      }
       if (!ensureActiveApiKey(socket, moltbotRegistry)) { return; }
       if (shouldBlockSocket(socket)) {
         socket.emit('error', { message: 'Perceive rate limit blocked' });

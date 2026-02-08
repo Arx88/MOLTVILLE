@@ -35,6 +35,10 @@ export const metrics = {
     lastTickMs: 0,
     avgTickMs: 0
   },
+  performance: {
+    latencyBudgetMs: 100,
+    tickBudgetExceeded: 0
+  },
   worldSnapshots: {
     success: 0,
     failures: 0,
@@ -112,4 +116,7 @@ export const recordTickDuration = (durationMs) => {
     metrics.world.avgTickMs === 0
       ? durationMs
       : (metrics.world.avgTickMs * (metrics.world.ticks - 1) + durationMs) / metrics.world.ticks;
+  if (durationMs > metrics.performance.latencyBudgetMs) {
+    metrics.performance.tickBudgetExceeded += 1;
+  }
 };

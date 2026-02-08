@@ -22,6 +22,11 @@ const socialActionSchema = Joi.object({
   data: Joi.object().unknown(true).default({})
 });
 
+const permissionsSchema = Joi.object({
+  agentId: Joi.string().trim().required(),
+  permissions: Joi.array().items(Joi.string().trim()).required()
+});
+
 const buildActorMeta = (body = {}) => {
   const actorId = typeof body.actorId === 'string' ? body.actorId.trim() : '';
   const actorType = typeof body.actorType === 'string' ? body.actorType.trim() : '';
@@ -173,6 +178,33 @@ router.get('/keys/events', requireAdminKey, async (req, res) => {
     const { moltbotRegistry } = req.app.locals;
     const events = await moltbotRegistry.listApiKeyEvents(limit);
     res.json(events);
+  } catch (error) {
+    res.status(500).json({ error: error.message });
+  }
+});
+
+// Set agent permissions
+router.post('/permissions', requireAdminKey, validateBody(permissionsSchema), async (req, res) => {
+  try {
+    const { agentId, permissions } = req.body;
+    const { moltbotRegistry } = req.app.locals;
+    const normalized = moltbotRegistry.setAgentPermissions(agentId, permissions);
+    res.json({ agentId, permissions: normalized });
+  } catch (error) {
+    res.status(500).json({ error: error.message });
+  }
+});
+
+// Get agent permissions
+router.get('/:agentId/permissions', requireAdminKey, async (req, res) => {
+  try {
+    const { agentId } = req.params;
+    const { moltbotRegistry } = req.app.locals;
+    const agent = moltbotRegistry.getAgent(agentId);
+    if (!agent) {
+      return res.status(404).json({ error: 'Agent not found' });
+    }
+    res.json({ agentId, permissions: agent.permissions || [] });
   } catch (error) {
     res.status(500).json({ error: error.message });
   }

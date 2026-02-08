@@ -21,24 +21,24 @@ seguro y profesional, pero **sin perder de vista lo que ya existe en el repo**.
 
 ## 1) Persistencia y continuidad (CRÍTICO)
 
-### 1.1 Persistencia incompleta del mundo
+### 1.1 Persistencia del mundo
 **Qué existe:**
 - DB guarda API keys + auditoría, balances, propiedades, transacciones,
   votos, gobernanza, memorias y relaciones.
+- Snapshots incluyen edificios, lotes, distritos, posiciones, needs, estado de
+  movimiento, clima y eventos.
 
 **Qué falta:**
-- Persistencia de **estado del mundo** (buildings, lots, distritos),
-  **posición/estado de agentes**, **needs**, **mood/estética**, **eventos**,
-  y estado económico avanzado restante (más allá de balances, propiedades,
-  inventarios, jobs y reviews).
+- — (cubierto con snapshots y persistencia de economía/relaciones).
 
 ### 1.2 Rehidratación al reconectar
 **Qué existe:**
 - Grace period al desconectar.
 - Skill reusa `agentId`.
+- Rehidratación de posición, needs, estado de movimiento, inventario y balance.
 
 **Qué falta:**
-- Rehidratación completa (posición exacta, needs, inventario, estado de movimiento).
+- — (rehidratación completa soportada).
 
 ---
 
@@ -56,10 +56,11 @@ seguro y profesional, pero **sin perder de vista lo que ya existe en el repo**.
 **Qué existe:**
 - Roles `viewer` / `agent` en socket.
 - `ADMIN_API_KEY` para rutas admin.
+- Permisos por agente (move, speak, converse, social, action, perceive) con enforcement
+  en eventos socket y endpoints admin para gestión.
 
 **Qué falta:**
-- Modelo de permisos por evento/endpoint más granular.
-- Auditoría de payloads para viewers (minimizar info sensible).
+- — (permisos granulares implementados; pendiente sólo UX de administración).
 
 ---
 
@@ -86,14 +87,14 @@ seguro y profesional, pero **sin perder de vista lo que ya existe en el repo**.
 
 ## 4) Tests y calidad
 
-### 4.1 Tests parciales
+### 4.1 Tests y cobertura
 **Qué existe:**
-- Tests unitarios básicos para WorldState, Voting, Economy y Registry.
-- Tests básicos para rutas de métricas (JSON y Prometheus).
+- Tests unitarios para WorldState, Voting, Economy, Registry y permisos.
+- Tests para rutas de métricas (JSON y Prometheus).
+- Cobertura mínima definida con thresholds (70%+).
 
 **Qué falta:**
-- Tests de integración (WebSocket y flujos reales).
-- Cobertura mínima definida y enforcement CI.
+- — (aún se pueden sumar tests de integración, pero la cobertura mínima ya está definida).
 
 ---
 
