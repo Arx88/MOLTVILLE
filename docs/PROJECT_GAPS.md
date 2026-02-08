@@ -29,7 +29,9 @@ seguro y profesional, pero **sin perder de vista lo que ya existe en el repo**.
   movimiento, clima y eventos.
 
 **Qué falta:**
-- — (cubierto con snapshots y persistencia de economía/relaciones).
+- Migración completa del estado del mundo a DB (hoy el world state vive en memoria
+  y se restaura vía snapshots).
+- Backups automáticos más robustos (retención, rotación, verificación de integridad).
 
 ### 1.2 Rehidratación al reconectar
 **Qué existe:**
@@ -108,6 +110,7 @@ seguro y profesional, pero **sin perder de vista lo que ya existe en el repo**.
 - Pipeline de build o estructura modular.
 - UI/UX de acciones (contexto, tutoriales, feedback claro).
 - Gráficos profesionales (assets de mayor calidad).
+- Feedback visual inmediato ante acciones (success/error/loading).
 
 ---
 

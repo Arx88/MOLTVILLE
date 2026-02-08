@@ -26,7 +26,10 @@ const schema = Joi.object({
   WORLD_SNAPSHOT_PATH: Joi.string().default('world_snapshot.json'),
   WORLD_SNAPSHOT_SOURCE: Joi.string().valid('file', 'db').default('file'),
   WORLD_SNAPSHOT_INTERVAL_MS: Joi.number().integer().min(0).optional(),
-  WORLD_SNAPSHOT_ON_START: Joi.string().valid('true', 'false').default('false')
+  WORLD_SNAPSHOT_ON_START: Joi.string().valid('true', 'false').default('false'),
+  WORLD_SNAPSHOT_ARCHIVE_DIR: Joi.string().optional().allow('', null),
+  WORLD_SNAPSHOT_ARCHIVE_RETENTION: Joi.number().integer().min(1).optional(),
+  WORLD_SNAPSHOT_ARCHIVE_CHECKSUM: Joi.string().valid('true', 'false').default('true')
 }).unknown(true);
 
 const { value, error } = schema.validate(process.env, {
@@ -62,5 +65,8 @@ export const config = {
   })(),
   worldSnapshotOnStart: value.WORLD_SNAPSHOT_ON_START
     ? value.WORLD_SNAPSHOT_ON_START === 'true'
-    : value.WORLD_SNAPSHOT_SOURCE === 'db'
+    : value.WORLD_SNAPSHOT_SOURCE === 'db',
+  worldSnapshotArchiveDir: value.WORLD_SNAPSHOT_ARCHIVE_DIR || null,
+  worldSnapshotArchiveRetention: value.WORLD_SNAPSHOT_ARCHIVE_RETENTION,
+  worldSnapshotArchiveChecksum: value.WORLD_SNAPSHOT_ARCHIVE_CHECKSUM === 'true'
 };
