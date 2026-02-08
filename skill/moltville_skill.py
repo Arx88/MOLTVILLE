@@ -198,11 +198,13 @@ class MOLTVILLESkill:
     
     async def _authenticate(self):
         """Authenticate with server"""
+        permissions = self.config.get('agent', {}).get('permissions')
         await self.sio.emit('agent:connect', {
             'apiKey': self.config['server']['apiKey'],
             'agentId': self.agent_id,  # Reuse agent id if available
             'agentName': self.config['agent']['name'],
-            'avatar': self.config['agent']['avatar']
+            'avatar': self.config['agent']['avatar'],
+            'permissions': permissions
         })
 
     async def _run_auto_explore(self) -> None:

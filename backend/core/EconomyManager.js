@@ -14,6 +14,12 @@ export class EconomyManager {
     this.inventories = new Map();
     this.itemTransactions = [];
     this.itemTransactionsByAgent = new Map();
+    this.treasuryBalance = 0;
+    this.treasuryTotals = {
+      income: 0,
+      expense: 0
+    };
+    this.treasuryTransactions = [];
     this.policyState = {
       baseIncomeMultiplier: 1,
       salaryMultiplier: 1,
@@ -408,11 +414,11 @@ export class EconomyManager {
       }
 
       const gross = incomeTotal.reduce((sum, item) => sum + item.amount, 0);
-      incomeTotal.forEach(item => this.incrementBalance(agentId, item.amount, item.reason));
+      incomeTotal.forEach(item => this.applySystemPayout(agentId, item.amount, item.reason));
 
       if (this.policyState.taxRate > 0 && gross > 0) {
         const taxAmount = gross * this.policyState.taxRate;
-        this.decrementBalance(agentId, taxAmount, 'tax_withholding');
+        this.collectSystemRevenue(agentId, taxAmount, 'tax_withholding');
       }
 
       if (this.policyState.housingTaxRate > 0) {
@@ -420,7 +426,7 @@ export class EconomyManager {
         ownedProperties.forEach(property => {
           const housingTax = property.price * this.policyState.housingTaxRate;
           if (housingTax > 0) {
-            this.decrementBalance(agentId, housingTax, `housing_tax:${property.id}`);
+            this.collectSystemRevenue(agentId, housingTax, `housing_tax:${property.id}`);
           }
         });
       }
@@ -473,6 +479,43 @@ export class EconomyManager {
     this.balances.set(agentId, current - amount);
     this.recordTransaction(agentId, -amount, reason);
     this.persistBalance(agentId);
+  }
+
+  applySystemPayout(agentId, amount, reason) {
+    if (amount <= 0) return;
+    this.incrementBalance(agentId, amount, reason);
+    this.recordTreasury(-amount, reason);
+  }
+
+  collectSystemRevenue(agentId, amount, reason) {
+    if (amount <= 0) return;
+    this.decrementBalance(agentId, amount, reason);
+    this.recordTreasury(amount, reason);
+  }
+
+  recordTreasury(amount, reason) {
+    this.treasuryBalance += amount;
+    if (amount > 0) {
+      this.treasuryTotals.income += amount;
+    } else if (amount < 0) {
+      this.treasuryTotals.expense += Math.abs(amount);
+    }
+    this.treasuryTransactions.push({
+      amount,
+      reason,
+      timestamp: Date.now()
+    });
+    if (this.treasuryTransactions.length > 500) {
+      this.treasuryTransactions.splice(0, this.treasuryTransactions.length - 500);
+    }
+  }
+
+  getTreasurySummary() {
+    return {
+      balance: this.treasuryBalance,
+      income: this.treasuryTotals.income,
+      expense: this.treasuryTotals.expense
+    };
   }
 
   recordTransaction(agentId, amount, reason) {
@@ -750,6 +793,9 @@ export class EconomyManager {
       ])),
       itemTransactions: [...this.itemTransactions],
       itemTransactionsByAgent: Array.from(this.itemTransactionsByAgent.entries()),
+      treasuryBalance: this.treasuryBalance,
+      treasuryTotals: { ...this.treasuryTotals },
+      treasuryTransactions: [...this.treasuryTransactions],
       policyState: { ...this.policyState },
       lastIncomeAt: this.lastIncomeAt
     };
@@ -798,6 +844,13 @@ export class EconomyManager {
 
     this.itemTransactions = Array.isArray(snapshot.itemTransactions) ? [...snapshot.itemTransactions] : [];
     this.itemTransactionsByAgent = new Map(snapshot.itemTransactionsByAgent || []);
+    this.treasuryBalance = Number(snapshot.treasuryBalance) || 0;
+    this.treasuryTotals = snapshot.treasuryTotals
+      ? { ...this.treasuryTotals, ...snapshot.treasuryTotals }
+      : { ...this.treasuryTotals };
+    this.treasuryTransactions = Array.isArray(snapshot.treasuryTransactions)
+      ? [...snapshot.treasuryTransactions]
+      : [];
     this.policyState = snapshot.policyState ? { ...snapshot.policyState } : { ...this.policyState };
     this.lastIncomeAt = snapshot.lastIncomeAt || Date.now();
   }

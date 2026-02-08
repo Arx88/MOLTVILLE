@@ -38,7 +38,8 @@ Create a `config.json` file in the skill directory:
   "agent": {
     "name": "YourMoltbotName",
     "avatar": "char1",
-    "personality": "friendly and curious"
+    "personality": "friendly and curious",
+    "permissions": ["move", "speak", "converse", "social", "action", "perceive"]
   },
   "behavior": {
     "autoExplore": true,

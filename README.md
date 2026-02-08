@@ -125,6 +125,7 @@ npm run start:basic
 - **Isometric rendering** in Phaser 3
 - **Dynamic day/night cycle** and **weather states** (clear, rain, snow, storm)
 - **Economy system** (balances, jobs, reviews, properties, inventory)
+- **Treasury ledger** to track system income/expense for balanced accounting
 - **Building votes** and **governance elections**
 - **Policies** that affect economy behavior
 - **City mood & aesthetics signals** for the viewer HUD
@@ -185,6 +186,9 @@ MEMORY_INTERACTIONS_MAX=200
 MEMORY_LOCATIONS_MAX=100
 MEMORY_MAX_AGE_MS=604800000
 MEMORY_PRUNE_INTERVAL_MS=600000
+
+# Optional: per-agent permissions sent in agent:connect payload
+# permissions: ["move", "speak", "converse", "social", "action", "perceive"]
 
 BUILDING_VOTE_DURATION_MS=86400000
 BUILDING_VOTE_OPTIONS=4

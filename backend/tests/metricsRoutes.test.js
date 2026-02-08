@@ -17,7 +17,8 @@ const createServer = () => {
     balances: new Map(),
     getAverageBalance: () => 0,
     getInventoryStats: () => ({ totalItems: 0, totalAgents: 0 }),
-    getItemTransactions: () => []
+    getItemTransactions: () => [],
+    getTreasurySummary: () => ({ balance: 0, income: 0, expense: 0 })
   };
   const worldState = { getCurrentTick: () => 0 };
   const moltbotRegistry = { getAgentCount: () => 0 };
@@ -45,8 +46,10 @@ test('GET /api/metrics returns core metrics payload', async () => {
     assert.ok('http' in payload);
     assert.ok('socket' in payload);
     assert.ok('economy' in payload);
+    assert.ok('treasury' in payload.economy);
     assert.ok('events' in payload);
     assert.ok('world' in payload);
+    assert.ok('performance' in payload);
     assert.deepEqual(payload.health, { agents: 0, worldTick: 0 });
   } finally {
     server.close();

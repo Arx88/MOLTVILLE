@@ -129,6 +129,12 @@ CREATE TABLE IF NOT EXISTS agent_relationships (
   PRIMARY KEY (agent_id, other_agent_id)
 );
 
+CREATE TABLE IF NOT EXISTS agent_permissions (
+  agent_id TEXT PRIMARY KEY,
+  permissions JSONB NOT NULL DEFAULT '[]'::jsonb,
+  updated_at TIMESTAMP NOT NULL DEFAULT NOW()
+);
+
 CREATE TABLE IF NOT EXISTS agent_memories (
   id SERIAL PRIMARY KEY,
   agent_id TEXT NOT NULL,
