@@ -111,7 +111,11 @@ router.post('/snapshot', requireAdminKey, async (req, res) => {
       voting: votingManager.createSnapshot()
     };
     const snapshotPath = resolveSnapshotPath(config.worldSnapshotPath);
-    await saveSnapshotFile(snapshotPath, snapshot);
+    await saveSnapshotFile(snapshotPath, snapshot, {
+      archiveDir: config.worldSnapshotArchiveDir,
+      retention: config.worldSnapshotArchiveRetention,
+      checksum: config.worldSnapshotArchiveChecksum
+    });
     if (req.app.locals.db) {
       await saveSnapshotDb(req.app.locals.db, snapshot);
     }

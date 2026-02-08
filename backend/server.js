@@ -283,7 +283,11 @@ const saveWorldSnapshot = async () => {
       governance: governanceManager.createSnapshot(),
       voting: votingManager.createSnapshot()
     };
-    await saveSnapshotFile(snapshotPath, snapshot);
+    await saveSnapshotFile(snapshotPath, snapshot, {
+      archiveDir: config.worldSnapshotArchiveDir,
+      retention: config.worldSnapshotArchiveRetention,
+      checksum: config.worldSnapshotArchiveChecksum
+    });
     if (db) {
       await saveSnapshotDb(db, snapshot);
     }

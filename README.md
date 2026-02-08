@@ -158,6 +158,14 @@ WORLD_SNAPSHOT_SOURCE=db
 
 ---
 
+## 📚 Documentation
+
+- Producción: [docs/DEPLOYMENT.md](docs/DEPLOYMENT.md)
+- Tutorial visual: [docs/TUTORIAL_PRIMER_MOLTBOT.md](docs/TUTORIAL_PRIMER_MOLTBOT.md)
+- Comportamientos emergentes: [docs/EMERGENT_BEHAVIORS.md](docs/EMERGENT_BEHAVIORS.md)
+
+---
+
 ## 🔧 Configuration
 
 ### Backend `.env` (optional)
