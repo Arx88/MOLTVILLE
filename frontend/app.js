@@ -102,7 +102,22 @@ const DEFAULT_UI_STATE = {
   governanceMode: 'vote',
   economyActionsOpen: false,
   economyMode: 'jobs',
-  aestheticsActionsOpen: false
+  aestheticsActionsOpen: false,
+  showModeActive: false
+};
+const SHOW_MODE_CONFIG = {
+  minSceneDurationMs: 10000,
+  decayWindowMs: 30000,
+  switchThreshold: 15,
+  queueLimit: 3,
+  threadsLimit: 6
+};
+const SHOW_MODE_STATE = {
+  active: false,
+  currentScene: null,
+  scenes: [],
+  threads: new Map(),
+  queue: []
 };
 let liveAgentPositions = {};
 
@@ -213,6 +228,11 @@ function setupViewerSocket(scene) {
     const agentName = payload?.agentName || 'Agente';
     const message = payload?.message || '';
     pushFeedMessage(agentName, message);
+    registerShowBeat({
+      participants: [agentName],
+      summary: message,
+      dialogue: message
+    });
   });
   viewerSocket.on('conversation:started', (payload) => {
     if (!payload) return;
@@ -220,6 +240,11 @@ function setupViewerSocket(scene) {
     const to = payload.toName || 'Agente';
     const message = payload.message || '';
     pushFeedMessage('Conversación', `💬 ${from} → ${to}: ${message}`);
+    registerShowBeat({
+      participants: [from, to],
+      summary: `${from} inició conversación con ${to}`,
+      dialogue: message
+    });
   });
   viewerSocket.on('conversation:message', (payload) => {
     const message = payload?.message;
@@ -227,24 +252,46 @@ function setupViewerSocket(scene) {
     const from = message.fromName || 'Agente';
     const to = message.toName || 'Agente';
     pushFeedMessage('Conversación', `💬 ${from} → ${to}: ${message.message}`);
+    registerShowBeat({
+      participants: [from, to],
+      summary: message.message,
+      dialogue: message.message
+    });
   });
   viewerSocket.on('conversation:ended', (payload) => {
     if (!payload) return;
     pushFeedMessage('Conversación', `✅ Conversación ${payload.conversationId} finalizada.`);
+    registerShowBeat({
+      participants: [payload?.fromName, payload?.toName].filter(Boolean),
+      summary: 'La conversación terminó.'
+    });
   });
   viewerSocket.on('agent:social', (payload) => {
     if (!payload) return;
     const from = payload.from || 'Agente';
     const to = payload.to || 'Agente';
     pushFeedMessage('Social', `🤝 ${from} interactuó con ${to} (${payload.actionType}).`);
+    registerShowBeat({
+      participants: [from, to],
+      summary: `${from} interactuó con ${to} (${payload.actionType}).`
+    });
   });
   viewerSocket.on('agent:action', (payload) => {
     if (!payload) return;
     pushFeedMessage('Acción', `⚙️ ${payload.agentId} ejecutó ${payload.actionType}.`);
+    registerShowBeat({
+      participants: [payload.agentId || 'Agente'],
+      summary: `${payload.agentId || 'Agente'} ejecutó ${payload.actionType}.`
+    });
   });
   viewerSocket.on('agent:spawned', (payload) => {
     if (!payload) return;
     pushFeedMessage('Sistema', `👋 ${payload.name || 'Un agente'} llegó a Moltville.`);
+    registerShowBeat({
+      type: 'interaccion',
+      participants: [payload.name || 'Agente'],
+      summary: `${payload.name || 'Un agente'} llegó a Moltville.`
+    });
   });
   viewerSocket.on('agent:disconnected', (payload) => {
     if (!payload) return;
@@ -342,6 +389,249 @@ function pushFeedMessage(name, message) {
   if (!scene || typeof scene.addChatMessage !== 'function') return;
   const safeMessage = message || '...';
   scene.addChatMessage(name, safeMessage);
+}
+
+function setupShowModeControls() {
+  const elements = getShowModeElements();
+  if (!elements.toggle) return;
+  const initialState = getUiState().showModeActive;
+  setShowModeActive(initialState);
+  elements.toggle.addEventListener('click', () => {
+    setShowModeActive(!SHOW_MODE_STATE.active);
+  });
+  updateShowModeUI();
+  window.setInterval(() => {
+    if (SHOW_MODE_STATE.active) {
+      decayThreads();
+      updateShowModeUI();
+    }
+  }, 1000);
+}
+
+function getShowModeElements() {
+  return {
+    container: document.getElementById('show-mode-container'),
+    toggle: document.getElementById('show-mode-toggle'),
+    indicator: document.getElementById('show-indicator'),
+    indicatorScore: document.getElementById('show-indicator-score'),
+    indicatorFill: document.getElementById('show-indicator-fill'),
+    tracker: document.querySelector('.show-mode-tracker'),
+    sceneType: document.getElementById('show-mode-scene-type'),
+    score: document.getElementById('show-mode-score'),
+    title: document.getElementById('show-mode-scene-title'),
+    meta: document.getElementById('show-mode-meta'),
+    progressFill: document.getElementById('show-mode-progress-fill'),
+    time: document.getElementById('show-mode-time'),
+    threadList: document.getElementById('show-mode-thread-list'),
+    queue: document.getElementById('show-mode-queue'),
+    caption: document.getElementById('show-mode-caption'),
+    captionSpeaker: document.getElementById('show-mode-caption-speaker'),
+    captionText: document.getElementById('show-mode-caption-text')
+  };
+}
+
+function setShowModeActive(nextActive) {
+  SHOW_MODE_STATE.active = nextActive;
+  document.body.classList.toggle('show-mode-active', nextActive);
+  const elements = getShowModeElements();
+  if (elements.container) {
+    elements.container.classList.toggle('is-active', nextActive);
+  }
+  if (elements.toggle) {
+    elements.toggle.classList.toggle('is-active', nextActive);
+  }
+  setUiState({ showModeActive: nextActive });
+}
+
+function classifySceneType(message = '') {
+  const lower = message.toLowerCase();
+  if (lower.match(/beso|amor|romant|confes|cita/)) return 'romance';
+  if (lower.match(/pelea|discusi|grito|traici|odio|rival/)) return 'conflicto';
+  if (lower.match(/voto|elecci|president|pol[ií]tic/)) return 'politica';
+  if (lower.match(/negocio|dinero|econom/i)) return 'negocio';
+  return 'interaccion';
+}
+
+function computeShowScore(type, message = '') {
+  const baseScores = {
+    romance: 60,
+    conflicto: 65,
+    politica: 45,
+    negocio: 35,
+    interaccion: 30
+  };
+  let score = baseScores[type] || 30;
+  const boosts = [
+    { match: /beso|amor|confes/i, value: 15 },
+    { match: /traici|escandal|shock|plot/i, value: 20 },
+    { match: /pelea|amenaz|grit/i, value: 12 },
+    { match: /alianza|promesa|pacto/i, value: 8 }
+  ];
+  boosts.forEach((boost) => {
+    if (boost.match.test(message.toLowerCase())) {
+      score += boost.value;
+    }
+  });
+  return Math.max(0, Math.min(100, score));
+}
+
+function getSceneId(scene) {
+  const participants = scene.participants?.join('|') || 'anon';
+  return `${scene.type}-${participants}`;
+}
+
+function shouldTransition(currentScene, nextScene) {
+  if (!currentScene) return true;
+  const now = Date.now();
+  if (now - currentScene.startedAt < SHOW_MODE_CONFIG.minSceneDurationMs) {
+    return false;
+  }
+  const timeSinceUpdate = now - currentScene.lastUpdate;
+  const decay = Math.max(0, 1 - timeSinceUpdate / SHOW_MODE_CONFIG.decayWindowMs);
+  const currentMomentum = currentScene.showScore * decay;
+  if (nextScene.showScore > currentMomentum + SHOW_MODE_CONFIG.switchThreshold) {
+    return true;
+  }
+  return false;
+}
+
+function updateShowModeUI() {
+  const elements = getShowModeElements();
+  if (!elements.indicator) return;
+  const current = SHOW_MODE_STATE.currentScene;
+  const score = current?.showScore || 0;
+  if (elements.indicatorScore) {
+    elements.indicatorScore.textContent = `${score}`;
+  }
+  if (elements.indicatorFill) {
+    elements.indicatorFill.style.width = `${score}%`;
+  }
+  if (!elements.container) return;
+  if (!current) {
+    if (elements.tracker) {
+      elements.tracker.classList.add('is-hidden');
+    }
+    if (elements.caption) {
+      elements.caption.classList.add('is-hidden');
+    }
+    elements.sceneType.textContent = 'SIN ESCENA';
+    elements.score.textContent = '0/100';
+    elements.title.textContent = 'Esperando interacción destacada...';
+    elements.meta.textContent = 'Sin participantes';
+    elements.progressFill.style.width = '0%';
+    elements.time.textContent = '0s';
+    elements.captionSpeaker.textContent = '—';
+    elements.captionText.textContent = 'En espera de diálogo...';
+    elements.threadList.innerHTML = '';
+    elements.queue.innerHTML = '';
+    return;
+  }
+  if (elements.tracker) {
+    elements.tracker.classList.remove('is-hidden');
+  }
+  if (elements.caption) {
+    elements.caption.classList.remove('is-hidden');
+  }
+  elements.sceneType.textContent = current.type.toUpperCase();
+  elements.score.textContent = `${score}/100`;
+  elements.title.textContent = current.summary;
+  elements.meta.textContent = current.participants?.length
+    ? `Participantes: ${current.participants.join(', ')}`
+    : 'Participantes no detectados';
+  elements.progressFill.style.width = `${score}%`;
+  const ageSeconds = Math.floor((Date.now() - current.startedAt) / 1000);
+  elements.time.textContent = `${ageSeconds}s`;
+  elements.captionSpeaker.textContent = current.participants?.[0] || '—';
+  elements.captionText.textContent = current.dialogue || current.summary;
+
+  const threads = Array.from(SHOW_MODE_STATE.threads.values())
+    .sort((a, b) => b.totalScore - a.totalScore)
+    .slice(0, SHOW_MODE_CONFIG.threadsLimit);
+  elements.threadList.innerHTML = threads.map(thread => `
+    <div class="show-mode-thread">
+      <div class="show-mode-thread-title">${thread.title}</div>
+      <div class="show-mode-thread-meta">${thread.status} · ${thread.totalScore} pts · ${thread.beats.length} beats</div>
+    </div>
+  `).join('');
+
+  elements.queue.innerHTML = SHOW_MODE_STATE.queue.map(item => `
+    <div class="show-mode-queue-item">
+      <span>${item.summary}</span>
+      <span>${item.showScore}</span>
+    </div>
+  `).join('');
+}
+
+function updateShowModeQueue(scene) {
+  SHOW_MODE_STATE.queue = SHOW_MODE_STATE.queue.filter(item => item.id !== scene.id);
+  SHOW_MODE_STATE.queue.unshift(scene);
+  if (SHOW_MODE_STATE.queue.length > SHOW_MODE_CONFIG.queueLimit) {
+    SHOW_MODE_STATE.queue = SHOW_MODE_STATE.queue.slice(0, SHOW_MODE_CONFIG.queueLimit);
+  }
+}
+
+function updateThread(scene) {
+  const threadId = getSceneId(scene);
+  let thread = SHOW_MODE_STATE.threads.get(threadId);
+  if (!thread) {
+    thread = {
+      id: threadId,
+      type: scene.type,
+      title: `${scene.participants?.join(' & ') || 'Interacción'}`,
+      participants: scene.participants || [],
+      beats: [],
+      totalScore: 0,
+      peakScore: 0,
+      status: 'emergente',
+      lastActivity: Date.now()
+    };
+    SHOW_MODE_STATE.threads.set(threadId, thread);
+  }
+  thread.beats.push({
+    summary: scene.summary,
+    showScore: scene.showScore,
+    at: Date.now()
+  });
+  thread.totalScore += scene.showScore;
+  thread.peakScore = Math.max(thread.peakScore, scene.showScore);
+  thread.lastActivity = Date.now();
+  if (thread.beats.length >= 3) {
+    thread.status = 'activa';
+  }
+}
+
+function decayThreads() {
+  const now = Date.now();
+  SHOW_MODE_STATE.threads.forEach((thread) => {
+    const idleMs = now - thread.lastActivity;
+    if (idleMs > 15000 && thread.status === 'activa') {
+      thread.status = 'dormante';
+    }
+    if (idleMs > 30000 && thread.status === 'emergente') {
+      thread.status = 'dormante';
+    }
+  });
+}
+
+function registerShowBeat({ type, participants, summary, dialogue }) {
+  const sceneType = type || classifySceneType(summary || '');
+  const showScore = computeShowScore(sceneType, summary || '');
+  const scene = {
+    id: `${Date.now()}-${Math.random().toString(16).slice(2)}`,
+    type: sceneType,
+    participants: participants || [],
+    summary: summary || 'Interacción destacada',
+    dialogue,
+    showScore,
+    lastUpdate: Date.now(),
+    startedAt: Date.now()
+  };
+  updateThread(scene);
+  updateShowModeQueue(scene);
+  if (shouldTransition(SHOW_MODE_STATE.currentScene, scene)) {
+    SHOW_MODE_STATE.currentScene = scene;
+  }
+  updateShowModeUI();
 }
 
 function getUiState() {
@@ -1773,6 +2063,7 @@ class MoltivilleScene extends Phaser.Scene {
   create() {
     window._moltvilleScene = this;
     setupStatusBannerControls();
+    setupShowModeControls();
     const modalClose = document.getElementById('status-modal-close');
     if (modalClose) {
       modalClose.addEventListener('click', closeStatusModal);

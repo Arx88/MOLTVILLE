@@ -15,6 +15,14 @@
     <span class="weather-display" id="weather-display">🌤️ Clear</span>
     <span class="mood-display" id="mood-display">🌿 Calm</span>
     <span class="agent-count" id="agent-count">👥 0 Citizens</span>
+    <div class="show-indicator" id="show-indicator">
+      <span class="show-indicator-label">🎬 Show</span>
+      <span class="show-indicator-score" id="show-indicator-score">0</span>
+      <div class="show-indicator-bar">
+        <div class="show-indicator-fill" id="show-indicator-fill"></div>
+      </div>
+    </div>
+    <button class="show-mode-toggle" id="show-mode-toggle" type="button">Modo Show</button>
   </div>
   <div id="status-banner">
     <div class="banner-content">
@@ -65,6 +73,36 @@
   </div>
   <div id="minimap-container">
     <canvas id="minimap" width="140" height="140"></canvas>
+  </div>
+  <div id="show-mode-container" class="show-mode">
+    <div class="show-mode-viewport">
+      <div class="letterbox-top"></div>
+      <div class="letterbox-bottom"></div>
+      <div class="vignette-overlay"></div>
+    </div>
+    <aside class="show-mode-tracker">
+      <div class="show-mode-title">📺 Show Mode</div>
+      <div class="show-mode-current">
+        <div class="show-mode-current-header">
+          <span class="show-mode-badge" id="show-mode-scene-type">SIN ESCENA</span>
+          <span class="show-mode-score" id="show-mode-score">0/100</span>
+        </div>
+        <div class="show-mode-scene" id="show-mode-scene-title">Esperando interacción destacada...</div>
+        <div class="show-mode-meta" id="show-mode-meta">Sin participantes</div>
+        <div class="show-mode-progress">
+          <div class="show-mode-progress-fill" id="show-mode-progress-fill"></div>
+        </div>
+        <div class="show-mode-time" id="show-mode-time">0s</div>
+      </div>
+      <div class="show-mode-section-title">🧵 Tramas activas</div>
+      <div class="show-mode-thread-list" id="show-mode-thread-list"></div>
+      <div class="show-mode-section-title">⏭️ Próximas escenas</div>
+      <div class="show-mode-queue" id="show-mode-queue"></div>
+    </aside>
+    <div class="show-mode-caption" id="show-mode-caption">
+      <div class="show-mode-caption-speaker" id="show-mode-caption-speaker">—</div>
+      <div class="show-mode-caption-text" id="show-mode-caption-text">En espera de diálogo...</div>
+    </div>
   </div>
 </div>
 
