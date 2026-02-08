@@ -25,7 +25,7 @@ const schema = Joi.object({
   VIEWER_API_KEY: Joi.string().optional().allow('', null),
   WORLD_SNAPSHOT_PATH: Joi.string().default('world_snapshot.json'),
   WORLD_SNAPSHOT_SOURCE: Joi.string().valid('file', 'db').default('file'),
-  WORLD_SNAPSHOT_INTERVAL_MS: Joi.number().integer().min(1000).optional(),
+  WORLD_SNAPSHOT_INTERVAL_MS: Joi.number().integer().min(0).optional(),
   WORLD_SNAPSHOT_ON_START: Joi.string().valid('true', 'false').default('false')
 }).unknown(true);
 
@@ -55,8 +55,12 @@ export const config = {
   viewerApiKey: value.VIEWER_API_KEY,
   worldSnapshotPath: value.WORLD_SNAPSHOT_PATH,
   worldSnapshotSource: value.WORLD_SNAPSHOT_SOURCE,
-  worldSnapshotIntervalMs: value.WORLD_SNAPSHOT_INTERVAL_MS ?? (value.DATABASE_URL ? 60000 : null),
+  worldSnapshotIntervalMs: (() => {
+    if (value.WORLD_SNAPSHOT_INTERVAL_MS === 0) return null;
+    if (typeof value.WORLD_SNAPSHOT_INTERVAL_MS === 'number') return value.WORLD_SNAPSHOT_INTERVAL_MS;
+    return value.WORLD_SNAPSHOT_SOURCE === 'db' ? 60000 : 300000;
+  })(),
   worldSnapshotOnStart: value.WORLD_SNAPSHOT_ON_START
     ? value.WORLD_SNAPSHOT_ON_START === 'true'
-    : Boolean(value.DATABASE_URL)
+    : value.WORLD_SNAPSHOT_SOURCE === 'db'
 };

@@ -258,40 +258,75 @@ app.locals.db = db;
 
 const snapshotPath = resolveSnapshotPath(config.worldSnapshotPath);
 const saveWorldSnapshot = async () => {
-  const snapshot = {
-    ...worldState.createSnapshot(),
-    registry: moltbotRegistry.createSnapshot(),
-    actionQueue: actionQueue.createSnapshot(),
-    economy: economyManager.createSnapshot(),
-    events: eventManager.createSnapshot(),
-    conversations: interactionEngine.createSnapshot(),
-    aesthetics: aestheticsManager.createSnapshot(),
-    mood: cityMoodManager.createSnapshot(),
-    governance: governanceManager.createSnapshot(),
-    voting: votingManager.createSnapshot()
-  };
-  await saveSnapshotFile(snapshotPath, snapshot);
-  if (db) {
-    await saveSnapshotDb(db, snapshot);
+  const startedAt = Date.now();
+  try {
+    const snapshot = {
+      ...worldState.createSnapshot(),
+      registry: moltbotRegistry.createSnapshot(),
+      actionQueue: actionQueue.createSnapshot(),
+      economy: economyManager.createSnapshot(),
+      events: eventManager.createSnapshot(),
+      conversations: interactionEngine.createSnapshot(),
+      aesthetics: aestheticsManager.createSnapshot(),
+      mood: cityMoodManager.createSnapshot(),
+      governance: governanceManager.createSnapshot(),
+      voting: votingManager.createSnapshot()
+    };
+    await saveSnapshotFile(snapshotPath, snapshot);
+    if (db) {
+      await saveSnapshotDb(db, snapshot);
+    }
+    const snapshotSizeBytes = Buffer.byteLength(JSON.stringify(snapshot));
+    metrics.worldSnapshots.success += 1;
+    metrics.worldSnapshots.lastSaveAt = Date.now();
+    metrics.worldSnapshots.lastSaveDurationMs = metrics.worldSnapshots.lastSaveAt - startedAt;
+    metrics.worldSnapshots.lastSizeBytes = snapshotSizeBytes;
+    const total = metrics.worldSnapshots.success;
+    metrics.worldSnapshots.avgSizeBytes =
+      total === 1
+        ? snapshotSizeBytes
+        : (metrics.worldSnapshots.avgSizeBytes * (total - 1) + snapshotSizeBytes) / total;
+    logger.info('World snapshot saved', {
+      path: snapshotPath,
+      createdAt: snapshot.createdAt,
+      sizeBytes: snapshotSizeBytes,
+      durationMs: metrics.worldSnapshots.lastSaveDurationMs
+    });
+  } catch (error) {
+    metrics.worldSnapshots.failures += 1;
+    logger.error('World snapshot save failed', { error: error.message });
+    throw error;
   }
-  logger.info('World snapshot saved', { path: snapshotPath, createdAt: snapshot.createdAt });
 };
 
 const restoreWorldSnapshot = async () => {
-  const snapshot = config.worldSnapshotSource === 'db'
-    ? await loadLatestSnapshotDb(db)
-    : await loadSnapshotFile(snapshotPath);
-  worldState.loadSnapshot(snapshot);
-  moltbotRegistry.loadSnapshot(snapshot.registry);
-  actionQueue.loadSnapshot(snapshot.actionQueue);
-  economyManager.loadSnapshot(snapshot.economy);
-  eventManager.loadSnapshot(snapshot.events);
-  interactionEngine.loadSnapshot(snapshot.conversations);
-  aestheticsManager.loadSnapshot(snapshot.aesthetics);
-  cityMoodManager.loadSnapshot(snapshot.mood);
-  governanceManager.loadSnapshot(snapshot.governance);
-  votingManager.loadSnapshot(snapshot.voting);
-  logger.info('World snapshot restored', { path: snapshotPath, restoredAt: Date.now() });
+  const startedAt = Date.now();
+  try {
+    const snapshot = config.worldSnapshotSource === 'db'
+      ? await loadLatestSnapshotDb(db)
+      : await loadSnapshotFile(snapshotPath);
+    worldState.loadSnapshot(snapshot);
+    moltbotRegistry.loadSnapshot(snapshot.registry);
+    actionQueue.loadSnapshot(snapshot.actionQueue);
+    economyManager.loadSnapshot(snapshot.economy);
+    eventManager.loadSnapshot(snapshot.events);
+    interactionEngine.loadSnapshot(snapshot.conversations);
+    aestheticsManager.loadSnapshot(snapshot.aesthetics);
+    cityMoodManager.loadSnapshot(snapshot.mood);
+    governanceManager.loadSnapshot(snapshot.governance);
+    votingManager.loadSnapshot(snapshot.voting);
+    metrics.worldSnapshots.lastLoadAt = Date.now();
+    metrics.worldSnapshots.lastLoadDurationMs = metrics.worldSnapshots.lastLoadAt - startedAt;
+    logger.info('World snapshot restored', {
+      path: snapshotPath,
+      restoredAt: metrics.worldSnapshots.lastLoadAt,
+      durationMs: metrics.worldSnapshots.lastLoadDurationMs
+    });
+  } catch (error) {
+    metrics.worldSnapshots.failures += 1;
+    logger.error('World snapshot restore failed', { error: error.message });
+    throw error;
+  }
 };
 
 if (db) {

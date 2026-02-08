@@ -34,6 +34,16 @@ export const metrics = {
     ticks: 0,
     lastTickMs: 0,
     avgTickMs: 0
+  },
+  worldSnapshots: {
+    success: 0,
+    failures: 0,
+    lastSaveAt: null,
+    lastLoadAt: null,
+    lastSaveDurationMs: null,
+    lastLoadDurationMs: null,
+    lastSizeBytes: null,
+    avgSizeBytes: 0
   }
 };
 
