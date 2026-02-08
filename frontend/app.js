@@ -105,19 +105,55 @@ const DEFAULT_UI_STATE = {
   aestheticsActionsOpen: false,
   showModeActive: false
 };
-const SHOW_MODE_CONFIG = {
+const SHOW_MODE_DEFAULTS = {
   minSceneDurationMs: 10000,
   decayWindowMs: 30000,
   switchThreshold: 15,
   queueLimit: 3,
-  threadsLimit: 6
+  threadsLimit: 6,
+  predictionsEnabled: true,
+  arcsEnabled: true,
+  statsEnabled: true,
+  heatmapEnabled: true,
+  relationshipAffinityDelta: 10,
+  relationshipConflictDelta: 8,
+  relationshipAffinityScore: 18,
+  relationshipConflictScore: 22,
+  affinityMultiplier: 1.4,
+  conflictMultiplier: 1.5,
+  climaxMultiplier: 1.8,
+  noveltyBonus: 12,
+  witnessRadius: 6,
+  witnessScorePer: 3,
+  witnessScoreMax: 20,
+  keywordMultiplier: 1.3,
+  politicaBonus: 18,
+  negocioBonus: 10,
+  predictionsLimit: 4,
+  heatmapRetentionMinutes: 5
 };
+const SHOW_MODE_SETTINGS = { ...SHOW_MODE_DEFAULTS };
 const SHOW_MODE_STATE = {
   active: false,
   currentScene: null,
   scenes: [],
   threads: new Map(),
-  queue: []
+  queue: [],
+  relationshipCache: new Map(),
+  predictions: [],
+  heatmapPoints: [],
+  metrics: {
+    totalShowScore: 0,
+    peakMoments: [],
+    narrativeArcsCompleted: 0,
+    eventDistribution: {
+      romance: 0,
+      conflicto: 0,
+      politica: 0,
+      negocio: 0,
+      interaccion: 0
+    }
+  }
 };
 let liveAgentPositions = {};
 
@@ -424,6 +460,10 @@ function getShowModeElements() {
     time: document.getElementById('show-mode-time'),
     threadList: document.getElementById('show-mode-thread-list'),
     queue: document.getElementById('show-mode-queue'),
+    predictions: document.getElementById('show-mode-predictions'),
+    arcs: document.getElementById('show-mode-arcs'),
+    stats: document.getElementById('show-mode-stats'),
+    heatmap: document.getElementById('show-mode-heatmap'),
     caption: document.getElementById('show-mode-caption'),
     captionSpeaker: document.getElementById('show-mode-caption-speaker'),
     captionText: document.getElementById('show-mode-caption-text')
@@ -475,6 +515,281 @@ function computeShowScore(type, message = '') {
   return Math.max(0, Math.min(100, score));
 }
 
+function applyShowModeConfig(nextConfig = {}) {
+  Object.entries(SHOW_MODE_DEFAULTS).forEach(([key, value]) => {
+    if (Object.prototype.hasOwnProperty.call(nextConfig, key)) {
+      const nextValue = nextConfig[key];
+      if (typeof value === 'number') {
+        SHOW_MODE_SETTINGS[key] = Number(nextValue);
+      } else if (typeof value === 'boolean') {
+        if (typeof nextValue === 'string') {
+          SHOW_MODE_SETTINGS[key] = nextValue === 'true';
+        } else {
+          SHOW_MODE_SETTINGS[key] = Boolean(nextValue);
+        }
+      } else {
+        SHOW_MODE_SETTINGS[key] = nextValue;
+      }
+    } else {
+      SHOW_MODE_SETTINGS[key] = value;
+    }
+  });
+}
+
+async function loadShowModeConfig() {
+  try {
+    const response = await fetchWithViewerKey(`${API_BASE}/api/show/config`);
+    if (!response.ok) return;
+    const payload = await response.json();
+    if (payload?.config) {
+      applyShowModeConfig(payload.config);
+    }
+  } catch (error) {
+    console.warn('Failed to load show mode config', error);
+  }
+}
+
+function normalizeLabel(value = '') {
+  return String(value || '').trim().toLowerCase();
+}
+
+function resolveParticipantIds(participants = []) {
+  return participants
+    .map((participant) => {
+      if (!participant) return null;
+      const normalized = normalizeLabel(participant);
+      for (const agent of AGENT_DIRECTORY.values()) {
+        if (normalizeLabel(agent.id) === normalized || normalizeLabel(agent.name) === normalized) {
+          return agent.id;
+        }
+      }
+      return participant;
+    })
+    .filter(Boolean);
+}
+
+function buildPairKey(a, b) {
+  return [a, b].sort().join('|');
+}
+
+function getRelationshipSnapshot(participants = []) {
+  const network = WORLD_CONTEXT.socialNetwork;
+  if (!network?.edges || !participants.length) return null;
+  const ids = resolveParticipantIds(participants);
+  if (ids.length < 2) return null;
+  const pairs = [];
+  for (let i = 0; i < ids.length; i += 1) {
+    for (let j = i + 1; j < ids.length; j += 1) {
+      pairs.push([ids[i], ids[j]]);
+    }
+  }
+  const snapshots = pairs.map(([fromId, toId]) => {
+    const edge = network.edges.find(item =>
+      (normalizeLabel(item.from) === normalizeLabel(fromId) && normalizeLabel(item.to) === normalizeLabel(toId)) ||
+      (normalizeLabel(item.from) === normalizeLabel(toId) && normalizeLabel(item.to) === normalizeLabel(fromId))
+    );
+    if (!edge) return null;
+    const affinity = Number(edge.affinity ?? 0);
+    const trust = Number(edge.trust ?? 0);
+    const conflict = Number(edge.conflict ?? Math.max(0, 100 - trust));
+    return { pair: buildPairKey(fromId, toId), affinity, trust, conflict };
+  }).filter(Boolean);
+  if (!snapshots.length) return null;
+  const totals = snapshots.reduce((acc, item) => {
+    acc.affinity += item.affinity;
+    acc.trust += item.trust;
+    acc.conflict += item.conflict;
+    return acc;
+  }, { affinity: 0, trust: 0, conflict: 0 });
+  return {
+    pairs: snapshots,
+    affinity: totals.affinity / snapshots.length,
+    trust: totals.trust / snapshots.length,
+    conflict: totals.conflict / snapshots.length
+  };
+}
+
+function getRelationshipDelta(snapshot) {
+  if (!snapshot) return null;
+  let deltaAffinity = 0;
+  let deltaTrust = 0;
+  let deltaConflict = 0;
+  snapshot.pairs.forEach((pair) => {
+    const cached = SHOW_MODE_STATE.relationshipCache.get(pair.pair);
+    if (cached) {
+      deltaAffinity += pair.affinity - cached.affinity;
+      deltaTrust += pair.trust - cached.trust;
+      deltaConflict += pair.conflict - cached.conflict;
+    }
+    SHOW_MODE_STATE.relationshipCache.set(pair.pair, {
+      affinity: pair.affinity,
+      trust: pair.trust,
+      conflict: pair.conflict
+    });
+  });
+  return {
+    affinity: deltaAffinity,
+    trust: deltaTrust,
+    conflict: deltaConflict
+  };
+}
+
+function getSceneLocation(participants = []) {
+  const ids = resolveParticipantIds(participants);
+  const positions = ids.map(id => liveAgentPositions?.[id]).filter(Boolean);
+  if (!positions.length) return null;
+  const total = positions.reduce((acc, pos) => {
+    acc.x += pos.x || 0;
+    acc.y += pos.y || 0;
+    return acc;
+  }, { x: 0, y: 0 });
+  return {
+    x: total.x / positions.length,
+    y: total.y / positions.length
+  };
+}
+
+function getNearbyWitnesses(location, participants = []) {
+  if (!location || !liveAgentPositions) return 0;
+  const ids = new Set(resolveParticipantIds(participants));
+  return Object.entries(liveAgentPositions).reduce((count, [id, pos]) => {
+    if (ids.has(id)) return count;
+    const dx = (pos.x || 0) - location.x;
+    const dy = (pos.y || 0) - location.y;
+    const distance = Math.sqrt(dx * dx + dy * dy);
+    if (distance <= SHOW_MODE_SETTINGS.witnessRadius) {
+      return count + 1;
+    }
+    return count;
+  }, 0);
+}
+
+function isNovelInteraction(thread, sceneType) {
+  if (!thread) return true;
+  const recentTypes = thread.beats.slice(-4).map(beat => beat.type);
+  return !recentTypes.includes(sceneType);
+}
+
+function computeAdvancedShowScore(scene, thread, relationshipSnapshot = null) {
+  const baseType = scene.type || classifySceneType(scene.summary || '');
+  const baseScore = computeShowScore(baseType, scene.summary || '');
+  let score = baseScore;
+  const multipliers = [];
+
+  const resolvedSnapshot = relationshipSnapshot || getRelationshipSnapshot(scene.participants || []);
+  const relationshipDelta = getRelationshipDelta(resolvedSnapshot);
+  if (relationshipDelta) {
+    if (Math.abs(relationshipDelta.affinity) > SHOW_MODE_SETTINGS.relationshipAffinityDelta) {
+      score += SHOW_MODE_SETTINGS.relationshipAffinityScore;
+      multipliers.push(SHOW_MODE_SETTINGS.affinityMultiplier);
+    }
+    if (Math.abs(relationshipDelta.conflict) > SHOW_MODE_SETTINGS.relationshipConflictDelta) {
+      score += SHOW_MODE_SETTINGS.relationshipConflictScore;
+      multipliers.push(SHOW_MODE_SETTINGS.conflictMultiplier);
+    }
+  }
+
+  if (thread && thread.status === 'climax_building') {
+    multipliers.push(SHOW_MODE_SETTINGS.climaxMultiplier);
+  }
+
+  if (isNovelInteraction(thread, baseType)) {
+    score += SHOW_MODE_SETTINGS.noveltyBonus;
+  }
+
+  const witnessCount = getNearbyWitnesses(scene.location, scene.participants || []);
+  score += Math.min(witnessCount * SHOW_MODE_SETTINGS.witnessScorePer, SHOW_MODE_SETTINGS.witnessScoreMax);
+
+  if (baseType === 'politica' && WORLD_CONTEXT.vote) {
+    score += SHOW_MODE_SETTINGS.politicaBonus;
+  }
+  if (baseType === 'negocio' && WORLD_CONTEXT.economy?.properties?.length) {
+    score += SHOW_MODE_SETTINGS.negocioBonus;
+  }
+
+  if (scene.summary && /(traici|escandal|shock|plot|renunci|ruptur)/i.test(scene.summary)) {
+    multipliers.push(SHOW_MODE_SETTINGS.keywordMultiplier);
+  }
+
+  let finalScore = score;
+  multipliers.forEach((multiplier) => {
+    finalScore *= multiplier;
+  });
+
+  return Math.min(100, Math.max(0, Math.round(finalScore)));
+}
+
+const NARRATIVE_PATTERNS = {
+  REDEMPTION_ARC: {
+    label: 'REDENCIÓN',
+    scoreBoost: 1.4,
+    description: '{A} y {B} están superando su rivalidad',
+    detect: (thread) => {
+      const history = thread.relationshipHistory || [];
+      if (history.length < 4) return false;
+      const first = history.slice(0, 2);
+      const recent = history.slice(-2);
+      const firstConflict = first.reduce((sum, item) => sum + (item.conflict || 0), 0) / first.length;
+      const recentConflict = recent.reduce((sum, item) => sum + (item.conflict || 0), 0) / recent.length;
+      const firstAffinity = first.reduce((sum, item) => sum + (item.affinity || 0), 0) / first.length;
+      const recentAffinity = recent.reduce((sum, item) => sum + (item.affinity || 0), 0) / recent.length;
+      return recentConflict < firstConflict && recentAffinity > firstAffinity;
+    }
+  },
+  BETRAYAL_ARC: {
+    label: 'TRAICIÓN',
+    scoreBoost: 1.8,
+    description: 'La confianza entre {A} y {B} colapsó',
+    criticalMoment: true,
+    detect: (thread) => {
+      const history = thread.relationshipHistory || [];
+      if (history.length < 4) return false;
+      const firstTrust = history[0]?.trust ?? 0;
+      const latestTrust = history[history.length - 1]?.trust ?? 0;
+      return firstTrust > 60 && latestTrust < 25;
+    }
+  },
+  ROMANCE_ARC: {
+    label: 'ROMANCE',
+    scoreBoost: 1.3,
+    description: '{A} y {B} están muy unidos últimamente',
+    detect: (thread) => {
+      const socials = thread.beats.filter(beat => beat.type === 'romance' || beat.type === 'interaccion');
+      const avgAffinity = thread.relationshipHistory?.length
+        ? thread.relationshipHistory.reduce((sum, item) => sum + (item.affinity || 0), 0) / thread.relationshipHistory.length
+        : 0;
+      return socials.length >= 4 && avgAffinity > 55;
+    }
+  },
+  POLITICAL_RISE: {
+    label: 'ASCENSO',
+    scoreBoost: 1.2,
+    description: '{A} está ganando influencia en la ciudad',
+    detect: (thread) => thread.type === 'politica' && thread.totalScore > 160
+  },
+  COALITION_FORMING: {
+    label: 'ALIANZA',
+    scoreBoost: 1.4,
+    description: 'Se está formando una coalición',
+    detect: (thread) => thread.beats.length >= 4 && thread.participants.length >= 3
+  }
+};
+
+function detectNarrativePattern(thread) {
+  for (const [key, pattern] of Object.entries(NARRATIVE_PATTERNS)) {
+    if (pattern.detect(thread)) {
+      return {
+        patternType: key,
+        label: pattern.label,
+        scoreBoost: pattern.scoreBoost,
+        description: pattern.description,
+        critical: pattern.criticalMoment || false
+      };
+    }
+  }
+  return null;
+}
+
 function getSceneId(scene) {
   const participants = scene.participants?.join('|') || 'anon';
   return `${scene.type}-${participants}`;
@@ -483,13 +798,13 @@ function getSceneId(scene) {
 function shouldTransition(currentScene, nextScene) {
   if (!currentScene) return true;
   const now = Date.now();
-  if (now - currentScene.startedAt < SHOW_MODE_CONFIG.minSceneDurationMs) {
+  if (now - currentScene.startedAt < SHOW_MODE_SETTINGS.minSceneDurationMs) {
     return false;
   }
   const timeSinceUpdate = now - currentScene.lastUpdate;
-  const decay = Math.max(0, 1 - timeSinceUpdate / SHOW_MODE_CONFIG.decayWindowMs);
+  const decay = Math.max(0, 1 - timeSinceUpdate / SHOW_MODE_SETTINGS.decayWindowMs);
   const currentMomentum = currentScene.showScore * decay;
-  if (nextScene.showScore > currentMomentum + SHOW_MODE_CONFIG.switchThreshold) {
+  if (nextScene.showScore > currentMomentum + SHOW_MODE_SETTINGS.switchThreshold) {
     return true;
   }
   return false;
@@ -524,6 +839,12 @@ function updateShowModeUI() {
     elements.captionText.textContent = 'En espera de diálogo...';
     elements.threadList.innerHTML = '';
     elements.queue.innerHTML = '';
+    if (elements.predictions) elements.predictions.innerHTML = '';
+    if (elements.arcs) elements.arcs.innerHTML = '';
+    if (elements.stats) elements.stats.innerHTML = '';
+    if (SHOW_MODE_SETTINGS.heatmapEnabled) {
+      renderHeatmap(elements.heatmap);
+    }
     return;
   }
   if (elements.tracker) {
@@ -546,7 +867,7 @@ function updateShowModeUI() {
 
   const threads = Array.from(SHOW_MODE_STATE.threads.values())
     .sort((a, b) => b.totalScore - a.totalScore)
-    .slice(0, SHOW_MODE_CONFIG.threadsLimit);
+    .slice(0, SHOW_MODE_SETTINGS.threadsLimit);
   elements.threadList.innerHTML = threads.map(thread => `
     <div class="show-mode-thread">
       <div class="show-mode-thread-title">${thread.title}</div>
@@ -560,17 +881,82 @@ function updateShowModeUI() {
       <span>${item.showScore}</span>
     </div>
   `).join('');
+
+  if (SHOW_MODE_SETTINGS.predictionsEnabled) {
+    predictClimaxMoments();
+    if (elements.predictions) {
+      elements.predictions.style.display = '';
+      elements.predictions.innerHTML = SHOW_MODE_STATE.predictions.length
+        ? SHOW_MODE_STATE.predictions.map(item => `
+          <div class="show-mode-prediction">
+            <strong>${item.label}</strong>
+            <span>${item.type} · ${(item.probability * 100).toFixed(0)}% · ${item.eta}</span>
+          </div>
+        `).join('')
+        : '<div class="panel-row panel-muted">Sin predicciones activas</div>';
+    }
+  } else if (elements.predictions) {
+    elements.predictions.style.display = 'none';
+  }
+
+  if (elements.arcs) {
+    if (SHOW_MODE_SETTINGS.arcsEnabled) {
+      const arcs = threads.filter(thread => thread.narrative);
+      elements.arcs.style.display = '';
+      elements.arcs.innerHTML = arcs.length
+        ? arcs.map(thread => `
+          <div class="show-mode-arc">
+            <div class="show-mode-arc-header">
+              <span class="show-mode-arc-label">${thread.narrative.label}</span>
+              <span>${thread.narrative.scoreBoost}x</span>
+            </div>
+            <div class="show-mode-arc-participants">${thread.title}</div>
+            <div class="show-mode-arc-progress"><span style="width: ${thread.progress}%"></span></div>
+            <div class="show-mode-arc-status">${thread.narrative.description}</div>
+          </div>
+        `).join('')
+        : '<div class="panel-row panel-muted">Sin arcos detectados</div>';
+    } else {
+      elements.arcs.style.display = 'none';
+    }
+  }
+
+  if (elements.stats) {
+    if (SHOW_MODE_SETTINGS.statsEnabled) {
+      const distribution = SHOW_MODE_STATE.metrics.eventDistribution;
+      elements.stats.style.display = '';
+      elements.stats.innerHTML = `
+        <div class="show-mode-stat"><span class="label">Conflictos activos</span><span class="value">${threads.filter(t => t.type === 'conflicto').length}</span></div>
+        <div class="show-mode-stat"><span class="label">Romances emergentes</span><span class="value">${threads.filter(t => t.type === 'romance').length}</span></div>
+        <div class="show-mode-stat"><span class="label">Drama Score 24h</span><span class="value">${SHOW_MODE_STATE.metrics.totalShowScore}</span></div>
+        <div class="show-mode-stat"><span class="label">Eventos sociales</span><span class="value">${distribution.interaccion}</span></div>
+      `;
+    } else {
+      elements.stats.style.display = 'none';
+    }
+  }
+
+  if (SHOW_MODE_SETTINGS.heatmapEnabled) {
+    if (elements.heatmap) {
+      const heatmapContainer = elements.heatmap.closest('.show-mode-heatmap');
+      if (heatmapContainer) heatmapContainer.style.display = '';
+    }
+    renderHeatmap(elements.heatmap);
+  } else if (elements.heatmap) {
+    const heatmapContainer = elements.heatmap.closest('.show-mode-heatmap');
+    if (heatmapContainer) heatmapContainer.style.display = 'none';
+  }
 }
 
 function updateShowModeQueue(scene) {
   SHOW_MODE_STATE.queue = SHOW_MODE_STATE.queue.filter(item => item.id !== scene.id);
   SHOW_MODE_STATE.queue.unshift(scene);
-  if (SHOW_MODE_STATE.queue.length > SHOW_MODE_CONFIG.queueLimit) {
-    SHOW_MODE_STATE.queue = SHOW_MODE_STATE.queue.slice(0, SHOW_MODE_CONFIG.queueLimit);
+  if (SHOW_MODE_STATE.queue.length > SHOW_MODE_SETTINGS.queueLimit) {
+    SHOW_MODE_STATE.queue = SHOW_MODE_STATE.queue.slice(0, SHOW_MODE_SETTINGS.queueLimit);
   }
 }
 
-function updateThread(scene) {
+function updateThread(scene, relationshipSnapshot) {
   const threadId = getSceneId(scene);
   let thread = SHOW_MODE_STATE.threads.get(threadId);
   if (!thread) {
@@ -583,21 +969,38 @@ function updateThread(scene) {
       totalScore: 0,
       peakScore: 0,
       status: 'emergente',
-      lastActivity: Date.now()
+      lastActivity: Date.now(),
+      relationshipHistory: [],
+      narrative: null,
+      progress: 0
     };
     SHOW_MODE_STATE.threads.set(threadId, thread);
   }
   thread.beats.push({
     summary: scene.summary,
     showScore: scene.showScore,
+    type: scene.type,
     at: Date.now()
   });
   thread.totalScore += scene.showScore;
   thread.peakScore = Math.max(thread.peakScore, scene.showScore);
   thread.lastActivity = Date.now();
-  if (thread.beats.length >= 3) {
+  if (relationshipSnapshot) {
+    thread.relationshipHistory.push({
+      affinity: relationshipSnapshot.affinity,
+      trust: relationshipSnapshot.trust,
+      conflict: relationshipSnapshot.conflict,
+      at: Date.now()
+    });
+  }
+  const recentScores = thread.beats.slice(-3).map(beat => beat.showScore);
+  if (recentScores.length === 3 && recentScores[2] > recentScores[1] && recentScores[1] > recentScores[0]) {
+    thread.status = 'climax_building';
+  } else if (thread.beats.length >= 3) {
     thread.status = 'activa';
   }
+  thread.progress = Math.min(100, Math.round(thread.beats.length * 15));
+  thread.narrative = detectNarrativePattern(thread);
 }
 
 function decayThreads() {
@@ -613,20 +1016,132 @@ function decayThreads() {
   });
 }
 
+function addHeatmapPoint(scene) {
+  if (!scene.location) return;
+  SHOW_MODE_STATE.heatmapPoints.push({
+    x: scene.location.x,
+    y: scene.location.y,
+    intensity: scene.showScore,
+    at: Date.now()
+  });
+  const cutoff = Date.now() - SHOW_MODE_SETTINGS.heatmapRetentionMinutes * 60 * 1000;
+  SHOW_MODE_STATE.heatmapPoints = SHOW_MODE_STATE.heatmapPoints.filter(point => point.at >= cutoff);
+}
+
+function renderHeatmap(canvas) {
+  if (!canvas) return;
+  const ctx = canvas.getContext('2d');
+  if (!ctx) return;
+  ctx.clearRect(0, 0, canvas.width, canvas.height);
+  const points = SHOW_MODE_STATE.heatmapPoints;
+  if (!points.length) return;
+  const maxX = WORLD_W;
+  const maxY = WORLD_H;
+  points.forEach((point) => {
+    const x = (point.x / maxX) * canvas.width;
+    const y = (point.y / maxY) * canvas.height;
+    const radius = Math.max(12, (point.intensity / 100) * 28);
+    const gradient = ctx.createRadialGradient(x, y, 0, x, y, radius);
+    gradient.addColorStop(0, 'rgba(255, 140, 97, 0.55)');
+    gradient.addColorStop(1, 'rgba(255, 140, 97, 0)');
+    ctx.fillStyle = gradient;
+    ctx.beginPath();
+    ctx.arc(x, y, radius, 0, Math.PI * 2);
+    ctx.fill();
+  });
+}
+
+function predictClimaxMoments() {
+  const predictions = [];
+  SHOW_MODE_STATE.threads.forEach((thread) => {
+    if (thread.status === 'climax_building') {
+      predictions.push({
+        type: 'CONFRONTACION',
+        label: `Tensión en ${thread.title}`,
+        probability: 0.75,
+        eta: '2-5 min'
+      });
+    }
+  });
+
+  const network = WORLD_CONTEXT.socialNetwork;
+  if (network?.edges) {
+    network.edges.forEach((edge) => {
+      const conflict = Number(edge.conflict ?? Math.max(0, 100 - (edge.trust ?? 0)));
+      if (conflict < 60) return;
+      const posA = liveAgentPositions?.[edge.from];
+      const posB = liveAgentPositions?.[edge.to];
+      if (!posA || !posB) return;
+      const dx = (posA.x || 0) - (posB.x || 0);
+      const dy = (posA.y || 0) - (posB.y || 0);
+      const distance = Math.sqrt(dx * dx + dy * dy);
+      if (distance <= 8) {
+        predictions.push({
+          type: 'ENCUENTRO_HOSTIL',
+          label: `Encuentro tenso: ${edge.from} vs ${edge.to}`,
+          probability: 0.85,
+          eta: 'inminente'
+        });
+      }
+    });
+  }
+
+  if (WORLD_CONTEXT.vote && WORLD_CONTEXT.vote.endsAt) {
+    const remainingMs = WORLD_CONTEXT.vote.endsAt - Date.now();
+    if (remainingMs > 0 && remainingMs < 5 * 60 * 1000) {
+      predictions.push({
+        type: 'VOTACION',
+        label: 'Cierre de votación cercano',
+        probability: 0.65,
+        eta: `${Math.ceil(remainingMs / 60000)} min`
+      });
+    }
+  }
+
+  SHOW_MODE_STATE.predictions = predictions.slice(0, SHOW_MODE_SETTINGS.predictionsLimit);
+}
+
 function registerShowBeat({ type, participants, summary, dialogue }) {
   const sceneType = type || classifySceneType(summary || '');
-  const showScore = computeShowScore(sceneType, summary || '');
+  const sceneLocation = getSceneLocation(participants || []);
   const scene = {
     id: `${Date.now()}-${Math.random().toString(16).slice(2)}`,
     type: sceneType,
     participants: participants || [],
     summary: summary || 'Interacción destacada',
     dialogue,
-    showScore,
+    showScore: 0,
+    location: sceneLocation,
     lastUpdate: Date.now(),
     startedAt: Date.now()
   };
-  updateThread(scene);
+  const thread = SHOW_MODE_STATE.threads.get(getSceneId(scene)) || null;
+  const relationshipSnapshot = getRelationshipSnapshot(scene.participants || []);
+  scene.showScore = computeAdvancedShowScore(scene, thread, relationshipSnapshot);
+  updateThread(scene, relationshipSnapshot);
+  const updatedThread = SHOW_MODE_STATE.threads.get(getSceneId(scene));
+  if (updatedThread?.narrative?.scoreBoost) {
+    const boostedScore = Math.min(100, Math.round(scene.showScore * updatedThread.narrative.scoreBoost));
+    if (boostedScore > scene.showScore) {
+      const delta = boostedScore - scene.showScore;
+      scene.showScore = boostedScore;
+      updatedThread.totalScore += delta;
+      updatedThread.peakScore = Math.max(updatedThread.peakScore, boostedScore);
+    }
+  }
+  SHOW_MODE_STATE.metrics.totalShowScore += scene.showScore;
+  if (!(scene.type in SHOW_MODE_STATE.metrics.eventDistribution)) {
+    SHOW_MODE_STATE.metrics.eventDistribution[scene.type] = 0;
+  }
+  SHOW_MODE_STATE.metrics.eventDistribution[scene.type] += 1;
+  if (scene.showScore >= 85) {
+    SHOW_MODE_STATE.metrics.peakMoments.push({
+      summary: scene.summary,
+      score: scene.showScore,
+      at: Date.now()
+    });
+  }
+  addHeatmapPoint(scene);
   updateShowModeQueue(scene);
   if (shouldTransition(SHOW_MODE_STATE.currentScene, scene)) {
     SHOW_MODE_STATE.currentScene = scene;
@@ -2063,7 +2578,7 @@ class MoltivilleScene extends Phaser.Scene {
   create() {
     window._moltvilleScene = this;
     setupStatusBannerControls();
-    setupShowModeControls();
+    loadShowModeConfig().finally(() => setupShowModeControls());
     const modalClose = document.getElementById('status-modal-close');
     if (modalClose) {
       modalClose.addEventListener('click', closeStatusModal);

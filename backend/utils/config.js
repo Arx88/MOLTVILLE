@@ -30,7 +30,32 @@ const schema = Joi.object({
   WORLD_SNAPSHOT_ON_START: Joi.string().valid('true', 'false').default('false'),
   WORLD_SNAPSHOT_ARCHIVE_DIR: Joi.string().optional().allow('', null),
   WORLD_SNAPSHOT_ARCHIVE_RETENTION: Joi.number().integer().min(1).optional(),
-  WORLD_SNAPSHOT_ARCHIVE_CHECKSUM: Joi.string().valid('true', 'false').default('true')
+  WORLD_SNAPSHOT_ARCHIVE_CHECKSUM: Joi.string().valid('true', 'false').default('true'),
+  SHOW_MODE_MIN_SCENE_MS: Joi.number().integer().min(1000).default(10000),
+  SHOW_MODE_DECAY_WINDOW_MS: Joi.number().integer().min(1000).default(30000),
+  SHOW_MODE_SWITCH_THRESHOLD: Joi.number().integer().min(0).default(15),
+  SHOW_MODE_QUEUE_LIMIT: Joi.number().integer().min(1).default(3),
+  SHOW_MODE_THREADS_LIMIT: Joi.number().integer().min(1).default(6),
+  SHOW_MODE_PREDICTIONS_ENABLED: Joi.string().valid('true', 'false').default('true'),
+  SHOW_MODE_ARCS_ENABLED: Joi.string().valid('true', 'false').default('true'),
+  SHOW_MODE_STATS_ENABLED: Joi.string().valid('true', 'false').default('true'),
+  SHOW_MODE_HEATMAP_ENABLED: Joi.string().valid('true', 'false').default('true'),
+  SHOW_MODE_REL_AFFINITY_DELTA: Joi.number().min(0).default(10),
+  SHOW_MODE_REL_CONFLICT_DELTA: Joi.number().min(0).default(8),
+  SHOW_MODE_SCORE_AFFINITY: Joi.number().min(0).default(18),
+  SHOW_MODE_SCORE_CONFLICT: Joi.number().min(0).default(22),
+  SHOW_MODE_AFFINITY_MULTIPLIER: Joi.number().min(1).default(1.4),
+  SHOW_MODE_CONFLICT_MULTIPLIER: Joi.number().min(1).default(1.5),
+  SHOW_MODE_CLIMAX_MULTIPLIER: Joi.number().min(1).default(1.8),
+  SHOW_MODE_NOVELTY_BONUS: Joi.number().min(0).default(12),
+  SHOW_MODE_WITNESS_RADIUS: Joi.number().min(0).default(6),
+  SHOW_MODE_WITNESS_SCORE_PER: Joi.number().min(0).default(3),
+  SHOW_MODE_WITNESS_SCORE_MAX: Joi.number().min(0).default(20),
+  SHOW_MODE_KEYWORD_MULTIPLIER: Joi.number().min(1).default(1.3),
+  SHOW_MODE_POLITICA_BONUS: Joi.number().min(0).default(18),
+  SHOW_MODE_NEGOCIO_BONUS: Joi.number().min(0).default(10),
+  SHOW_MODE_PREDICTIONS_LIMIT: Joi.number().integer().min(1).default(4),
+  SHOW_MODE_HEATMAP_RETENTION_MIN: Joi.number().min(1).default(5)
 }).unknown(true);
 
 const applyOverrides = () => {
@@ -79,7 +104,34 @@ const buildConfig = () => {
       : value.WORLD_SNAPSHOT_SOURCE === 'db',
     worldSnapshotArchiveDir: value.WORLD_SNAPSHOT_ARCHIVE_DIR || null,
     worldSnapshotArchiveRetention: value.WORLD_SNAPSHOT_ARCHIVE_RETENTION,
-    worldSnapshotArchiveChecksum: value.WORLD_SNAPSHOT_ARCHIVE_CHECKSUM === 'true'
+    worldSnapshotArchiveChecksum: value.WORLD_SNAPSHOT_ARCHIVE_CHECKSUM === 'true',
+    showMode: {
+      minSceneDurationMs: value.SHOW_MODE_MIN_SCENE_MS,
+      decayWindowMs: value.SHOW_MODE_DECAY_WINDOW_MS,
+      switchThreshold: value.SHOW_MODE_SWITCH_THRESHOLD,
+      queueLimit: value.SHOW_MODE_QUEUE_LIMIT,
+      threadsLimit: value.SHOW_MODE_THREADS_LIMIT,
+      predictionsEnabled: value.SHOW_MODE_PREDICTIONS_ENABLED === 'true',
+      arcsEnabled: value.SHOW_MODE_ARCS_ENABLED === 'true',
+      statsEnabled: value.SHOW_MODE_STATS_ENABLED === 'true',
+      heatmapEnabled: value.SHOW_MODE_HEATMAP_ENABLED === 'true',
+      relationshipAffinityDelta: value.SHOW_MODE_REL_AFFINITY_DELTA,
+      relationshipConflictDelta: value.SHOW_MODE_REL_CONFLICT_DELTA,
+      relationshipAffinityScore: value.SHOW_MODE_SCORE_AFFINITY,
+      relationshipConflictScore: value.SHOW_MODE_SCORE_CONFLICT,
+      affinityMultiplier: value.SHOW_MODE_AFFINITY_MULTIPLIER,
+      conflictMultiplier: value.SHOW_MODE_CONFLICT_MULTIPLIER,
+      climaxMultiplier: value.SHOW_MODE_CLIMAX_MULTIPLIER,
+      noveltyBonus: value.SHOW_MODE_NOVELTY_BONUS,
+      witnessRadius: value.SHOW_MODE_WITNESS_RADIUS,
+      witnessScorePer: value.SHOW_MODE_WITNESS_SCORE_PER,
+      witnessScoreMax: value.SHOW_MODE_WITNESS_SCORE_MAX,
+      keywordMultiplier: value.SHOW_MODE_KEYWORD_MULTIPLIER,
+      politicaBonus: value.SHOW_MODE_POLITICA_BONUS,
+      negocioBonus: value.SHOW_MODE_NEGOCIO_BONUS,
+      predictionsLimit: value.SHOW_MODE_PREDICTIONS_LIMIT,
+      heatmapRetentionMinutes: value.SHOW_MODE_HEATMAP_RETENTION_MIN
+    }
   };
 };
 
