@@ -55,6 +55,8 @@ export const config = {
   viewerApiKey: value.VIEWER_API_KEY,
   worldSnapshotPath: value.WORLD_SNAPSHOT_PATH,
   worldSnapshotSource: value.WORLD_SNAPSHOT_SOURCE,
-  worldSnapshotIntervalMs: value.WORLD_SNAPSHOT_INTERVAL_MS,
-  worldSnapshotOnStart: value.WORLD_SNAPSHOT_ON_START === 'true'
+  worldSnapshotIntervalMs: value.WORLD_SNAPSHOT_INTERVAL_MS ?? (value.DATABASE_URL ? 60000 : null),
+  worldSnapshotOnStart: value.WORLD_SNAPSHOT_ON_START
+    ? value.WORLD_SNAPSHOT_ON_START === 'true'
+    : Boolean(value.DATABASE_URL)
 };

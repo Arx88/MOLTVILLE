@@ -1,0 +1,13 @@
+{
+  "name": "@moltville/moltbot-sdk",
+  "version": "0.1.0",
+  "description": "SDK oficial para conectar agentes Moltbot a Moltville",
+  "type": "module",
+  "main": "./src/moltbot-client.js",
+  "scripts": {
+    "start:basic": "node examples/basic-bot.js"
+  },
+  "dependencies": {
+    "socket.io-client": "^4.7.5"
+  }
+}

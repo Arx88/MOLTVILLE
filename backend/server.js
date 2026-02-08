@@ -227,6 +227,10 @@ const emitEventGoals = (transitions = []) => {
     });
 };
 
+const emitViewerEvent = (event, payload) => {
+  io.to('viewers').emit(event, payload);
+};
+
 // Initialize core systems
 const worldState = new WorldStateManager();
 const moltbotRegistry = new MoltbotRegistry({ db });
@@ -642,6 +646,15 @@ io.on('connection', (socket) => {
           io.to(socketId).emit('conversation:started', conversation);
         }
       });
+      emitViewerEvent('conversation:started', {
+        conversationId: conversation.id,
+        fromId: conversation.messages[0]?.from,
+        fromName: conversation.messages[0]?.fromName,
+        toId: conversation.messages[0]?.to,
+        toName: conversation.messages[0]?.toName,
+        message: conversation.messages[0]?.message,
+        timestamp: conversation.messages[0]?.timestamp
+      });
     } catch (error) {
       logger.error('Conversation start error:', error);
       recordSocketError('agent:conversation:start', error);
@@ -690,6 +703,11 @@ io.on('connection', (socket) => {
           });
         }
       });
+      const lastMessage = conversation.messages[conversation.messages.length - 1];
+      emitViewerEvent('conversation:message', {
+        conversationId,
+        message: lastMessage
+      });
     } catch (error) {
       logger.error('Conversation message error:', error);
       recordSocketError('agent:conversation:message', error);
@@ -719,6 +737,10 @@ io.on('connection', (socket) => {
             endedAt: conversation.endedAt
           });
         }
+      });
+      emitViewerEvent('conversation:ended', {
+        conversationId,
+        endedAt: conversation.endedAt
       });
     } catch (error) {
       logger.error('Conversation end error:', error);
@@ -760,6 +782,11 @@ io.on('connection', (socket) => {
       }
       const result = await interactionEngine.performSocialAction(socket.agentId, actionType, targetId, payload || {});
       socket.emit('agent:social:result', result);
+      emitViewerEvent('agent:social', {
+        ...result,
+        agentId: socket.agentId,
+        targetId
+      });
     } catch (error) {
       logger.error('Social action error:', error);
       recordSocketError('agent:social', error);
@@ -797,6 +824,12 @@ io.on('connection', (socket) => {
       await actionQueue.enqueue({
         type: 'ACTION', agentId: socket.agentId,
         actionType, target, params, timestamp: Date.now()
+      });
+      emitViewerEvent('agent:action', {
+        agentId: socket.agentId,
+        actionType,
+        target,
+        params
       });
     } catch (error) {
       logger.error('Action error:', error);

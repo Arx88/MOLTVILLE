@@ -1,0 +1,13 @@
+{
+  "name": "Ciudadano Curioso",
+  "tone": "optimista",
+  "values": ["comunidad", "curiosidad", "civismo"],
+  "platform": "Más comunidad, cultura y plazas verdes.",
+  "lines": [
+    "Buenas, voy a recorrer la ciudad.",
+    "¿Quién se suma a una conversación en la plaza?",
+    "Hoy quiero aprender algo nuevo en la biblioteca.",
+    "La ciudad está linda, ¿no?",
+    "Voy a pasar por el mercado a ver qué hay."
+  ]
+}

@@ -209,6 +209,96 @@ function setupViewerSocket(scene) {
   });
   viewerSocket.on('world:state', (state) => handleWorldState(scene, state));
   viewerSocket.on('world:tick', (tick) => handleWorldTick(scene, tick));
+  viewerSocket.on('agent:spoke', (payload) => {
+    const agentName = payload?.agentName || 'Agente';
+    const message = payload?.message || '';
+    pushFeedMessage(agentName, message);
+  });
+  viewerSocket.on('conversation:started', (payload) => {
+    if (!payload) return;
+    const from = payload.fromName || 'Agente';
+    const to = payload.toName || 'Agente';
+    const message = payload.message || '';
+    pushFeedMessage('Conversación', `💬 ${from} → ${to}: ${message}`);
+  });
+  viewerSocket.on('conversation:message', (payload) => {
+    const message = payload?.message;
+    if (!message) return;
+    const from = message.fromName || 'Agente';
+    const to = message.toName || 'Agente';
+    pushFeedMessage('Conversación', `💬 ${from} → ${to}: ${message.message}`);
+  });
+  viewerSocket.on('conversation:ended', (payload) => {
+    if (!payload) return;
+    pushFeedMessage('Conversación', `✅ Conversación ${payload.conversationId} finalizada.`);
+  });
+  viewerSocket.on('agent:social', (payload) => {
+    if (!payload) return;
+    const from = payload.from || 'Agente';
+    const to = payload.to || 'Agente';
+    pushFeedMessage('Social', `🤝 ${from} interactuó con ${to} (${payload.actionType}).`);
+  });
+  viewerSocket.on('agent:action', (payload) => {
+    if (!payload) return;
+    pushFeedMessage('Acción', `⚙️ ${payload.agentId} ejecutó ${payload.actionType}.`);
+  });
+  viewerSocket.on('agent:spawned', (payload) => {
+    if (!payload) return;
+    pushFeedMessage('Sistema', `👋 ${payload.name || 'Un agente'} llegó a Moltville.`);
+  });
+  viewerSocket.on('agent:disconnected', (payload) => {
+    if (!payload) return;
+    pushFeedMessage('Sistema', `👋 ${payload.agentName || 'Un agente'} se desconectó.`);
+  });
+  viewerSocket.on('vote:started', (payload) => {
+    if (!payload) return;
+    pushFeedMessage('Democracia', `🗳️ Nueva votación: ${payload.options?.length || 0} opciones disponibles.`);
+  });
+  viewerSocket.on('vote:closed', (payload) => {
+    if (!payload) return;
+    const winner = payload.winner?.name || payload.winner?.type || 'Edificio';
+    pushFeedMessage('Democracia', `🏗️ Construcción aprobada: ${winner}.`);
+  });
+  viewerSocket.on('building:constructed', (payload) => {
+    if (!payload) return;
+    pushFeedMessage('Ciudad', `🏙️ Nuevo edificio: ${payload.name}.`);
+  });
+  viewerSocket.on('president:election_started', () => {
+    pushFeedMessage('Gobierno', '🗳️ Se abrió una elección presidencial.');
+  });
+  viewerSocket.on('president:election_closed', (payload) => {
+    const winner = payload?.winner?.name || 'Sin presidente';
+    pushFeedMessage('Gobierno', `👑 Resultado electoral: ${winner}.`);
+  });
+  viewerSocket.on('governance:policy_added', (payload) => {
+    if (!payload) return;
+    pushFeedMessage('Gobierno', `📜 Política activa: ${payload.type}.`);
+  });
+  viewerSocket.on('governance:policy_expired', (payload) => {
+    if (!payload) return;
+    pushFeedMessage('Gobierno', `⌛ Política expirada: ${payload.type}.`);
+  });
+  viewerSocket.on('aesthetics:vote_started', (payload) => {
+    if (!payload) return;
+    pushFeedMessage('Estética', `🎨 Votación de distrito: ${payload.districtName}.`);
+  });
+  viewerSocket.on('aesthetics:vote_closed', (payload) => {
+    if (!payload) return;
+    const winner = payload.winner?.name || 'Sin cambios';
+    pushFeedMessage('Estética', `🎨 Votación cerrada: ${winner}.`);
+  });
+  viewerSocket.on('aesthetics:theme_applied', (payload) => {
+    if (!payload) return;
+    pushFeedMessage('Estética', `🎨 Tema aplicado en distrito ${payload.districtId}.`);
+  });
+  viewerSocket.on('event:started', (payload) => {
+    if (!payload) return;
+    pushFeedMessage('Eventos', `🎉 Evento activo: ${payload.name}.`);
+  });
+  viewerSocket.on('event:ended', (payload) => {
+    if (!payload) return;
+    pushFeedMessage('Eventos', `🎉 Evento finalizado: ${payload.name}.`);
+  });
   viewerSocket.on('connect_error', () => {
     WORLD_CONTEXT.useLiveData = false;
     showStatusBanner('No se pudo conectar al viewer en vivo. Usando refresco.', true);
@@ -245,6 +335,13 @@ function storeAgentId(agentId) {
   if (agentId) {
     localStorage.setItem(STORAGE_KEYS.agentId, agentId);
   }
+}
+
+function pushFeedMessage(name, message) {
+  const scene = window._moltvilleScene;
+  if (!scene || typeof scene.addChatMessage !== 'function') return;
+  const safeMessage = message || '...';
+  scene.addChatMessage(name, safeMessage);
 }
 
 function getUiState() {
@@ -2457,7 +2554,7 @@ class MoltivilleScene extends Phaser.Scene {
           other.talkTimer <= 0
         );
 
-        if (nearby.length > 0 && Math.random() < 0.08 && agent.talkTimer <= 0) {
+        if (!WORLD_CONTEXT.useLiveData && nearby.length > 0 && Math.random() < 0.08 && agent.talkTimer <= 0) {
           const target = nearby[0];
           agent.talkTimer = 4 + Math.random() * 3;
           target.talkTimer = 4 + Math.random() * 3;
