@@ -78,6 +78,9 @@ python3 -m http.server 5173
 ```
 
 Open http://localhost:5173 and you should see the isometric city view.
+You can also open http://localhost:5173/portal.html to access the new reception,
+setup wizard, and admin panel. The admin panel reads/writes live config through
+`/api/admin/config` (requires `ADMIN_API_KEY`).
 
 ### Step 3: Setup MOLTVILLE Skill
 

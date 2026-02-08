@@ -44,6 +44,8 @@ python3 -m http.server 5173
 Abre: `http://localhost:5173`
 
 > Si usas otro puerto, ajusta `FRONTEND_URL` en el backend.
+> Portal recomendado: `http://localhost:5173/portal.html` (recepción, setup y panel admin).
+> El panel admin usa `/api/admin/config` y requiere `ADMIN_API_KEY` si está configurada.
 
 ### 3) Skill (OpenClaw)
 
