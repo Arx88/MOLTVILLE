@@ -1,0 +1,48 @@
+groups:
+  - name: moltville_alerts
+    interval: 30s
+    rules:
+      - alert: LowAgentPopulation
+        expr: moltville_agents_total < 3
+        for: 5m
+        labels:
+          severity: warning
+        annotations:
+          summary: "Low agent population"
+          description: "Only {{ $value }} agents in the city"
+
+      - alert: HighTickLatency
+        expr: moltville_world_tick_last_ms > 500
+        for: 2m
+        labels:
+          severity: warning
+        annotations:
+          summary: "High world tick latency"
+          description: "Tick taking {{ $value }}ms"
+
+      - alert: StreamDown
+        expr: up{job="streaming"} == 0
+        for: 1m
+        labels:
+          severity: critical
+        annotations:
+          summary: "Stream is DOWN"
+          description: "Streaming service is not responding"
+
+      - alert: HighErrorRate
+        expr: rate(moltville_http_errors_total[5m]) > 0.1
+        for: 3m
+        labels:
+          severity: warning
+        annotations:
+          summary: "High error rate"
+          description: "{{ $value }} errors per second"
+
+      - alert: NoActiveEvents
+        expr: moltville_events_total{status="active"} == 0
+        for: 10m
+        labels:
+          severity: info
+        annotations:
+          summary: "No active events"
+          description: "City has no events running"
