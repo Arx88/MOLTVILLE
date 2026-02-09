@@ -35,6 +35,24 @@ export const metrics = {
     lastTickMs: 0,
     avgTickMs: 0
   },
+  population: {
+    total: 0,
+    real: 0,
+    npc: 0
+  },
+  npc: {
+    active: 0,
+    spawned: 0,
+    despawned: 0,
+    dramaPoints: 0
+  },
+  health: {
+    lastCheckAt: null,
+    lowPopulationEvents: 0,
+    highTickLatencyEvents: 0,
+    circuitOpened: 0,
+    circuitHalfOpen: 0
+  },
   performance: {
     latencyBudgetMs: 100,
     tickBudgetExceeded: 0

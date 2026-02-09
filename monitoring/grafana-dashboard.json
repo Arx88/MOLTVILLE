@@ -1,0 +1,95 @@
+{
+  "dashboard": {
+    "title": "MOLTVILLE 24/7 Monitoring",
+    "panels": [
+      {
+        "title": "Agent Population",
+        "type": "graph",
+        "targets": [
+          {
+            "expr": "moltville_agents_total",
+            "legendFormat": "Total Agents"
+          },
+          {
+            "expr": "moltville_agents_real",
+            "legendFormat": "Real Agents"
+          },
+          {
+            "expr": "moltville_agents_npc",
+            "legendFormat": "NPCs"
+          }
+        ]
+      },
+      {
+        "title": "World Tick Performance",
+        "type": "graph",
+        "targets": [
+          {
+            "expr": "moltville_world_tick_last_ms",
+            "legendFormat": "Tick Duration (ms)"
+          }
+        ]
+      },
+      {
+        "title": "Stream Health",
+        "type": "stat",
+        "targets": [
+          {
+            "expr": "moltville_uptime_seconds",
+            "legendFormat": "Uptime"
+          }
+        ]
+      },
+      {
+        "title": "Drama Score",
+        "type": "gauge",
+        "targets": [
+          {
+            "expr": "moltville_npc_drama_total",
+            "legendFormat": "Drama Points"
+          }
+        ]
+      },
+      {
+        "title": "Events Active",
+        "type": "stat",
+        "targets": [
+          {
+            "expr": "moltville_events_total{status=\"active\"}",
+            "legendFormat": "Active Events"
+          }
+        ]
+      },
+      {
+        "title": "HTTP Error Rate",
+        "type": "graph",
+        "targets": [
+          {
+            "expr": "rate(moltville_http_errors_total[5m])",
+            "legendFormat": "Errors/sec"
+          }
+        ]
+      },
+      {
+        "title": "Memory Usage",
+        "type": "graph",
+        "targets": [
+          {
+            "expr": "process_resident_memory_bytes",
+            "legendFormat": "Memory (bytes)"
+          }
+        ]
+      },
+      {
+        "title": "NPC Drama Generated",
+        "type": "graph",
+        "targets": [
+          {
+            "expr": "moltville_npc_drama_total",
+            "legendFormat": "Drama Points"
+          }
+        ]
+      }
+    ]
+  }
+}

@@ -31,7 +31,11 @@ import { db } from './utils/db.js';
 import { CityMoodManager } from './core/CityMoodManager.js';
 import { AestheticsManager } from './core/AestheticsManager.js';
 import { EventManager } from './core/EventManager.js';
+import { NPCSpawner } from './core/NPCSpawner.js';
+import { EventScheduler } from './core/EventScheduler.js';
+import { HealthMonitor } from './core/HealthMonitor.js';
 import { hasPermission } from './utils/permissions.js';
+import { AnalyticsStore, buildDramaScore } from './utils/analyticsStore.js';
 
 import authRoutes from './routes/auth.js';
 import moltbotRoutes from './routes/moltbot.js';
@@ -44,6 +48,9 @@ import eventRoutes from './routes/events.js';
 import { createMetricsRouter } from './routes/metrics.js';
 import adminRoutes from './routes/admin.js';
 import showRoutes from './routes/show.js';
+import kickRoutes from './routes/kick.js';
+import { createAnalyticsRouter } from './routes/analytics.js';
+import { KickChatClient } from './services/KickChatClient.js';
 
 const app = express();
 const httpServer = createServer(app);
@@ -244,6 +251,9 @@ const emitViewerEvent = (event, payload) => {
   io.to('viewers').emit(event, payload);
 };
 
+let lastAnalyticsRecord = 0;
+const analyticsIntervalMs = parseInt(process.env.ANALYTICS_RECORD_INTERVAL_MS || '10000', 10);
+
 // Initialize core systems
 const worldState = new WorldStateManager();
 const moltbotRegistry = new MoltbotRegistry({ db });
@@ -255,6 +265,62 @@ const governanceManager = new GovernanceManager(io, { db });
 const cityMoodManager = new CityMoodManager(economyManager, interactionEngine);
 const aestheticsManager = new AestheticsManager({ worldStateManager: worldState, economyManager, governanceManager, io });
 const eventManager = new EventManager({ io });
+const npcSpawner = new NPCSpawner({
+  registry: moltbotRegistry,
+  worldState,
+  economyManager,
+  interactionEngine,
+  votingManager,
+  eventManager,
+  actionQueue,
+  io
+});
+const eventScheduler = new EventScheduler({ eventManager, worldState, cityMoodManager });
+const healthMonitor = new HealthMonitor({ registry: moltbotRegistry, worldState, npcSpawner, eventManager });
+const analyticsStore = new AnalyticsStore();
+const kickChatUrl = process.env.KICK_CHAT_URL || '';
+const kickChannel = process.env.KICK_CHANNEL || '';
+const kickModerators = (process.env.KICK_MODS || '').split(',').map(name => name.trim()).filter(Boolean);
+const kickCommandHandlers = new Map();
+
+const kickChatClient = kickChatUrl
+  ? new KickChatClient({
+    url: kickChatUrl,
+    channel: kickChannel,
+    commandPrefix: process.env.KICK_COMMAND_PREFIX || '!',
+    reconnectMs: parseInt(process.env.KICK_RECONNECT_MS || '5000', 10),
+    moderatorNames: kickModerators,
+    commandHandlers: kickCommandHandlers,
+    viewerKey: config.viewerApiKey || ''
+  })
+  : null;
+
+if (kickChatClient) {
+  kickCommandHandlers.set('vote', async (message, args) => {
+    const option = args.join(' ').trim();
+    if (!option) return 'Uso: !vote <opcion>';
+    await kickChatClient.processViewerVote(message.username, option);
+    return `Voto registrado: ${option}`;
+  });
+  kickCommandHandlers.set('stats', async () => {
+    const agents = moltbotRegistry.getAllAgents();
+    const npcCount = agents.filter(agent => agent.isNPC).length;
+    const activeEvents = eventManager.getSummary().filter(event => event.status === 'active').length;
+    return `Agentes: ${agents.length} (NPCs: ${npcCount}) | Eventos activos: ${activeEvents}`;
+  });
+  kickCommandHandlers.set('spawn', async (message) => {
+    if (!message.isModerator) return 'Comando solo para moderadores';
+    await npcSpawner.spawnNPC();
+    return 'NPC creado';
+  });
+  kickCommandHandlers.set('event', async (message, args) => {
+    if (!message.isModerator) return 'Comando solo para moderadores';
+    const eventType = args[0] || 'festival';
+    await kickChatClient.sponsorEvent(message.username, eventType);
+    return `Evento solicitado: ${eventType}`;
+  });
+  kickChatClient.connect();
+}
 
 app.locals.worldState = worldState;
 app.locals.moltbotRegistry = moltbotRegistry;
@@ -266,6 +332,10 @@ app.locals.governanceManager = governanceManager;
 app.locals.cityMoodManager = cityMoodManager;
 app.locals.aestheticsManager = aestheticsManager;
 app.locals.eventManager = eventManager;
+app.locals.npcSpawner = npcSpawner;
+app.locals.eventScheduler = eventScheduler;
+app.locals.healthMonitor = healthMonitor;
+app.locals.analyticsStore = analyticsStore;
 app.locals.io = io;
 app.locals.db = db;
 
@@ -381,6 +451,14 @@ app.use('/api/aesthetics', createAestheticsRouter({ aestheticsManager }));
 app.use('/api/events', eventRoutes);
 app.use('/api/show', showRoutes);
 app.use('/api/admin', adminRoutes);
+app.use('/api/kick', kickRoutes);
+app.use('/api/analytics', createAnalyticsRouter({
+  registry: moltbotRegistry,
+  eventManager,
+  cityMoodManager,
+  analyticsStore,
+  io
+}));
 
 app.get('/api/health', (req, res) => {
   res.json({
@@ -396,7 +474,8 @@ app.use('/api/metrics', createMetricsRouter({
   eventManager,
   economyManager,
   worldState,
-  moltbotRegistry
+  moltbotRegistry,
+  cityMoodManager
 }));
 
 // ── WebSocket Handling ──
@@ -1013,9 +1092,25 @@ setInterval(() => {
   cityMoodManager.tick();
   aestheticsManager.tick(moltbotRegistry.getAgentCount());
   const eventTransitions = eventManager.tick();
+  npcSpawner.tick();
+  eventScheduler.tick();
+  healthMonitor.tick();
   interactionEngine.cleanupOldConversations();
   if (eventTransitions?.length) {
     emitEventGoals(eventTransitions);
+  }
+
+  const now = Date.now();
+  if (now - lastAnalyticsRecord >= analyticsIntervalMs) {
+    const mood = cityMoodManager.getSummary();
+    const activeEvents = eventManager.getSummary().filter(event => event.status === 'active').length;
+    const dramaScore = buildDramaScore({
+      mood,
+      activeEvents,
+      npcDramaPoints: metrics.npc.dramaPoints
+    });
+    analyticsStore.record(dramaScore);
+    lastAnalyticsRecord = now;
   }
 
   // Broadcast interpolated agent positions to viewers

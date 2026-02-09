@@ -23,7 +23,12 @@
         <button class="nav-item" data-tab="economy">Economía</button>
         <button class="nav-item" data-tab="governance">Gobernanza</button>
         <button class="nav-item" data-tab="events">Eventos</button>
+        <button class="nav-item" data-tab="npcs">NPCs</button>
+        <button class="nav-item" data-tab="health">Health</button>
+        <button class="nav-item" data-tab="scheduler">Scheduler</button>
         <button class="nav-item" data-tab="show-mode">Show Mode</button>
+        <button class="nav-item" data-tab="kick">Kick & Streaming</button>
+        <button class="nav-item" data-tab="analytics">Analytics</button>
         <button class="nav-item" data-tab="observability">Observabilidad</button>
       </nav>
       <a class="back-link" href="./portal.html">← Volver al portal</a>
@@ -198,6 +203,76 @@
         </div>
       </section>
 
+      <section class="admin-panel" id="panel-npcs">
+        <h2>NPCs</h2>
+        <div class="panel-grid">
+          <label>
+            Mín agentes reales
+            <input type="number" name="NPC_MIN_REAL_AGENTS" value="5">
+          </label>
+          <label>
+            Máx NPCs
+            <input type="number" name="NPC_MAX_COUNT" value="4">
+          </label>
+          <label>
+            Ratio max NPCs
+            <input type="number" step="0.1" name="NPC_MAX_RATIO" value="0.5">
+          </label>
+          <label>
+            Intervalo de comportamiento (ms)
+            <input type="number" name="NPC_BEHAVIOR_INTERVAL_MS" value="45000">
+          </label>
+          <label>
+            Gracia despawn (ms)
+            <input type="number" name="NPC_DESPAWN_GRACE_MS" value="120000">
+          </label>
+          <label>
+            Intervalo spawn check (ms)
+            <input type="number" name="NPC_SPAWN_CHECK_MS" value="30000">
+          </label>
+        </div>
+      </section>
+
+      <section class="admin-panel" id="panel-health">
+        <h2>Health Monitor</h2>
+        <div class="panel-grid">
+          <label>
+            Intervalo health check (ms)
+            <input type="number" name="HEALTH_CHECK_INTERVAL_MS" value="10000">
+          </label>
+          <label>
+            Umbral baja población
+            <input type="number" name="HEALTH_LOW_POPULATION" value="3">
+          </label>
+          <label>
+            Latencia tick crítica (ms)
+            <input type="number" name="HEALTH_TICK_LATENCY_MS" value="500">
+          </label>
+          <label>
+            Circuit breaker ventana (ms)
+            <input type="number" name="HEALTH_CIRCUIT_WINDOW_MS" value="60000">
+          </label>
+          <label>
+            Circuit breaker fallos
+            <input type="number" name="HEALTH_CIRCUIT_FAILURES" value="5">
+          </label>
+        </div>
+      </section>
+
+      <section class="admin-panel" id="panel-scheduler">
+        <h2>Event Scheduler</h2>
+        <div class="panel-grid">
+          <label>
+            Intervalo scheduler (ms)
+            <input type="number" name="EVENT_SCHEDULE_INTERVAL_MS" value="60000">
+          </label>
+          <label>
+            Chance eventos aleatorios
+            <input type="number" step="0.01" name="EVENT_RANDOM_CHANCE" value="0.15">
+          </label>
+        </div>
+      </section>
+
       <section class="admin-panel" id="panel-show-mode">
         <h2>Show Mode 2.0</h2>
         <div class="panel-grid">
@@ -312,6 +387,66 @@
           <label>
             Retención heatmap (min)
             <input type="number" name="SHOW_MODE_HEATMAP_RETENTION_MIN" value="5">
+          </label>
+        </div>
+      </section>
+
+      <section class="admin-panel" id="panel-kick">
+        <h2>Kick & Streaming</h2>
+        <div class="panel-grid">
+          <label>
+            Kick chat URL
+            <input type="text" name="KICK_CHAT_URL" placeholder="wss://...">
+          </label>
+          <label>
+            Kick channel
+            <input type="text" name="KICK_CHANNEL" placeholder="canal">
+          </label>
+          <label>
+            Moderadores Kick (csv)
+            <input type="text" name="KICK_MODS" placeholder="mod1,mod2">
+          </label>
+          <label>
+            Prefijo de comandos
+            <input type="text" name="KICK_COMMAND_PREFIX" value="!">
+          </label>
+          <label>
+            Reconnect Kick (ms)
+            <input type="number" name="KICK_RECONNECT_MS" value="5000">
+          </label>
+          <label>
+            RTMP URL
+            <input type="text" name="KICK_RTMP_URL" placeholder="rtmp://...">
+          </label>
+          <label>
+            Stream key
+            <input type="password" name="KICK_STREAM_KEY" placeholder="stream_key">
+          </label>
+          <label>
+            URL frontend stream
+            <input type="text" name="STREAM_FRONTEND_URL" value="http://localhost:5173">
+          </label>
+          <label>
+            FPS stream
+            <input type="number" name="STREAM_FPS" value="30">
+          </label>
+          <label>
+            Resolución stream
+            <input type="text" name="STREAM_RESOLUTION" value="1280x720">
+          </label>
+          <label>
+            Bitrate stream
+            <input type="text" name="STREAM_BITRATE" value="2500k">
+          </label>
+        </div>
+      </section>
+
+      <section class="admin-panel" id="panel-analytics">
+        <h2>Analytics</h2>
+        <div class="panel-grid">
+          <label>
+            Intervalo analytics (ms)
+            <input type="number" name="ANALYTICS_RECORD_INTERVAL_MS" value="10000">
           </label>
         </div>
       </section>

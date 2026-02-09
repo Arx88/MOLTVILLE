@@ -84,7 +84,7 @@ export class MoltbotRegistry {
   }
 
   async registerAgent(data) {
-    const { id, name, avatar, socketId, apiKey, permissions } = data;
+    const { id, name, avatar, socketId, apiKey, permissions, isNPC = false, connected = true } = data;
     const normalizedPermissions = permissions ? normalizePermissions(permissions) : null;
 
     // Check if already registered
@@ -96,11 +96,12 @@ export class MoltbotRegistry {
       }
       existing.socketId = socketId;
       existing.lastSeen = Date.now();
-      existing.connected = true;
+      existing.connected = connected;
       if (normalizedPermissions) {
         existing.permissions = normalizedPermissions;
         this.persistPermissions(existing.id, normalizedPermissions);
       }
+      existing.isNPC = isNPC;
       this.sockets.set(id, socketId);
       if (this.db && !existing.memory.loadedFromDb) {
         await this.loadAgentState(existing.id);
@@ -117,9 +118,10 @@ export class MoltbotRegistry {
       socketId,
       apiKey,
       permissions: normalizedPermissions || normalizePermissions(),
-      connected: true,
+      connected,
       connectedAt: Date.now(),
       lastSeen: Date.now(),
+      isNPC,
       stats: {
         messagesSent: 0,
         actionsTaken: 0,
@@ -229,7 +231,8 @@ export class MoltbotRegistry {
       connectedAt: agent.connectedAt,
       lastSeen: agent.lastSeen,
       stats: agent.stats,
-      permissions: agent.permissions || []
+      permissions: agent.permissions || [],
+      isNPC: Boolean(agent.isNPC)
     }));
   }
 
@@ -520,6 +523,7 @@ export class MoltbotRegistry {
         permissions: agent.permissions || [],
         connectedAt: agent.connectedAt,
         lastSeen: agent.lastSeen,
+        isNPC: Boolean(agent.isNPC),
         stats: { ...agent.stats },
         memory: {
           interactions: agent.memory.interactions.map(entry => ({ ...entry })),
@@ -554,6 +558,7 @@ export class MoltbotRegistry {
         connected: false,
         connectedAt: agent.connectedAt || null,
         lastSeen: agent.lastSeen || null,
+        isNPC: Boolean(agent.isNPC),
         stats: agent.stats ? { ...agent.stats } : { messagesSent: 0, actionsTaken: 0, interactionCount: 0 },
         memory: {
           interactions: Array.isArray(agent.memory?.interactions) ? agent.memory.interactions.map(entry => ({ ...entry })) : [],
