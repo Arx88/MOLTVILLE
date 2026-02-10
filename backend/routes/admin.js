@@ -233,7 +233,20 @@ const saveAgentConfig = (configPath, data) => {
   fs.writeFileSync(configPath, JSON.stringify(data, null, 2));
 };
 
-router.get('/agents/llm', requireAdminKey, (req, res) => {
+const fetchOllamaModels = async () => {
+  try {
+    const response = await fetch('http://localhost:11434/api/tags');
+    if (!response.ok) return [];
+    const payload = await response.json();
+    return Array.isArray(payload.models)
+      ? payload.models.map((model) => model.name).filter(Boolean)
+      : [];
+  } catch (error) {
+    return [];
+  }
+};
+
+router.get('/agents/llm', requireAdminKey, async (req, res) => {
   const agentsDir = resolveAgentsDir();
   const entries = fs.existsSync(agentsDir) ? fs.readdirSync(agentsDir, { withFileTypes: true }) : [];
   const agents = entries
@@ -252,6 +265,8 @@ router.get('/agents/llm', requireAdminKey, (req, res) => {
     })
     .filter(Boolean);
 
+  const ollamaModels = await fetchOllamaModels();
+
   res.json({
     agents,
     minimaxAuthPath: getMiniMaxAuthPath(),
@@ -261,6 +276,7 @@ router.get('/agents/llm', requireAdminKey, (req, res) => {
       { id: 'qwen-oauth', label: 'Qwen OAuth (Portal)' }
     ],
     models: {
+      'ollama': ollamaModels,
       'minimax-portal': ['MiniMax-M2.1', 'MiniMax-M2.1-lightning'],
       'qwen-oauth': ['alibaba/coder-model']
     },
