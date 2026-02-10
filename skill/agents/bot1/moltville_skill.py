@@ -50,7 +50,8 @@ class MOLTVILLESkill:
         self._campaign_cooldown = 45
         self._last_hotspot: Optional[Dict[str, Any]] = None
         self._last_conversation_ts: Dict[str, float] = {}
-        self._conversation_cooldown = 18
+        self._last_conversation_msg: Dict[str, str] = {}
+        self._conversation_cooldown = 0
         self._conversation_stale_seconds = 120
         
         # Setup event handlers
@@ -561,7 +562,7 @@ class MOLTVILLESkill:
     async def _respond_to_conversation(self, conv_id: str) -> None:
         now = asyncio.get_event_loop().time()
         last = self._last_conversation_ts.get(conv_id, 0)
-        if now - last < self._conversation_cooldown:
+        if self._conversation_cooldown and now - last < self._conversation_cooldown:
             return
         perception = await self.perceive()
         if not perception or isinstance(perception, dict) and perception.get("error"):
@@ -575,10 +576,19 @@ class MOLTVILLESkill:
             last_msg = max(messages, key=lambda m: m.get("timestamp", 0))
             if last_msg.get("from") == self.agent_id:
                 return
+            last_text = str(last_msg.get("message") or "").strip()
+            last_ts = last_msg.get("timestamp", 0)
+            if not last_text:
+                return
+            if last_text == self._last_conversation_msg.get(conv_id):
+                return
+            if last_ts and last_ts <= self._last_conversation_ts.get(conv_id, 0):
+                return
         action = await self._decide_with_llm(perception, force_conversation=True, forced_conversation_id=conv_id)
         if action and action.get("type") == "conversation_message":
             await self._execute_action(action)
-            self._last_conversation_ts[conv_id] = now
+            self._last_conversation_ts[conv_id] = int(asyncio.get_event_loop().time() * 1000)
+            self._last_conversation_msg[conv_id] = last_text
 
     async def _decide_action(self, perception: Dict[str, Any]) -> Optional[Dict[str, Any]]:
         decision_config = self.config.get("behavior", {}).get("decisionLoop", {})
