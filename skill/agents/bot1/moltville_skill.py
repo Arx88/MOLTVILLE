@@ -49,6 +49,8 @@ class MOLTVILLESkill:
         self._last_campaign_ts: float = 0
         self._campaign_cooldown = 45
         self._last_hotspot: Optional[Dict[str, Any]] = None
+        self._last_conversation_ts: Dict[str, float] = {}
+        self._conversation_cooldown = 18
         
         # Setup event handlers
         self._setup_handlers()
@@ -735,12 +737,17 @@ class MOLTVILLESkill:
                 target_id = target.get('id')
                 conv_id = self._conversation_state.get(target_id)
                 if conv_id:
+                    last_ts = self._last_conversation_ts.get(conv_id, 0)
+                    now_ts = asyncio.get_event_loop().time()
+                    if now_ts - last_ts < self._conversation_cooldown:
+                        return {"type": "wait", "params": {}}
                     fallback_msgs = [
                         "¿Qué te trae por aquí?",
                         "¿Viste algo interesante en la ciudad?",
                         "¿Cómo va tu día en MOLTVILLE?",
                         "¿Querés que exploremos la zona juntos?"
                     ]
+                    self._last_conversation_ts[conv_id] = now_ts
                     return {
                         "type": "conversation_message",
                         "params": {"conversation_id": conv_id, "message": random.choice(fallback_msgs)}

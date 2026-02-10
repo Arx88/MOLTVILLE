@@ -11,10 +11,10 @@
     "behavior":  {
                      "autoExplore":  true,
                      "conversationInitiation":  "moderate",
-                     "decisionInterval":  30000,
+                     "decisionInterval":  60000,
                      "decisionLoop":  {
                                           "enabled":  true,
-                                          "intervalMs":  8000,
+                                          "intervalMs":  20000,
                                           "mode":  "llm"
                                       }
                  },
