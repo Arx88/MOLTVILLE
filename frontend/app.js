@@ -4019,7 +4019,12 @@ class MoltivilleScene extends Phaser.Scene {
       const nameB = AGENT_DIRECTORY.get(b)?.name || this.agents.find(x => x.id === b)?.name || (b ? `Agent ${b.slice(0,4)}` : '—');
       const messages = Array.isArray(conv.messages) ? conv.messages : [];
       const lastMsg = messages.slice().sort((m1, m2) => (m1?.timestamp || 0) - (m2?.timestamp || 0)).at(-1);
-      const lastLine = lastMsg?.message ? `${lastMsg.message}` : 'Conexión activa, esperando diálogo…';
+      const speakerId = lastMsg?.from || lastMsg?.fromId;
+      const speakerName = lastMsg?.fromName
+        || AGENT_DIRECTORY.get(speakerId)?.name
+        || this.agents.find(x => x.id === speakerId)?.name
+        || (speakerId ? `Agent ${speakerId.slice(0,4)}` : '—');
+      const lastLine = lastMsg?.message ? `${speakerName}: ${lastMsg.message}` : 'Conexión activa, esperando diálogo…';
       return `
         <div class="conversation-card">
           <div class="participants">${safe(nameA)} ↔ ${safe(nameB)}</div>
