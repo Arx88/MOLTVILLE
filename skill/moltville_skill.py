@@ -1253,6 +1253,14 @@ class MOLTVILLESkill:
                 raise Exception("Failed to register with server")
 
             await self._ensure_profile()
+            try:
+                perception = await self.perceive()
+                await self._ensure_plan(perception)
+                first_action = await self._next_plan_action(perception)
+                if first_action:
+                    await self._execute_action(first_action)
+            except Exception:
+                pass
 
             decision_config = self.config.get("behavior", {}).get("decisionLoop", {})
             if decision_config.get("enabled", False):
