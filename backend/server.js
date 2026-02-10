@@ -525,6 +525,7 @@ io.on('connection', (socket) => {
         governance: governanceManager.getSummary(),
         mood: cityMoodManager.getSummary(),
         events: eventManager.getSummary(),
+        conversations: interactionEngine.getActiveConversations(),
         economy: {
           inventorySummary: economyManager.getInventoryStats(),
           itemTransactionCount: economyManager.getItemTransactions(500).length
@@ -1144,7 +1145,8 @@ setInterval(() => {
     governance: governanceManager.getSummary(),
     mood: cityMoodManager.getSummary(),
     events: eventManager.getSummary(),
-    aesthetics: aestheticsManager.getVoteSummary()
+    aesthetics: aestheticsManager.getVoteSummary(),
+    conversations: interactionEngine.getActiveConversations()
   });
   recordTickDuration(Date.now() - tickStart);
 }, config.worldTickRate);
