@@ -646,6 +646,8 @@ class MOLTVILLESkill:
             if last_ts and last_ts <= self._last_conversation_ts.get(conv_id, 0):
                 return
         action = await self._decide_with_llm(perception, force_conversation=True, forced_conversation_id=conv_id)
+        if not action:
+            action = await self._decide_with_llm(perception, force_conversation=True, forced_conversation_id=conv_id)
         if action and action.get("type") == "conversation_message":
             await self._execute_action(action)
             self._last_conversation_ts[conv_id] = int(asyncio.get_event_loop().time() * 1000)
@@ -806,6 +808,16 @@ class MOLTVILLESkill:
             y = params.get("y")
             if isinstance(x, (int, float)) and isinstance(y, (int, float)):
                 return {"type": "move_to", "params": {"x": int(x), "y": int(y)}}
+            alt = params.get("position") or params.get("targetPosition")
+            if isinstance(alt, dict):
+                ax = alt.get("x")
+                ay = alt.get("y")
+                if isinstance(ax, (int, float)) and isinstance(ay, (int, float)):
+                    return {"type": "move_to", "params": {"x": int(ax), "y": int(ay)}}
+            tx = params.get("targetX")
+            ty = params.get("targetY")
+            if isinstance(tx, (int, float)) and isinstance(ty, (int, float)):
+                return {"type": "move_to", "params": {"x": int(tx), "y": int(ty)}}
             return None
         if action_type == "enter_building":
             building_id = params.get("building_id")
