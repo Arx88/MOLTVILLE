@@ -533,7 +533,17 @@ class MOLTVILLESkill:
                     content = parts[0].get("text")
             if not content:
                 return None
-            parsed = json.loads(content)
+            try:
+                parsed = json.loads(content)
+            except json.JSONDecodeError:
+                # Try to extract JSON object from noisy responses
+                start = content.find('{')
+                end = content.rfind('}')
+                if start != -1 and end != -1 and end > start:
+                    snippet = content[start:end + 1]
+                    parsed = json.loads(snippet)
+                else:
+                    raise
             sanitized = self._sanitize_llm_action(parsed)
             if not sanitized:
                 logger.warning("LLM returned invalid action, falling back to heuristic.")
