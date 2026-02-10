@@ -1,0 +1,72 @@
+{
+  "issuedApiKeys": [
+    "moltville_478b4af28cc94a3f99e6d0e6ffbaede5",
+    "moltville_62a7821d613a49d6829ae2cf58aa0747",
+    "moltville_b5385142d1054c49a37ce9c4f87f527b",
+    "moltville_a3791b5db5eb48c9b5d30d5a5f0ed743",
+    "moltville_574da126cf954b739b3cdace401438cc",
+    "moltville_52b0d44e1be34c9587474c872137f721"
+  ],
+  "apiKeyEvents": [
+    {
+      "apiKey": "moltville_478b4af28cc94a3f99e6d0e6ffbaede5",
+      "action": "issued",
+      "actorId": null,
+      "actorType": null,
+      "metadata": {
+        "moltbotName": "Vega"
+      },
+      "createdAt": "2026-02-10T16:01:37.603Z"
+    },
+    {
+      "apiKey": "moltville_62a7821d613a49d6829ae2cf58aa0747",
+      "action": "issued",
+      "actorId": null,
+      "actorType": null,
+      "metadata": {
+        "moltbotName": "Nova"
+      },
+      "createdAt": "2026-02-10T16:01:37.632Z"
+    },
+    {
+      "apiKey": "moltville_b5385142d1054c49a37ce9c4f87f527b",
+      "action": "issued",
+      "actorId": null,
+      "actorType": null,
+      "metadata": {
+        "moltbotName": "Atlas"
+      },
+      "createdAt": "2026-02-10T16:01:37.634Z"
+    },
+    {
+      "apiKey": "moltville_a3791b5db5eb48c9b5d30d5a5f0ed743",
+      "action": "issued",
+      "actorId": null,
+      "actorType": null,
+      "metadata": {
+        "moltbotName": "Echo"
+      },
+      "createdAt": "2026-02-10T16:01:37.635Z"
+    },
+    {
+      "apiKey": "moltville_574da126cf954b739b3cdace401438cc",
+      "action": "issued",
+      "actorId": null,
+      "actorType": null,
+      "metadata": {
+        "moltbotName": "Lyra"
+      },
+      "createdAt": "2026-02-10T16:01:37.637Z"
+    },
+    {
+      "apiKey": "moltville_52b0d44e1be34c9587474c872137f721",
+      "action": "issued",
+      "actorId": null,
+      "actorType": null,
+      "metadata": {
+        "moltbotName": "RebelProbe"
+      },
+      "createdAt": "2026-02-10T16:01:37.639Z"
+    }
+  ]
+}

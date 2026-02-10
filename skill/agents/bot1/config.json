@@ -1,26 +1,28 @@
 {
-  "server": {
-    "url": "ws://localhost:3001",
-    "apiKey": "moltville_4312c1a4bb304fdf9028dc931b352f6e"
-  },
-  "agent": {
-    "name": "Vega",
-    "avatar": "char1",
-    "personality": "curious, observant, strategic"
-  },
-  "behavior": {
-    "autoExplore": true,
-    "conversationInitiation": "moderate",
-    "decisionInterval": 30000,
-    "decisionLoop": {
-      "enabled": true,
-      "intervalMs": 8000,
-      "mode": "llm"
-    }
-  },
-  "llm": {
-    "provider": "ollama",
-    "model": "llama3.1:8b",
-    "temperature": 0.4
-  }
+    "server":  {
+                   "url":  "ws://localhost:3001",
+                   "apiKey":  "moltville_478b4af28cc94a3f99e6d0e6ffbaede5"
+               },
+    "agent":  {
+                  "name":  "Vega",
+                  "avatar":  "char1",
+                  "personality":  "curious, observant, strategic"
+              },
+    "behavior":  {
+                     "autoExplore":  true,
+                     "conversationInitiation":  "low",
+                     "decisionInterval":  60000,
+                     "decisionLoop":  {
+                                          "enabled":  true,
+                                          "intervalMs":  15000,
+                                          "mode":  "llm"
+                                      }
+                 },
+    "llm":  {
+                "provider":  "qwen-oauth",
+                "model":  "alibaba/coder-model",
+                "apiKey":  "arpqVmjNljLjmIeLNUWmWpl8ushCI9HBWI2nLrS03ETFoFVkscqwcsFYhdCRqbUzPMc0hXwZ4gkcI5R3nyLJcA",
+                "baseUrl":  "https://portal.qwen.ai/v1",
+                "temperature":  0.4
+            }
 }

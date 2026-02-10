@@ -128,9 +128,13 @@ export const pollForToken = async () => {
     return { status: 'failed', error: 'invalid_token_response' };
   }
 
-  const resourceUrl = json.resource_url
+  let resourceUrl = json.resource_url
     ? (json.resource_url.startsWith('http') ? json.resource_url : `https://${json.resource_url}`)
     : DEFAULT_BASE_URL;
+
+  if (!resourceUrl.endsWith('/v1')) {
+    resourceUrl = `${resourceUrl.replace(/\/$/, '')}/v1`;
+  }
 
   const token = {
     access: json.access_token,
