@@ -143,6 +143,51 @@ class MOLTVILLESkill:
         except OSError as error:
             logger.warning(f"Failed to save long memory: {error}")
 
+    def _apply_profile_traits(self, profile: Dict[str, Any]) -> None:
+        if not isinstance(profile, dict):
+            return
+        traits = profile.get("traits")
+        if not isinstance(traits, dict):
+            return
+        try:
+            self._traits = {
+                "ambition": float(traits.get("ambition", self._traits.get("ambition", 0.5))),
+                "sociability": float(traits.get("sociability", self._traits.get("sociability", 0.6))),
+                "curiosity": float(traits.get("curiosity", self._traits.get("curiosity", 0.5))),
+                "discipline": float(traits.get("discipline", self._traits.get("discipline", 0.5)))
+            }
+        except (TypeError, ValueError):
+            return
+
+    async def _ensure_profile(self) -> None:
+        if isinstance(self.long_memory.get("profile"), dict):
+            self._apply_profile_traits(self.long_memory.get("profile"))
+            return
+        llm_config = self.config.get("llm", {})
+        provider = llm_config.get("provider", "")
+        model = llm_config.get("model", "")
+        api_key = llm_config.get("apiKey", "")
+        if not (provider and model):
+            return
+        if provider not in ("ollama",) and not api_key:
+            return
+        prompt = (
+            "Eres un agente recién llegado a MOLTVILLE. Debes crear tu propio perfil. "
+            "No menciones IA, modelos ni sistemas. Responde SOLO JSON. "
+            "Incluye: traits (ambition,sociability,curiosity,discipline) valores 0-1, "
+            "goals (3 metas de largo plazo), style (como hablas), "
+            "backstory (2 frases), values (3 palabras), quirks (2 hábitos)."
+        )
+        payload = {
+            "name": self.config.get("agent", {}).get("name"),
+            "personality_hint": self.config.get("agent", {}).get("personality")
+        }
+        profile = await self._call_llm_json(prompt, payload)
+        if isinstance(profile, dict):
+            self.long_memory["profile"] = profile
+            self._save_long_memory()
+            self._apply_profile_traits(profile)
+
     def _init_traits(self) -> Dict[str, float]:
         traits = self.config.get("agent", {}).get("traits", {}) if isinstance(self.config.get("agent", {}), dict) else {}
         if isinstance(traits, dict) and traits:
@@ -537,6 +582,109 @@ class MOLTVILLESkill:
             return {"type": "wait", "params": {}}
         return None
 
+    async def _call_llm_json(self, prompt: str, payload: Dict[str, Any]) -> Optional[Dict[str, Any]]:
+        llm_config = self.config.get("llm", {})
+        provider = llm_config.get("provider", "")
+        api_key = llm_config.get("apiKey", "")
+        model = llm_config.get("model", "")
+        if not (provider and model):
+            return None
+        if provider not in ("ollama",) and not api_key:
+            return None
+
+        try:
+            if provider == "openai":
+                url = "https://api.openai.com/v1/chat/completions"
+                headers = {"Authorization": f"Bearer {api_key}"}
+                body = {
+                    "model": model,
+                    "messages": [
+                        {"role": "system", "content": prompt},
+                        {"role": "user", "content": json.dumps(payload)}
+                    ],
+                    "temperature": llm_config.get("temperature", 0.4)
+                }
+            elif provider == "anthropic":
+                url = "https://api.anthropic.com/v1/messages"
+                headers = {
+                    "x-api-key": api_key,
+                    "anthropic-version": "2023-06-01"
+                }
+                body = {
+                    "model": model,
+                    "system": prompt,
+                    "messages": [{"role": "user", "content": json.dumps(payload)}],
+                    "max_tokens": llm_config.get("maxTokens", 300)
+                }
+            elif provider == "minimax-portal":
+                base_url = llm_config.get("baseUrl", "https://api.minimax.io/anthropic")
+                url = f"{base_url.rstrip('/')}/v1/messages"
+                headers = {
+                    "x-api-key": api_key,
+                    "anthropic-version": "2023-06-01"
+                }
+                body = {
+                    "model": model,
+                    "system": prompt,
+                    "messages": [{"role": "user", "content": json.dumps(payload)}],
+                    "max_tokens": llm_config.get("maxTokens", 300)
+                }
+            elif provider == "ollama":
+                base_url = llm_config.get("baseUrl", "http://localhost:11434")
+                url = f"{base_url.rstrip('/')}/v1/chat/completions"
+                headers = {"Content-Type": "application/json"}
+                body = {
+                    "model": model,
+                    "messages": [
+                        {"role": "system", "content": prompt},
+                        {"role": "user", "content": json.dumps(payload)}
+                    ],
+                    "temperature": llm_config.get("temperature", 0.4)
+                }
+            elif provider == "qwen-oauth":
+                base_url = llm_config.get("baseUrl", "https://portal.qwen.ai/v1")
+                url = f"{base_url.rstrip('/')}/chat/completions"
+                model_name = model.split('/')[-1] if model else "coder-model"
+                if model_name not in ("coder-model", "vision-model"):
+                    model_name = "coder-model"
+                headers = {
+                    "Content-Type": "application/json",
+                    "Accept": "application/json",
+                    "Authorization": f"Bearer {api_key}",
+                    "X-DashScope-AuthType": "qwen_oauth"
+                }
+                body = {
+                    "model": model_name,
+                    "messages": [
+                        {"role": "system", "content": prompt},
+                        {"role": "user", "content": json.dumps(payload)}
+                    ],
+                    "temperature": llm_config.get("temperature", 0.4)
+                }
+            else:
+                return None
+
+            async with aiohttp.ClientSession() as session:
+                async with session.post(url, json=body, headers=headers) as response:
+                    data = await response.json()
+                    if response.status >= 400:
+                        logger.warning(f"LLM error: {data}")
+                        return None
+            content = None
+            if provider in ("openai", "ollama", "qwen-oauth"):
+                content = data.get("choices", [{}])[0].get("message", {}).get("content")
+            elif provider in ("anthropic", "minimax-portal"):
+                parts = data.get("content", [])
+                if parts:
+                    content = parts[0].get("text")
+            if not content:
+                return None
+            parsed = json.loads(content)
+            return parsed if isinstance(parsed, dict) else None
+        except (OSError, json.JSONDecodeError, aiohttp.ClientError) as error:
+            logger.warning(f"LLM decision failed: {error}")
+            return None
+
     async def _decide_with_llm(self, perception: Dict[str, Any]) -> Optional[Dict[str, Any]]:
         llm_config = self.config.get("llm", {})
         provider = llm_config.get("provider", "")
@@ -557,15 +705,17 @@ class MOLTVILLESkill:
             "perception": perception,
             "goals": self._active_goals[-5:],
             "recentContext": self._get_recent_context(),
+            "profile": self.long_memory.get("profile"),
             "activeConversations": self._conversation_state,
             "activeConversationsLive": perception.get("conversations", [])
         }
         prompt = (
-            "Eres el motor de decisiones de un agente en MOLTVILLE. "
-            "Contexto crítico: usa relaciones, memoria y conversación previa si existen. "
+            "Eres un ciudadano de MOLTVILLE. Actúas solo dentro del mundo, en primera persona. "
+            "Nunca menciones IA, modelos, sistemas ni infraestructura. "
+            "Usa relaciones, memoria y conversación previa si existen. "
             "Si hay una conversación activa donde tú participas, RESPONDE con conversation_message. "
             "Si no hay conversación y ves a alguien cerca, inicia start_conversation. "
-            "Si estás solo, ve a la plaza central para encontrar a otros. "
+            "Si estás solo, muévete hacia un lugar relevante según tu intención. "
             "No repitas mensajes recientes. "
             "Devuelve SOLO JSON válido con la acción a ejecutar. "
             "Formato: {\"type\": \"move_to|enter_building|speak|apply_job|wait|start_conversation|conversation_message\", "
@@ -802,6 +952,8 @@ class MOLTVILLESkill:
             
             if not self.connected:
                 raise Exception("Failed to register with server")
+
+            await self._ensure_profile()
 
             decision_config = self.config.get("behavior", {}).get("decisionLoop", {})
             if decision_config.get("enabled", False):
