@@ -1598,9 +1598,6 @@ if __name__ == "__main__":
             perception = await skill.perceive()
             print("Perception:", perception)
             
-            # Say hello
-            await skill.speak("Hello MOLTVILLE!")
-            
             # Get system prompt for LLM
             prompt = skill.get_system_prompt()
             print("\nSystem Prompt:\n", prompt)
