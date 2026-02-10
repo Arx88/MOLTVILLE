@@ -6,6 +6,51 @@ export class InteractionEngine {
     this.moltbotRegistry = moltbotRegistry;
     this.conversations = new Map(); // conversationId -> conversation data
     this.db = options.db || null;
+    this.conversationMoveAt = new Map();
+    this.conversationMoveCooldownMs = parseInt(process.env.CONVERSATION_MOVE_COOLDOWN_MS, 10) || 10000;
+    this.conversationMeetRadius = parseInt(process.env.CONVERSATION_MEET_RADIUS, 10) || 4;
+  }
+
+  ensureConversationProximity(conversation) {
+    if (!conversation?.participants || conversation.participants.length < 2) return;
+    const [agentA, agentB] = conversation.participants;
+    const posA = this.worldState.getAgentPosition(agentA);
+    const posB = this.worldState.getAgentPosition(agentB);
+    if (!posA || !posB) return;
+    const distance = this.worldState.getDistance(posA, posB);
+    if (distance <= this.conversationMeetRadius) return;
+
+    const lastMoveAt = this.conversationMoveAt.get(conversation.id) || 0;
+    if (Date.now() - lastMoveAt < this.conversationMoveCooldownMs) return;
+    this.conversationMoveAt.set(conversation.id, Date.now());
+
+    const midX = Math.round((posA.x + posB.x) / 2);
+    const midY = Math.round((posA.y + posB.y) / 2);
+
+    const candidateA = this.worldState.findNearestWalkable(midX, midY, 3, agentA);
+    let candidateB = this.worldState.findNearestWalkable(midX + 1, midY, 3, agentB)
+      || this.worldState.findNearestWalkable(midX - 1, midY, 3, agentB)
+      || this.worldState.findNearestWalkable(midX, midY + 1, 3, agentB)
+      || this.worldState.findNearestWalkable(midX, midY - 1, 3, agentB)
+      || this.worldState.findNearestWalkable(midX, midY, 4, agentB);
+
+    if (candidateA && candidateB && candidateA.x === candidateB.x && candidateA.y === candidateB.y) {
+      candidateB = this.worldState.findNearestWalkable(midX + 2, midY, 4, agentB)
+        || this.worldState.findNearestWalkable(midX - 2, midY, 4, agentB)
+        || this.worldState.findNearestWalkable(midX, midY + 2, 4, agentB)
+        || this.worldState.findNearestWalkable(midX, midY - 2, 4, agentB);
+    }
+
+    try {
+      if (candidateA) this.worldState.moveAgentTo(agentA, candidateA.x, candidateA.y);
+    } catch (error) {
+      logger.warn(`Failed to move ${agentA} toward conversation: ${error.message}`);
+    }
+    try {
+      if (candidateB) this.worldState.moveAgentTo(agentB, candidateB.x, candidateB.y);
+    } catch (error) {
+      logger.warn(`Failed to move ${agentB} toward conversation: ${error.message}`);
+    }
   }
 
   async initializeFromDb({ maxMessages = 50 } = {}) {
@@ -107,6 +152,8 @@ export class InteractionEngine {
 
     logger.info(`Conversation started: ${initiator.name} -> ${target.name}: "${initialMessage}"`);
 
+    this.ensureConversationProximity(conversation);
+
     return conversation;
   }
 
@@ -150,6 +197,8 @@ export class InteractionEngine {
     this.moltbotRegistry.updateAgentActivity(fromId, 'message');
 
     logger.debug(`${agent.name} -> ${toAgent.name}: "${message}"`);
+
+    this.ensureConversationProximity(conversation);
 
     return conversation;
   }
