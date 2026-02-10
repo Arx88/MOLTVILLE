@@ -1,6 +1,8 @@
 import { v4 as uuidv4 } from 'uuid';
 import { logger } from '../utils/logger.js';
 import { normalizePermissions } from '../utils/permissions.js';
+import fs from 'fs';
+import path from 'path';
 
 export class MoltbotRegistry {
   constructor(options = {}) {
@@ -10,6 +12,10 @@ export class MoltbotRegistry {
     this.sockets = new Map(); // agentId -> socketId
     this.issuedApiKeys = new Set();
     this.apiKeyEvents = [];
+    this.apiKeyStorePath = options.apiKeyStorePath || path.resolve(process.cwd(), 'data', 'api-keys.json');
+    if (!this.db) {
+      this.loadApiKeysFromDisk();
+    }
     this.memoryLimits = {
       interactionsMax: parseInt(process.env.MEMORY_INTERACTIONS_MAX, 10) || 200,
       locationsMax: parseInt(process.env.MEMORY_LOCATIONS_MAX, 10) || 100,
@@ -31,6 +37,7 @@ export class MoltbotRegistry {
     this.issuedApiKeys.add(apiKey);
     this.persistApiKey(apiKey);
     this.recordApiKeyEvent('issued', apiKey, options);
+    this.persistApiKeysToDisk();
   }
 
   revokeApiKey(apiKey, options = {}) {
@@ -39,6 +46,7 @@ export class MoltbotRegistry {
     this.apiKeys.delete(apiKey);
     this.persistApiKeyRevocation(apiKey);
     this.recordApiKeyEvent('revoked', apiKey, options);
+    this.persistApiKeysToDisk();
   }
 
   async rotateApiKey(oldKey, newKey, options = {}) {
@@ -576,6 +584,37 @@ export class MoltbotRegistry {
     });
   }
 
+  loadApiKeysFromDisk() {
+    try {
+      if (!fs.existsSync(this.apiKeyStorePath)) return;
+      const raw = fs.readFileSync(this.apiKeyStorePath, 'utf8');
+      const parsed = JSON.parse(raw);
+      const issued = Array.isArray(parsed?.issuedApiKeys) ? parsed.issuedApiKeys : [];
+      this.issuedApiKeys = new Set(issued);
+      const events = Array.isArray(parsed?.apiKeyEvents) ? parsed.apiKeyEvents : [];
+      this.apiKeyEvents = events.map(event => ({ ...event }));
+    } catch (error) {
+      logger.error('Failed to load API keys from disk:', error);
+    }
+  }
+
+  persistApiKeysToDisk() {
+    if (this.db) return;
+    try {
+      const dir = path.dirname(this.apiKeyStorePath);
+      if (!fs.existsSync(dir)) {
+        fs.mkdirSync(dir, { recursive: true });
+      }
+      const payload = {
+        issuedApiKeys: Array.from(this.issuedApiKeys),
+        apiKeyEvents: this.apiKeyEvents.slice(-200)
+      };
+      fs.writeFileSync(this.apiKeyStorePath, JSON.stringify(payload, null, 2));
+    } catch (error) {
+      logger.error('Failed to persist API keys to disk:', error);
+    }
+  }
+
   persistApiKey(apiKey) {
     if (!this.db) return;
     this.db.query(
@@ -678,7 +717,10 @@ export class MoltbotRegistry {
     if (this.apiKeyEvents.length > 200) {
       this.apiKeyEvents.shift();
     }
-    if (!this.db) return;
+    if (!this.db) {
+      this.persistApiKeysToDisk();
+      return;
+    }
     this.db.query(
       `INSERT INTO api_key_events (api_key, action, actor_id, actor_type, metadata)
        VALUES ($1, $2, $3, $4, $5)`,
