@@ -503,6 +503,8 @@ function getAgentUiElements() {
     profileRelations: document.getElementById('agent-profile-relations'),
     profileMotivation: document.getElementById('agent-profile-motivation'),
     profilePlan: document.getElementById('agent-profile-plan'),
+    profileReputation: document.getElementById('agent-profile-reputation'),
+    profileFavors: document.getElementById('agent-profile-favors'),
     profileSpeech: document.getElementById('agent-profile-speech'),
     profileClose: document.getElementById('agent-profile-close')
   };
@@ -551,6 +553,18 @@ function updateAgentProfilePanel(agent) {
   if (elements.profilePlan) {
     const plan = agent.plan?.primaryGoal || '-';
     elements.profilePlan.textContent = plan;
+  }
+  if (elements.profileReputation) {
+    const rep = agent.reputation?.global;
+    elements.profileReputation.textContent = typeof rep === 'number' ? rep.toFixed(1) : '-';
+  }
+  if (elements.profileFavors) {
+    const favors = agent.favors;
+    if (favors) {
+      elements.profileFavors.textContent = `+${favors.owed || 0} / -${favors.owing || 0}`;
+    } else {
+      elements.profileFavors.textContent = '-';
+    }
   }
   elements.profileSpeech.textContent = agent.lastSpeech || 'Sin diálogo reciente';
 }

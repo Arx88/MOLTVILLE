@@ -27,6 +27,11 @@ import { ActionQueue } from './core/ActionQueue.js';
 import { EconomyManager } from './core/EconomyManager.js';
 import { VotingManager } from './core/VotingManager.js';
 import { GovernanceManager } from './core/GovernanceManager.js';
+import { FavorLedger } from './core/FavorLedger.js';
+import { ReputationManager } from './core/ReputationManager.js';
+import { NegotiationService } from './core/NegotiationService.js';
+import { PolicyEngine } from './core/PolicyEngine.js';
+import { TelemetryService } from './core/TelemetryService.js';
 import { db } from './utils/db.js';
 import { CityMoodManager } from './core/CityMoodManager.js';
 import { AestheticsManager } from './core/AestheticsManager.js';
@@ -43,6 +48,10 @@ import worldRoutes from './routes/world.js';
 import economyRoutes from './routes/economy.js';
 import voteRoutes from './routes/vote.js';
 import governanceRoutes from './routes/governance.js';
+import favorRoutes from './routes/favor.js';
+import reputationRoutes from './routes/reputation.js';
+import negotiationRoutes from './routes/negotiation.js';
+import telemetryRoutes from './routes/telemetry.js';
 import { createAestheticsRouter } from './routes/aesthetics.js';
 import eventRoutes from './routes/events.js';
 import { createMetricsRouter } from './routes/metrics.js';
@@ -280,6 +289,11 @@ const interactionEngine = new InteractionEngine(worldState, moltbotRegistry, { d
 const economyManager = new EconomyManager(worldState, { db, io });
 const votingManager = new VotingManager(worldState, io, { db, economyManager });
 const governanceManager = new GovernanceManager(io, { db });
+const favorLedger = new FavorLedger();
+const reputationManager = new ReputationManager();
+const negotiationService = new NegotiationService({ favorLedger, reputationManager });
+const policyEngine = new PolicyEngine({ governanceManager, economyManager });
+const telemetryService = new TelemetryService();
 const cityMoodManager = new CityMoodManager(economyManager, interactionEngine);
 const aestheticsManager = new AestheticsManager({ worldStateManager: worldState, economyManager, governanceManager, io });
 const eventManager = new EventManager({ io });
@@ -347,6 +361,11 @@ app.locals.interactionEngine = interactionEngine;
 app.locals.economyManager = economyManager;
 app.locals.votingManager = votingManager;
 app.locals.governanceManager = governanceManager;
+app.locals.favorLedger = favorLedger;
+app.locals.reputationManager = reputationManager;
+app.locals.negotiationService = negotiationService;
+app.locals.policyEngine = policyEngine;
+app.locals.telemetryService = telemetryService;
 app.locals.cityMoodManager = cityMoodManager;
 app.locals.aestheticsManager = aestheticsManager;
 app.locals.eventManager = eventManager;
@@ -463,6 +482,10 @@ app.use('/api/auth', authRoutes);
 app.use('/api/moltbot', moltbotRoutes);
 app.use('/api/world', worldRoutes);
 app.use('/api/economy', economyRoutes);
+app.use('/api/favor', favorRoutes);
+app.use('/api/reputation', reputationRoutes);
+app.use('/api/negotiation', negotiationRoutes);
+app.use('/api/telemetry', telemetryRoutes);
 app.use('/api/vote', voteRoutes);
 app.use('/api/governance', governanceRoutes);
 app.use('/api/aesthetics', createAestheticsRouter({ aestheticsManager }));
@@ -531,7 +554,13 @@ io.on('connection', (socket) => {
           itemTransactionCount: economyManager.getItemTransactions(500).length
         }
       });
-      socket.emit('agents:list', moltbotRegistry.getAllAgents());
+      const baseAgents = moltbotRegistry.getAllAgents();
+      const enriched = baseAgents.map(agent => ({
+        ...agent,
+        reputation: reputationManager.getSnapshot(agent.id),
+        favors: favorLedger.getSummary(agent.id)
+      }));
+      socket.emit('agents:list', enriched);
       logger.info(`Viewer joined: ${socket.id}`);
     } finally {
       recordSocketDuration('viewer:join', Date.now() - eventStart);
@@ -635,7 +664,13 @@ io.on('connection', (socket) => {
     if (!socket.agentId) return;
     const updated = moltbotRegistry.updateAgentProfile(socket.agentId, data);
     if (updated) {
-      io.to('viewers').emit('agents:list', moltbotRegistry.getAllAgents());
+      const baseAgents = moltbotRegistry.getAllAgents();
+      const enriched = baseAgents.map(agent => ({
+        ...agent,
+        reputation: reputationManager.getSnapshot(agent.id),
+        favors: favorLedger.getSummary(agent.id)
+      }));
+      io.to('viewers').emit('agents:list', enriched);
     }
   });
 
@@ -1113,7 +1148,7 @@ setInterval(() => {
   worldState.tick();
   actionQueue.processQueue();
   moltbotRegistry.pruneMemories();
-  economyManager.applyPolicies(governanceManager.getSummary().policies || []);
+  policyEngine.applyActivePolicies();
   economyManager.tick();
   votingManager.tick();
   governanceManager.tick();
