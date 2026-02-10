@@ -34,7 +34,16 @@ const collectConfig = () => {
   const inputs = document.querySelectorAll('.admin-panel input, .admin-panel select');
   const config = {};
   inputs.forEach((input) => {
-    const value = input.type === 'number' ? Number(input.value) : input.value;
+    if (!input.name) return;
+    if (input.type === 'number') {
+      if (input.value === '') return;
+      const value = Number(input.value);
+      if (Number.isNaN(value)) return;
+      config[input.name] = value;
+      return;
+    }
+    const value = input.value;
+    if (value === '') return;
     config[input.name] = value;
   });
   return config;
@@ -92,7 +101,8 @@ const request = async (path, options = {}) => {
   const response = await fetch(`${API_BASE}${path}`, { ...options, headers });
   if (!response.ok) {
     const payload = await response.json().catch(() => ({}));
-    throw new Error(payload.error || 'Error al conectar con el backend');
+    const details = Array.isArray(payload.details) ? payload.details.join(' | ') : '';
+    throw new Error(details || payload.error || 'Error al conectar con el backend');
   }
   return response.json();
 };
