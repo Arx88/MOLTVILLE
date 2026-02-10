@@ -469,6 +469,19 @@ class MOLTVILLESkill:
                     "messages": [{"role": "user", "content": json.dumps(payload)}],
                     "max_tokens": llm_config.get("maxTokens", 300)
                 }
+            elif provider == "minimax-portal":
+                base_url = llm_config.get("baseUrl", "https://api.minimax.io/anthropic")
+                url = f"{base_url.rstrip('/')}/v1/messages"
+                headers = {
+                    "x-api-key": api_key,
+                    "anthropic-version": "2023-06-01"
+                }
+                body = {
+                    "model": model,
+                    "system": prompt,
+                    "messages": [{"role": "user", "content": json.dumps(payload)}],
+                    "max_tokens": llm_config.get("maxTokens", 300)
+                }
             elif provider == "ollama":
                 url = "http://localhost:11434/v1/chat/completions"
                 headers = {"Content-Type": "application/json"}
@@ -492,7 +505,7 @@ class MOLTVILLESkill:
             content = None
             if provider == "openai" or provider == "ollama":
                 content = data.get("choices", [{}])[0].get("message", {}).get("content")
-            elif provider == "anthropic":
+            elif provider == "anthropic" or provider == "minimax-portal":
                 parts = data.get("content", [])
                 if parts:
                     content = parts[0].get("text")
