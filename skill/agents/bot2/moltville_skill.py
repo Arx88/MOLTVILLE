@@ -51,6 +51,7 @@ class MOLTVILLESkill:
         self._last_hotspot: Optional[Dict[str, Any]] = None
         self._last_conversation_ts: Dict[str, float] = {}
         self._conversation_cooldown = 18
+        self._conversation_stale_seconds = 120
         
         # Setup event handlers
         self._setup_handlers()
@@ -515,6 +516,7 @@ class MOLTVILLESkill:
             if not perception or isinstance(perception, dict) and perception.get("error"):
                 await asyncio.sleep(interval_sec)
                 continue
+            await self._purge_stale_conversations(perception)
             action = await self._decide_action(perception)
             if action:
                 await self._execute_action(action)
@@ -532,6 +534,28 @@ class MOLTVILLESkill:
                 pruned.append(goal)
         self._active_goals = pruned[-10:]
 
+    async def _purge_stale_conversations(self, perception: Dict[str, Any]) -> None:
+        convs = perception.get("conversations", []) or []
+        if not isinstance(convs, list):
+            return
+        now_ms = int(asyncio.get_event_loop().time() * 1000)
+        active_ids = set()
+        for conv in convs:
+            if not isinstance(conv, dict):
+                continue
+            conv_id = conv.get("id")
+            if isinstance(conv_id, str):
+                active_ids.add(conv_id)
+            last_activity = conv.get("lastActivity") or conv.get("startedAt")
+            if conv_id and isinstance(last_activity, (int, float)):
+                age_ms = now_ms - int(last_activity)
+                if age_ms > self._conversation_stale_seconds * 1000:
+                    await self._http_request("POST", f"/api/moltbot/{self.agent_id}/conversations/{conv_id}/end")
+        if self._conversation_state:
+            stale_keys = [k for k, v in self._conversation_state.items() if v not in active_ids]
+            for key in stale_keys:
+                self._conversation_state.pop(key, None)
+
     async def _decide_action(self, perception: Dict[str, Any]) -> Optional[Dict[str, Any]]:
         decision_config = self.config.get("behavior", {}).get("decisionLoop", {})
         mode = decision_config.get("mode", "heuristic")
@@ -539,8 +563,11 @@ class MOLTVILLESkill:
             has_conversation = bool(self._conversation_state) or bool(perception.get("conversations"))
             if has_conversation:
                 action = await self._decide_with_llm(perception)
+                if not action:
+                    action = await self._decide_with_llm(perception, force_conversation=True)
                 if action:
                     return action
+                return {"type": "wait", "params": {}}
         return await self._heuristic_decision(perception)
 
     def _sanitize_llm_action(self, action: Any) -> Optional[Dict[str, Any]]:
@@ -703,7 +730,7 @@ class MOLTVILLESkill:
             logger.warning(f"LLM decision failed: {error}")
             return None
 
-    async def _decide_with_llm(self, perception: Dict[str, Any]) -> Optional[Dict[str, Any]]:
+    async def _decide_with_llm(self, perception: Dict[str, Any], force_conversation: bool = False) -> Optional[Dict[str, Any]]:
         llm_config = self.config.get("llm", {})
         provider = llm_config.get("provider", "")
         api_key = llm_config.get("apiKey", "")
@@ -739,6 +766,13 @@ class MOLTVILLESkill:
             "Formato: {\"type\": \"move_to|enter_building|speak|apply_job|wait|start_conversation|conversation_message\", "
             "\"params\": { ... } }."
         )
+        if force_conversation:
+            prompt = (
+                "Hay una conversación activa. Debes responder SOLO con conversation_message. "
+                "No uses move_to, enter_building, speak, apply_job ni start_conversation. "
+                "Mantente 100% in-world. Responde con un solo mensaje natural. "
+                "Devuelve SOLO JSON válido con: {\"type\": \"conversation_message\", \"params\": {\"conversation_id\": \"...\", \"message\": \"...\"}}."
+            )
 
         try:
             if provider == "openai":
@@ -839,7 +873,7 @@ class MOLTVILLESkill:
                     raise
             sanitized = self._sanitize_llm_action(parsed)
             if not sanitized:
-                logger.warning("LLM returned invalid action, falling back to heuristic.")
+                logger.warning("LLM returned invalid action.")
                 logger.warning(f"LLM raw: {content[:500]}")
             return sanitized
         except (OSError, json.JSONDecodeError, aiohttp.ClientError) as error:
