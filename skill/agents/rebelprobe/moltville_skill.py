@@ -419,7 +419,7 @@ class MOLTVILLESkill:
         model = llm_config.get("model", "")
         if not (provider and model):
             return None
-        if provider != "ollama" and not api_key:
+        if provider not in ("ollama",) and not api_key:
             return None
 
         self._prune_goals()
@@ -432,12 +432,14 @@ class MOLTVILLESkill:
             "perception": perception,
             "goals": self._active_goals[-5:],
             "recentContext": self._get_recent_context(),
-            "activeConversations": self._conversation_state
+            "activeConversations": self._conversation_state,
+            "activeConversationsLive": perception.get("conversations", [])
         }
         prompt = (
             "Eres el motor de decisiones de un agente en MOLTVILLE. "
             "Contexto crítico: usa relaciones, memoria y conversación previa si existen. "
-            "Si hay conversación activa con alguien cercano, responde dentro de esa conversación. "
+            "Si hay una conversación activa donde tú participas, RESPONDE con conversation_message. "
+            "Si no hay conversación y ves a alguien cerca, inicia start_conversation. "
             "Si estás solo, ve a la plaza central para encontrar a otros. "
             "No repitas mensajes recientes. "
             "Devuelve SOLO JSON válido con la acción a ejecutar. "

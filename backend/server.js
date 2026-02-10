@@ -1060,7 +1060,8 @@ io.on('connection', (socket) => {
         ...worldState.getAgentView(socket.agentId),
         governance: governanceManager.getSummary(),
         mood: cityMoodManager.getSummary(),
-        context: buildAgentContext(socket.agentId)
+        context: buildAgentContext(socket.agentId),
+        conversations: interactionEngine.getAgentConversations(socket.agentId)
       });
     } catch (error) {
       logger.error('Perceive error:', error);
