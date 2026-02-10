@@ -3980,18 +3980,31 @@ class MoltivilleScene extends Phaser.Scene {
       return;
     }
 
+    const safe = (value) => String(value ?? '')
+      .replace(/&/g, '&amp;')
+      .replace(/</g, '&lt;')
+      .replace(/>/g, '&gt;')
+      .replace(/"/g, '&quot;')
+      .replace(/'/g, '&#39;');
+
+    const sorted = [...conversations].sort((a, b) => {
+      const aTime = a?.lastActivity || a?.startedAt || 0;
+      const bTime = b?.lastActivity || b?.startedAt || 0;
+      return bTime - aTime;
+    });
+
     statusEl.textContent = `${conversations.length} en curso`;
-    bodyEl.innerHTML = conversations.slice(0, 2).map(conv => {
+    bodyEl.innerHTML = sorted.slice(0, 2).map(conv => {
       const [a, b] = conv.participants || [];
       const nameA = AGENT_DIRECTORY.get(a)?.name || this.agents.find(x => x.id === a)?.name || (a ? `Agent ${a.slice(0,4)}` : '—');
       const nameB = AGENT_DIRECTORY.get(b)?.name || this.agents.find(x => x.id === b)?.name || (b ? `Agent ${b.slice(0,4)}` : '—');
       const messages = Array.isArray(conv.messages) ? conv.messages : [];
-      const lastMsg = messages.length ? messages[messages.length - 1] : null;
+      const lastMsg = messages.slice().sort((m1, m2) => (m1?.timestamp || 0) - (m2?.timestamp || 0)).at(-1);
       const lastLine = lastMsg?.message ? `${lastMsg.message}` : 'Conexión activa, esperando diálogo…';
       return `
         <div class="conversation-card">
-          <div class="participants">${nameA} ↔ ${nameB}</div>
-          <div class="last-line">${lastLine}</div>
+          <div class="participants">${safe(nameA)} ↔ ${safe(nameB)}</div>
+          <div class="last-line">${safe(lastLine)}</div>
         </div>
       `;
     }).join('');
