@@ -312,6 +312,8 @@ class MOLTVILLESkill:
     def _remember_utterance(self, speaker_id: str, message: str) -> None:
         if not speaker_id or not message:
             return
+        if self._is_meta_message(message):
+            return
         entry = {
             "speakerId": speaker_id,
             "message": message.strip()[:280],
@@ -331,8 +333,9 @@ class MOLTVILLESkill:
         self._save_long_memory()
 
     def _get_recent_context(self) -> Dict[str, Any]:
+        cleaned = [u for u in self._recent_utterances if not self._is_meta_message(u.get("message", ""))]
         return {
-            "recentUtterances": list(self._recent_utterances),
+            "recentUtterances": list(cleaned),
             "episodes": self.long_memory.get("episodes", [])[-10:],
             "relationshipNotes": self.long_memory.get("relationships", {})
         }
