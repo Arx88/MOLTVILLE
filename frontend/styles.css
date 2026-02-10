@@ -2,7 +2,6 @@
   * { margin: 0; padding: 0; box-sizing: border-box; }
   body { background: radial-gradient(circle at 20% 0%, #223158 0%, #171c33 45%, #0f1326 100%); overflow: hidden; font-family: 'Sora', sans-serif; }
   body.show-mode-active #chat-log,
-  body.show-mode-active #conversation-focus,
   body.show-mode-active #agents-panel,
   body.show-mode-active #vote-panel,
   body.show-mode-active #governance-panel,
