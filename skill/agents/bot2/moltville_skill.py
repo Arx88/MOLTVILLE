@@ -650,6 +650,18 @@ class MOLTVILLESkill:
                 return
             if last_ts and last_ts <= self._last_conversation_ts.get(conv_id, 0):
                 return
+        if messages:
+            if "jobid:" in last_text.lower() and ("vota" in last_text.lower() or "vote" in last_text.lower()):
+                import re
+                match = re.search(r"jobId:\s*([\w:-]+)", last_text, re.IGNORECASE)
+                job_id = match.group(1) if match else None
+                applicant_id = last_msg.get("from")
+                if job_id and applicant_id and applicant_id != self.agent_id:
+                    await self.vote_job(applicant_id, job_id)
+                    await self.send_conversation_message(conv_id, "Listo. Voté por tu solicitud.")
+                    self._last_conversation_ts[conv_id] = int(asyncio.get_event_loop().time() * 1000)
+                    self._last_conversation_msg[conv_id] = last_text
+                    return
         action = await self._decide_with_llm(perception, force_conversation=True, forced_conversation_id=conv_id)
         if not action:
             action = await self._decide_with_llm(perception, force_conversation=True, forced_conversation_id=conv_id)
@@ -736,7 +748,7 @@ class MOLTVILLESkill:
     async def _request_job_vote(self, perception: Dict[str, Any], application: Dict[str, Any]) -> Optional[Dict[str, Any]]:
         nearby_agents = perception.get("nearbyAgents", []) or []
         if not nearby_agents:
-            return None
+            return {"type": "move_to", "params": self._pick_hotspot("social")}
         target_id = nearby_agents[0].get("id")
         if not target_id:
             return None
