@@ -226,7 +226,11 @@ class MOLTVILLESkill:
         if not isinstance(message, str):
             return True
         lowered = message.lower()
-        banned = ["modelo", "llm", "ia", "sistema", "servidor", "api", "oauth", "prueba", "test", "prompt"]
+        banned = [
+            "modelo", "llm", "ia", "sistema", "servidor", "api", "oauth", "prueba", "test", "prompt",
+            "ciclo", "coordenad", "estabilidad", "monitoreo", "instruccion", "instrucción", "parametro", "parámetro",
+            "secuencia", "diagnostic", "observacion", "observación"
+        ]
         return any(term in lowered for term in banned)
 
     def _select_intent(self, perception: Dict[str, Any]) -> str:
