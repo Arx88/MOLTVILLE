@@ -37,11 +37,11 @@
   <div id="status-modal">
     <div class="modal-card">
       <div class="modal-title">Estado de conexión</div>
-      <div class="modal-row" id="status-modal-last-success">Último refresh: —</div>
-      <div class="modal-row" id="status-modal-last-duration">Duración último refresh: —</div>
-      <div class="modal-row" id="status-modal-failures">Fallos seguidos: —</div>
-      <div class="modal-row" id="status-modal-last-section">Último módulo fallido: —</div>
-      <div class="modal-row" id="status-modal-last-error">Último error: —</div>
+      <div class="modal-row" id="status-modal-last-success">Último refresh: -</div>
+      <div class="modal-row" id="status-modal-last-duration">Duración último refresh: -</div>
+      <div class="modal-row" id="status-modal-failures">Fallos seguidos: -</div>
+      <div class="modal-row" id="status-modal-last-section">Último módulo fallido: -</div>
+      <div class="modal-row" id="status-modal-last-error">Último error: -</div>
       <div class="modal-actions">
         <button class="secondary" id="status-modal-close" type="button">Cerrar</button>
         <button id="status-modal-retry" type="button">Reintentar ahora</button>
@@ -89,14 +89,16 @@
       <div class="agent-profile-title" id="agent-profile-name">Agente</div>
       <button class="agent-profile-close" id="agent-profile-close" type="button">✕</button>
     </div>
-    <div class="agent-profile-sub" id="agent-profile-role">—</div>
+    <div class="agent-profile-sub" id="agent-profile-role">-</div>
     <div class="agent-profile-body">
-      <div class="agent-profile-row"><span>Estado</span><span id="agent-profile-state">—</span></div>
-      <div class="agent-profile-row"><span>Ubicación</span><span id="agent-profile-location">—</span></div>
-      <div class="agent-profile-row"><span>Trabajo</span><span id="agent-profile-job">—</span></div>
-      <div class="agent-profile-row"><span>Relaciones</span><span id="agent-profile-relations">—</span></div>
+      <div class="agent-profile-row"><span>Estado</span><span id="agent-profile-state">-</span></div>
+      <div class="agent-profile-row"><span>Ubicación</span><span id="agent-profile-location">-</span></div>
+      <div class="agent-profile-row"><span>Trabajo</span><span id="agent-profile-job">-</span></div>
+      <div class="agent-profile-row"><span>Relaciones</span><span id="agent-profile-relations">-</span></div>
+      <div class="agent-profile-row"><span>Motivación</span><span id="agent-profile-motivation">-</span></div>
+      <div class="agent-profile-row"><span>Plan activo</span><span id="agent-profile-plan">-</span></div>
     </div>
-    <div class="agent-profile-speech" id="agent-profile-speech">—</div>
+    <div class="agent-profile-speech" id="agent-profile-speech">-</div>
   </div>
   <div id="show-mode-container" class="show-mode">
     <div class="show-mode-viewport">
@@ -134,7 +136,7 @@
       </div>
     </aside>
     <div class="show-mode-caption" id="show-mode-caption">
-      <div class="show-mode-caption-speaker" id="show-mode-caption-speaker">—</div>
+      <div class="show-mode-caption-speaker" id="show-mode-caption-speaker">-</div>
       <div class="show-mode-caption-text" id="show-mode-caption-text">En espera de diálogo...</div>
     </div>
   </div>
@@ -142,6 +144,6 @@
 
 <script src="https://cdnjs.cloudflare.com/ajax/libs/phaser/3.60.0/phaser.min.js"></script>
 <script src="https://cdn.socket.io/4.6.1/socket.io.min.js" crossorigin="anonymous"></script>
-<script src="./app.js?v=20260210i"></script>
+<script src="./app.js?v=20260210j"></script>
 </body>
 </html>

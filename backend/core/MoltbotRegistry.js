@@ -109,6 +109,10 @@ export class MoltbotRegistry {
         existing.permissions = normalizedPermissions;
         this.persistPermissions(existing.id, normalizedPermissions);
       }
+      if (data.profile) existing.profile = data.profile;
+      if (data.traits) existing.traits = data.traits;
+      if (data.motivation) existing.motivation = data.motivation;
+      if (data.plan) existing.plan = data.plan;
       existing.isNPC = isNPC;
       this.sockets.set(id, socketId);
       if (this.db && !existing.memory.loadedFromDb) {
@@ -135,6 +139,10 @@ export class MoltbotRegistry {
         actionsTaken: 0,
         interactionCount: 0
       },
+      profile: data.profile || null,
+      traits: data.traits || null,
+      motivation: data.motivation || null,
+      plan: data.plan || null,
       memory: {
         interactions: [],
         locations: [],
@@ -240,12 +248,27 @@ export class MoltbotRegistry {
       lastSeen: agent.lastSeen,
       stats: agent.stats,
       permissions: agent.permissions || [],
-      isNPC: Boolean(agent.isNPC)
+      isNPC: Boolean(agent.isNPC),
+      profile: agent.profile || null,
+      traits: agent.traits || null,
+      motivation: agent.motivation || null,
+      plan: agent.plan || null
     }));
   }
 
   getAgentCount() {
     return this.agents.size;
+  }
+
+  updateAgentProfile(agentId, payload = {}) {
+    const agent = this.agents.get(agentId);
+    if (!agent) return null;
+    if (payload.profile) agent.profile = payload.profile;
+    if (payload.traits) agent.traits = payload.traits;
+    if (payload.motivation) agent.motivation = payload.motivation;
+    if (payload.plan) agent.plan = payload.plan;
+    agent.lastSeen = Date.now();
+    return agent;
   }
 
   updateAgentActivity(agentId, activityType) {

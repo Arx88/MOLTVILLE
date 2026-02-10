@@ -59,9 +59,11 @@ class MOLTVILLESkill:
         self._plan_ttl_seconds = 180
         self._plan_action_timeout = 45
         self._goal_state = self.long_memory.get("goalState", {}) if isinstance(self.long_memory, dict) else {}
+        self._motivation_state = self.long_memory.get("motivationState", {}) if isinstance(self.long_memory, dict) else {}
         self._world_state_cache = None
         self._world_state_cache_at = 0
         self._world_state_cache_ttl = 30
+        self._profile_last_sent = 0
         
         # Setup event handlers
         self._setup_handlers()
@@ -169,6 +171,162 @@ class MOLTVILLESkill:
             }
         except (TypeError, ValueError):
             return
+
+    def _infer_desire_from_profile(self) -> str:
+        profile = self.long_memory.get("profile") if isinstance(self.long_memory, dict) else {}
+        goals = profile.get("goals") if isinstance(profile, dict) else []
+        goal_text = " ".join([str(g).lower() for g in goals])
+        if any(token in goal_text for token in ("president", "alcald", "polit")):
+            return "be_president"
+        if any(token in goal_text for token in ("negocio", "empresa", "emprend", "tienda", "cafe")):
+            return "start_business"
+        if any(token in goal_text for token in ("cita", "amor", "pareja", "romance")):
+            return "find_love"
+        if any(token in goal_text for token in ("casa", "hogar", "vivienda")):
+            return "buy_house"
+        # fallback by traits
+        if self._traits.get("ambition", 0.5) >= 0.75:
+            return "be_president"
+        if self._traits.get("curiosity", 0.5) >= 0.7:
+            return "start_business"
+        return "buy_house"
+
+    def _build_motivation_chain(self, desire: str) -> List[Dict[str, Any]]:
+        if desire == "be_president":
+            return [
+                {"id": "desire_president", "label": "Quiero liderar la ciudad", "requires": []},
+                {"id": "build_reputation", "label": "Necesito reputación positiva", "requires": ["desire_president"]},
+                {"id": "help_citizens", "label": "Debo ayudar a ciudadanos concretos", "requires": ["build_reputation"]},
+                {"id": "register_candidate", "label": "Registrarme como candidato", "requires": ["help_citizens"]},
+                {"id": "win_votes", "label": "Conseguir votos reales", "requires": ["register_candidate"]}
+            ]
+        if desire == "start_business":
+            return [
+                {"id": "desire_business", "label": "Quiero abrir un negocio", "requires": []},
+                {"id": "need_capital", "label": "Necesito capital", "requires": ["desire_business"]},
+                {"id": "get_job", "label": "Necesito un trabajo estable", "requires": ["need_capital"]},
+                {"id": "get_votes", "label": "Necesito votos para conseguir ese trabajo", "requires": ["get_job"]},
+                {"id": "open_business", "label": "Proponer y votar un nuevo local", "requires": ["need_capital"]}
+            ]
+        if desire == "find_love":
+            return [
+                {"id": "desire_date", "label": "Quiero tener una cita", "requires": []},
+                {"id": "build_relationship", "label": "Necesito ganar confianza con alguien", "requires": ["desire_date"]},
+                {"id": "need_money", "label": "Necesito dinero para planear la cita", "requires": ["build_relationship"]},
+                {"id": "get_job", "label": "Necesito un trabajo estable", "requires": ["need_money"]},
+                {"id": "get_votes", "label": "Necesito votos para el trabajo", "requires": ["get_job"]},
+                {"id": "plan_date", "label": "Proponer la cita en un lugar concreto", "requires": ["need_money"]}
+            ]
+        return [
+            {"id": "desire_house", "label": "Quiero un hogar propio", "requires": []},
+            {"id": "need_money", "label": "Necesito dinero", "requires": ["desire_house"]},
+            {"id": "get_job", "label": "Necesito un trabajo estable", "requires": ["need_money"]},
+            {"id": "get_votes", "label": "Necesito votos para el trabajo", "requires": ["get_job"]},
+            {"id": "build_support", "label": "Debo ganarme apoyo ayudando a otros", "requires": ["get_votes"]},
+            {"id": "buy_house", "label": "Comprar casa", "requires": ["need_money"]}
+        ]
+
+    def _ensure_motivation_state(self) -> None:
+        if isinstance(self._motivation_state, dict) and self._motivation_state.get("desire"):
+            return
+        desire = self._infer_desire_from_profile()
+        chain = self._build_motivation_chain(desire)
+        self._motivation_state = {
+            "desire": desire,
+            "chain": [{**step, "status": "pending"} for step in chain],
+            "startedAt": int(asyncio.get_event_loop().time() * 1000)
+        }
+        if isinstance(self.long_memory, dict):
+            self.long_memory["motivationState"] = self._motivation_state
+            self._save_long_memory()
+
+    def _mark_chain_done(self, chain: List[Dict[str, Any]], step_id: str) -> None:
+        for step in chain:
+            if step.get("id") == step_id:
+                step["status"] = "done"
+
+    def _chain_ready(self, chain: List[Dict[str, Any]], step: Dict[str, Any]) -> bool:
+        requires = step.get("requires", []) or []
+        if not requires:
+            return True
+        for req in requires:
+            required_step = next((s for s in chain if s.get("id") == req), None)
+            if not required_step or required_step.get("status") != "done":
+                return False
+        return True
+
+    async def _update_motivation_progress(self, perception: Dict[str, Any]) -> None:
+        self._ensure_motivation_state()
+        chain = self._motivation_state.get("chain", []) if isinstance(self._motivation_state, dict) else []
+        context = perception.get("context", {}) or {}
+        economy = context.get("economy", {}) or {}
+        job = economy.get("job")
+        balance = economy.get("balance", 0)
+        target_price = self._goal_state.get("targetPrice") or 0
+        if job:
+            self._mark_chain_done(chain, "get_job")
+        if target_price and balance >= target_price:
+            self._mark_chain_done(chain, "need_money")
+        if isinstance(self.long_memory, dict):
+            self.long_memory["motivationState"] = self._motivation_state
+            self._save_long_memory()
+
+    async def _next_motivation_action(self, perception: Dict[str, Any]) -> Optional[Dict[str, Any]]:
+        await self._update_motivation_progress(perception)
+        chain = self._motivation_state.get("chain", []) if isinstance(self._motivation_state, dict) else []
+        if not chain:
+            return None
+        pending = [step for step in chain if step.get("status") != "done" and self._chain_ready(chain, step)]
+        if not pending:
+            return None
+        current = pending[0]
+        step_id = current.get("id")
+        economy = (perception.get("context") or {}).get("economy", {}) or {}
+        job = economy.get("job")
+        balance = economy.get("balance", 0)
+        if step_id in ("build_support", "help_citizens", "build_relationship"):
+            nearby = perception.get("nearbyAgents", []) or []
+            if nearby:
+                return {"type": "start_conversation", "params": {"target_id": nearby[0].get("id"), "message": "¿Te puedo ayudar con algo?"}}
+            return {"type": "move_to", "params": self._pick_hotspot("social")}
+        if step_id in ("get_job", "get_votes"):
+            application = await self.list_job_applications()
+            app = application.get("application") if isinstance(application, dict) else None
+            if not job and not app:
+                jobs = await self.list_jobs()
+                available = [j for j in (jobs.get("jobs") or []) if not j.get("assignedTo")]
+                if available:
+                    return {"type": "apply_job", "params": {"job_id": available[0].get("id")}}
+            if app and app.get("status") == "pending":
+                nearby = perception.get("nearbyAgents", []) or []
+                if nearby:
+                    return {"type": "start_conversation", "params": {"target_id": nearby[0].get("id"), "message": f"Necesito apoyo para mi trabajo ({app.get('jobId')}). ¿Podrías votar por mí?"}}
+                return {"type": "move_to", "params": self._pick_hotspot("social")}
+            return {"type": "move_to", "params": self._pick_hotspot("work")}
+        if step_id in ("buy_house", "open_business"):
+            if step_id == "buy_house":
+                props = await self.list_properties()
+                for_sale = [p for p in (props.get("properties") or []) if p.get("forSale")]
+                if for_sale:
+                    cheapest = sorted(for_sale, key=lambda p: p.get("price", 0))[0]
+                    if balance >= cheapest.get("price", 0):
+                        return {"type": "buy_property", "params": {"property_id": cheapest.get("id")}}
+                return {"type": "move_to", "params": self._pick_hotspot("work")}
+            return {"type": "move_to", "params": self._pick_hotspot("work")}
+        if step_id in ("register_candidate", "win_votes"):
+            if step_id == "register_candidate":
+                await self._maybe_register_candidate(perception)
+                return {"type": "wait", "params": {}}
+            nearby = perception.get("nearbyAgents", []) or []
+            if nearby:
+                return {"type": "start_conversation", "params": {"target_id": nearby[0].get("id"), "message": "Estoy reuniendo apoyo para representar la ciudad. ¿Contaría con tu voto?"}}
+            return {"type": "move_to", "params": self._pick_hotspot("social")}
+        if step_id in ("plan_date",):
+            nearby = perception.get("nearbyAgents", []) or []
+            if nearby:
+                return {"type": "start_conversation", "params": {"target_id": nearby[0].get("id"), "message": "¿Te gustaría acompañarme a la plaza esta tarde?"}}
+            return {"type": "move_to", "params": self._pick_hotspot("social")}
+        return None
 
     async def _ensure_profile(self) -> None:
         if isinstance(self.long_memory.get("profile"), dict):
@@ -554,6 +712,25 @@ class MOLTVILLESkill:
             'permissions': permissions
         })
 
+    async def _send_profile_update(self) -> None:
+        if not self.connected:
+            return
+        now_ms = int(asyncio.get_event_loop().time() * 1000)
+        if now_ms - self._profile_last_sent < 20000:
+            return
+        self._profile_last_sent = now_ms
+        payload = {
+            "agentId": self.agent_id,
+            "profile": self.long_memory.get("profile"),
+            "traits": self._traits,
+            "motivation": self._motivation_state,
+            "plan": self._plan_state
+        }
+        try:
+            await self.sio.emit('agent:profile', payload)
+        except Exception as error:
+            logger.debug(f"Failed to send profile update: {error}")
+
     async def _run_auto_explore(self) -> None:
         interval_ms = self.config.get("behavior", {}).get("decisionInterval", 30000)
         interval_sec = max(interval_ms / 1000, 1)
@@ -586,6 +763,8 @@ class MOLTVILLESkill:
                 await asyncio.sleep(interval_sec)
                 continue
             await self._purge_stale_conversations(perception)
+            await self._ensure_plan(perception)
+            await self._send_profile_update()
             action = await self._decide_action(perception)
             if action:
                 await self._execute_action(action)
@@ -680,15 +859,13 @@ class MOLTVILLESkill:
         return (now_ms - int(last)) > (self._plan_ttl_seconds * 1000)
 
     def _ensure_goal_state(self, perception: Dict[str, Any]) -> None:
+        self._ensure_motivation_state()
         if not isinstance(self._goal_state, dict) or not self._goal_state.get("primary"):
+            primary = self._motivation_state.get("desire", "explorar") if isinstance(self._motivation_state, dict) else "explorar"
             self._goal_state = {
-                "primary": "buy_house",
+                "primary": primary,
                 "status": "active",
-                "nodes": {
-                    "get_job": {"status": "pending"},
-                    "earn_money": {"status": "pending"},
-                    "buy_house": {"status": "pending"}
-                },
+                "nodes": {},
                 "targetPrice": None,
                 "updatedAt": int(asyncio.get_event_loop().time() * 1000)
             }
@@ -722,24 +899,12 @@ class MOLTVILLESkill:
     async def _update_goal_progress(self, perception: Dict[str, Any]) -> None:
         context = perception.get("context", {}) or {}
         economy = context.get("economy", {}) or {}
-        nodes = self._goal_state.get("nodes", {}) if isinstance(self._goal_state, dict) else {}
-        job = economy.get("job")
-        if job:
-            nodes.setdefault("get_job", {})["status"] = "done"
-        properties_owned = economy.get("properties", []) or []
-        if properties_owned:
-            nodes.setdefault("buy_house", {})["status"] = "done"
         if not self._goal_state.get("targetPrice"):
             props = await self.list_properties()
             if isinstance(props, dict):
                 for_sale = [p for p in props.get("properties", []) if p.get("forSale")]
                 if for_sale:
                     self._goal_state["targetPrice"] = min(p.get("price", 0) for p in for_sale)
-        target_price = self._goal_state.get("targetPrice") or 0
-        balance = economy.get("balance", 0)
-        if target_price and balance >= target_price:
-            nodes.setdefault("earn_money", {})["status"] = "done"
-        self._goal_state["nodes"] = nodes
         self._goal_state["updatedAt"] = int(asyncio.get_event_loop().time() * 1000)
         if isinstance(self.long_memory, dict):
             self.long_memory["goalState"] = self._goal_state
@@ -775,51 +940,7 @@ class MOLTVILLESkill:
         return None
 
     async def _goal_action(self, perception: Dict[str, Any]) -> Optional[Dict[str, Any]]:
-        self._ensure_goal_state(perception)
-        await self._update_goal_progress(perception)
-        context = perception.get("context", {}) or {}
-        economy = context.get("economy", {}) or {}
-        balance = economy.get("balance", 0)
-        job = economy.get("job")
-        nodes = self._goal_state.get("nodes", {}) if isinstance(self._goal_state, dict) else {}
-        primary = self._goal_state.get("primary") if isinstance(self._goal_state, dict) else None
-        if primary == "buy_house":
-            if nodes.get("buy_house", {}).get("status") == "done":
-                return None
-            if not job:
-                application_resp = await self.get_job_application()
-                application = application_resp.get("application") if isinstance(application_resp, dict) else None
-                if isinstance(application, dict) and application.get("jobId"):
-                    votes = application.get("votes", [])
-                    vote_count = len(votes) if isinstance(votes, list) else int(votes or 0)
-                    required = application.get("required") or 2
-                    if vote_count < required:
-                        convo_action = await self._request_job_vote(perception, application)
-                        if convo_action:
-                            logger.info("GoalGraph: get_job -> request_votes")
-                            return convo_action
-                    logger.info("GoalGraph: get_job -> wait_votes")
-                    return {"type": "wait", "params": {}}
-                jobs = await self.list_jobs()
-                if isinstance(jobs, dict):
-                    available = [j for j in jobs.get("jobs", []) if not j.get("assignedTo")]
-                    if available:
-                        logger.info("GoalGraph: get_job -> apply_job")
-                        return {"type": "apply_job", "params": {"job_id": available[0].get("id")}}
-                logger.info("GoalGraph: get_job -> move_to(work)")
-                return {"type": "move_to", "params": self._pick_hotspot("work")}
-            target_price = self._goal_state.get("targetPrice") or 0
-            if target_price and balance >= target_price:
-                props = await self.list_properties()
-                if isinstance(props, dict):
-                    for_sale = [p for p in props.get("properties", []) if p.get("forSale")]
-                    if for_sale:
-                        chosen = sorted(for_sale, key=lambda p: p.get("price", 0))[0]
-                        logger.info("GoalGraph: buy_house -> buy_property")
-                        return {"type": "buy_property", "params": {"property_id": chosen.get("id")}}
-            logger.info("GoalGraph: earn_money -> move_to(work)")
-            return {"type": "move_to", "params": self._pick_hotspot("work")}
-        return None
+        return await self._next_motivation_action(perception)
 
     async def _maybe_start_conversation(self, perception: Dict[str, Any]) -> Optional[Dict[str, Any]]:
         plan = self.long_memory.get("planState", {}) if isinstance(self.long_memory, dict) else {}
@@ -866,43 +987,19 @@ class MOLTVILLESkill:
         }
 
     async def _generate_plan(self, perception: Dict[str, Any]) -> Dict[str, Any]:
-        prompt = (
-            "Eres un ciudadano de MOLTVILLE. Crea un plan concreto y accionable. "
-            "Devuelve SOLO JSON con: primaryGoal (string), secondaryGoals (2 strings), "
-            "actions (lista de 2-4 acciones). Cada acción usa el formato {type, params}. "
-            "Tipos válidos: move_to, start_conversation, enter_building, apply_job, buy_property, wait. "
-            "Usa objetivos específicos y en-world y asegura que el plan produzca RESULTADOS." 
-        )
-        payload = {
-            "agent": {
-                "id": self.agent_id,
-                "name": self.config.get("agent", {}).get("name"),
-                "personality": self.config.get("agent", {}).get("personality")
-            },
-            "perception": perception,
-            "relationships": (perception.get("context") or {}).get("relationships", {}),
-            "profile": self.long_memory.get("profile"),
-            "notes": self.long_memory.get("relationships", {})
-        }
-        result = await self._call_llm_json(prompt, payload)
-        if not isinstance(result, dict):
-            return self._build_heuristic_plan(perception)
-        actions = []
-        for item in result.get("actions", []) or []:
-            sanitized = self._sanitize_llm_action(item)
-            if sanitized:
-                actions.append(sanitized)
-        if not actions:
-            return self._build_heuristic_plan(perception)
+        self._ensure_motivation_state()
+        chain = self._motivation_state.get("chain", []) if isinstance(self._motivation_state, dict) else []
+        primary = self._motivation_state.get("desire", "Explorar la ciudad") if isinstance(self._motivation_state, dict) else "Explorar la ciudad"
+        secondary = [step.get("label") for step in chain[:2]] if chain else ["Generar conexiones", "Aprender sobre la ciudad"]
         return {
-            "primaryGoal": str(result.get("primaryGoal", "Explorar la ciudad"))[:120],
-            "secondaryGoals": [str(g)[:120] for g in (result.get("secondaryGoals") or [])][:2],
-            "actions": actions,
+            "primaryGoal": str(primary).replace("_", " ")[:120],
+            "secondaryGoals": [str(g)[:120] for g in secondary][:2],
+            "actions": [],
             "lastPlanAt": int(asyncio.get_event_loop().time() * 1000)
         }
 
     async def _ensure_plan(self, perception: Dict[str, Any]) -> None:
-        if not isinstance(self._plan_state, dict) or self._plan_expired() or not self._plan_state.get("actions"):
+        if not isinstance(self._plan_state, dict) or self._plan_expired():
             self._plan_state = await self._generate_plan(perception)
             if isinstance(self.long_memory, dict):
                 self.long_memory["planState"] = self._plan_state
@@ -945,15 +1042,8 @@ class MOLTVILLESkill:
         await self._ensure_plan(perception)
         if not isinstance(self._plan_state, dict):
             return None
-        actions = self._plan_state.get("actions", []) or []
-        if not actions:
-            return None
-        next_action = actions.pop(0)
-        self._plan_state["actions"] = actions
-        if isinstance(self.long_memory, dict):
-            self.long_memory["planState"] = self._plan_state
-            self._save_long_memory()
-        return next_action if isinstance(next_action, dict) else None
+        motivation_action = await self._next_motivation_action(perception)
+        return motivation_action
 
     async def _decide_action(self, perception: Dict[str, Any]) -> Optional[Dict[str, Any]]:
         decision_config = self.config.get("behavior", {}).get("decisionLoop", {})
@@ -1190,6 +1280,7 @@ class MOLTVILLESkill:
             return None
 
         self._prune_goals()
+        self._ensure_motivation_state()
         job_applications = await self.list_job_applications()
         payload = {
             "agent": {
@@ -1201,6 +1292,7 @@ class MOLTVILLESkill:
             "goals": self._active_goals[-5:],
             "recentContext": self._get_recent_context(),
             "profile": self.long_memory.get("profile"),
+            "motivation": self._motivation_state,
             "activeConversations": self._conversation_state,
             "activeConversationsLive": perception.get("conversations", []),
             "forcedConversationId": forced_conversation_id,
@@ -1210,7 +1302,7 @@ class MOLTVILLESkill:
             "Eres un ciudadano de MOLTVILLE. Actúas solo dentro del mundo, en primera persona. "
             "Nunca menciones IA, modelos, sistemas, pruebas, servidores ni infraestructura. "
             "Usa relaciones, memoria y conversación previa si existen. "
-            "Tu respuesta debe AVANZAR un objetivo concreto del plan actual. "
+            "Tu respuesta debe AVANZAR el próximo paso del motivo actual (motivation.chain). "
             "Si hay una conversación activa donde tú participas, RESPONDE con conversation_message. "
             "Si no hay conversación y ves a alguien cerca, inicia start_conversation. "
             "Si estás solo, muévete hacia un lugar relevante según tu intención. "
@@ -1482,9 +1574,11 @@ class MOLTVILLESkill:
                 raise Exception("Failed to register with server")
 
             await self._ensure_profile()
+            await self._send_profile_update()
             try:
                 perception = await self.perceive()
                 await self._ensure_plan(perception)
+                await self._send_profile_update()
                 first_action = await self._next_plan_action(perception)
                 if first_action:
                     await self._execute_action(first_action)

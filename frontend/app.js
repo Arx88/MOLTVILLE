@@ -1,5 +1,5 @@
 // ============================================================
-// MOLTVILLE — WORLD DATA
+// MOLTVILLE - WORLD DATA
 // ============================================================
 const TILE = 32;
 const WORLD_W = 64;
@@ -10,7 +10,7 @@ const ISO_H = TILE / 2;
 // Tile types
 const T = { GRASS:0, ROAD:1, WATER:2, SAND:3, STONE:4, DIRT:5, PATH:6, FLOWER:7 };
 
-// Building definitions — richer and more varied
+// Building definitions - richer and more varied
 let BUILDINGS = [
   // ── Cafés & Social ──
   { id:'cafe1', name:'Hobbs Café', type:'cafe', x:14, y:8,  w:5, h:4, color:'#c0392b', roof:'#e74c3c', accent:'#f39c12', stories:1 },
@@ -501,6 +501,8 @@ function getAgentUiElements() {
     profileLocation: document.getElementById('agent-profile-location'),
     profileJob: document.getElementById('agent-profile-job'),
     profileRelations: document.getElementById('agent-profile-relations'),
+    profileMotivation: document.getElementById('agent-profile-motivation'),
+    profilePlan: document.getElementById('agent-profile-plan'),
     profileSpeech: document.getElementById('agent-profile-speech'),
     profileClose: document.getElementById('agent-profile-close')
   };
@@ -527,7 +529,7 @@ function setupAgentUiControls(scene) {
 }
 
 function resolveAgentLocationLabel(agent) {
-  if (!agent) return '—';
+  if (!agent) return '-';
   const building = BUILDINGS.find(b => agent.x >= b.x && agent.x < b.x + b.w && agent.y >= b.y && agent.y < b.y + b.h);
   return building ? building.name : `(${agent.x}, ${agent.y})`;
 }
@@ -537,11 +539,19 @@ function updateAgentProfilePanel(agent) {
   if (!elements.profile || !agent) return;
   elements.profileName.textContent = agent.name || 'Agente';
   elements.profileRole.textContent = agent.isNPC ? 'NPC' : 'Ciudadano';
-  elements.profileState.textContent = agent.state || '—';
+  elements.profileState.textContent = agent.state || '-';
   elements.profileLocation.textContent = resolveAgentLocationLabel(agent);
-  elements.profileJob.textContent = agent.job?.name || '—';
+  elements.profileJob.textContent = agent.job?.name || '-';
   const relations = agent.relationships?.length ?? agent.relationshipCount ?? 0;
   elements.profileRelations.textContent = relations.toString();
+  if (elements.profileMotivation) {
+    const desire = agent.motivation?.desire ? String(agent.motivation.desire).replace(/_/g, ' ') : '-';
+    elements.profileMotivation.textContent = desire;
+  }
+  if (elements.profilePlan) {
+    const plan = agent.plan?.primaryGoal || '-';
+    elements.profilePlan.textContent = plan;
+  }
   elements.profileSpeech.textContent = agent.lastSpeech || 'Sin diálogo reciente';
 }
 
@@ -926,7 +936,7 @@ function updateShowModeUI() {
     elements.meta.textContent = 'Sin participantes';
     elements.progressFill.style.width = '0%';
     elements.time.textContent = '0s';
-    elements.captionSpeaker.textContent = '—';
+    elements.captionSpeaker.textContent = '-';
     elements.captionText.textContent = 'En espera de diálogo...';
     elements.threadList.innerHTML = '';
     elements.queue.innerHTML = '';
@@ -953,7 +963,7 @@ function updateShowModeUI() {
   elements.progressFill.style.width = `${score}%`;
   const ageSeconds = Math.floor((Date.now() - current.startedAt) / 1000);
   elements.time.textContent = `${ageSeconds}s`;
-  elements.captionSpeaker.textContent = current.participants?.[0] || '—';
+  elements.captionSpeaker.textContent = current.participants?.[0] || '-';
   elements.captionText.textContent = current.dialogue || current.summary;
 
   const threads = Array.from(SHOW_MODE_STATE.threads.values())
@@ -1929,7 +1939,7 @@ function updateEconomyPanel(economy) {
   const properties = economy?.properties || [];
   const propertiesForSale = properties.filter(property => property.forSale);
   const actionsLabel = uiState.economyActionsOpen ? 'Cerrar acciones' : 'Gestionar';
-  const balanceLabel = economy?.balance !== null ? `$${economy.balance.toFixed(2)}` : '—';
+  const balanceLabel = economy?.balance !== null ? `$${economy.balance.toFixed(2)}` : '-';
   const jobRows = openJobs.slice(0, 4).map(job => (
     `<div class="panel-row">${job.role} <span class="panel-muted">@${job.buildingName}</span></div>`
   )).join('') || '<div class="panel-row panel-muted">No hay vacantes abiertas</div>';
@@ -2485,15 +2495,15 @@ function openStatusModal() {
     const duration = WORLD_CONTEXT.lastRefreshDurationMs;
     lastDurationEl.textContent = duration !== null
       ? `Duración último refresh: ${duration} ms`
-      : 'Duración último refresh: —';
+      : 'Duración último refresh: -';
   }
   if (failuresEl) failuresEl.textContent = `Fallos seguidos: ${WORLD_CONTEXT.refreshFailureCount}`;
   if (lastSectionEl) {
     lastSectionEl.textContent = WORLD_CONTEXT.lastFailedSection
       ? `Último módulo fallido: ${WORLD_CONTEXT.lastFailedSection}`
-      : 'Último módulo fallido: —';
+      : 'Último módulo fallido: -';
   }
-  if (lastErrorEl) lastErrorEl.textContent = `Último error: ${WORLD_CONTEXT.lastErrorMessage || '—'}`;
+  if (lastErrorEl) lastErrorEl.textContent = `Último error: ${WORLD_CONTEXT.lastErrorMessage || '-'}`;
   modal.classList.add('is-open');
 }
 
@@ -2556,7 +2566,7 @@ function generateTileMap() {
       if (x === 37 && y >= 44 && y <= 55) t = T.SAND;
       if (x === 41 && y >= 44 && y <= 55) t = T.SAND;
 
-      // Main roads — thick arterials
+      // Main roads - thick arterials
       // Horizontal main road y=12
       if (y >= 11 && y <= 13 && x >= 2 && x <= 62) t = T.ROAD;
       // Horizontal main road y=26
@@ -3068,7 +3078,7 @@ class MoltivilleScene extends Phaser.Scene {
     gfx.fillPath();
 
     // === LEFT WALL (facing camera - left side) ===
-    // From bl -> tl, going up by totalH — actually from tl down
+    // From bl -> tl, going up by totalH - actually from tl down
     // Left wall: tl -> bl, drawn with offset
     const leftWallColor = 0x000000 | (
       (Math.max(0, (wallRightColor.r - 20)) << 16) |
@@ -3267,7 +3277,7 @@ class MoltivilleScene extends Phaser.Scene {
   }
 
   drawDecorationsTop() {
-    // Trees and lampposts — these go on top of buildings at certain depths
+    // Trees and lampposts - these go on top of buildings at certain depths
     // For simplicity, draw all trees and lamps after buildings
     this.decorations.forEach(d => {
       if (d.type === 'tree') this.drawTree(d);
@@ -3602,12 +3612,12 @@ class MoltivilleScene extends Phaser.Scene {
           const t = this.tileMap[ty][tx];
           if (t === T.ROAD || t === T.PATH || t === T.GRASS) {
             // Check if another agent is already targeting or standing on this tile to avoid clumping
-            const isOccupied = this.agents.some(other => 
-              other.id !== agent.id && 
-              ((Math.floor(other.x) === tx && Math.floor(other.y) === ty) || 
+            const isOccupied = this.agents.some(other =>
+              other.id !== agent.id &&
+              ((Math.floor(other.x) === tx && Math.floor(other.y) === ty) ||
                (Math.floor(other.tx) === tx && Math.floor(other.ty) === ty))
             );
-            
+
             if (!isOccupied) {
               choices.push({ x: tx, y: ty });
             }
@@ -3620,7 +3630,7 @@ class MoltivilleScene extends Phaser.Scene {
         // Fallback to any walkable if all preferred are occupied
         return { x: Math.floor(Math.random() * WORLD_W), y: Math.floor(Math.random() * WORLD_H) };
     }
-    
+
     // Prioritize tiles further away to encourage spreading out
     choices.sort((a, b) => {
         const distA = Math.abs(a.x - agent.x) + Math.abs(a.y - agent.y);
@@ -3935,7 +3945,7 @@ class MoltivilleScene extends Phaser.Scene {
   updateClouds(dt) {
     const gfx = this.agentGraphics; // reuse for simplicity
     // Clouds are drawn in update, cleared each frame via agentGraphics.clear()
-    // Actually let's use a separate approach — draw on camera overlay
+    // Actually let's use a separate approach - draw on camera overlay
     // For simplicity, we'll just animate cloud positions
     this.clouds.forEach(c => {
       c.x += c.speed * dt * 0.01;
@@ -4016,7 +4026,7 @@ class MoltivilleScene extends Phaser.Scene {
     const conversations = WORLD_CONTEXT.activeConversations || [];
     if (!conversations.length) {
       statusEl.textContent = 'Sin diálogo';
-      bodyEl.innerHTML = '<div class="conversation-card"><div class="participants">—</div><div class="last-line">Nadie está hablando ahora.</div></div>';
+      bodyEl.innerHTML = '<div class="conversation-card"><div class="participants">-</div><div class="last-line">Nadie está hablando ahora.</div></div>';
       return;
     }
 
@@ -4038,15 +4048,15 @@ class MoltivilleScene extends Phaser.Scene {
     statusEl.textContent = `${conversations.length} en curso`;
     bodyEl.innerHTML = sorted.slice(0, 2).map(conv => {
       const [a, b] = conv.participants || [];
-      const nameA = AGENT_DIRECTORY.get(a)?.name || this.agents.find(x => x.id === a)?.name || (a ? `Agent ${a.slice(0,4)}` : '—');
-      const nameB = AGENT_DIRECTORY.get(b)?.name || this.agents.find(x => x.id === b)?.name || (b ? `Agent ${b.slice(0,4)}` : '—');
+      const nameA = AGENT_DIRECTORY.get(a)?.name || this.agents.find(x => x.id === a)?.name || (a ? `Agent ${a.slice(0,4)}` : '-');
+      const nameB = AGENT_DIRECTORY.get(b)?.name || this.agents.find(x => x.id === b)?.name || (b ? `Agent ${b.slice(0,4)}` : '-');
       const messages = Array.isArray(conv.messages) ? conv.messages : [];
       const lastMsg = messages.slice().sort((m1, m2) => (m1?.timestamp || 0) - (m2?.timestamp || 0)).at(-1);
       const speakerId = lastMsg?.from || lastMsg?.fromId;
       const speakerName = lastMsg?.fromName
         || AGENT_DIRECTORY.get(speakerId)?.name
         || this.agents.find(x => x.id === speakerId)?.name
-        || (speakerId ? `Agent ${speakerId.slice(0,4)}` : '—');
+        || (speakerId ? `Agent ${speakerId.slice(0,4)}` : '-');
       const lastLine = lastMsg?.message ? `${speakerName}: ${lastMsg.message}` : 'Conexión activa, esperando diálogo…';
       return `
         <div class="conversation-card">

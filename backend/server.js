@@ -631,6 +631,14 @@ io.on('connection', (socket) => {
     }
   });
 
+  socket.on('agent:profile', (data = {}) => {
+    if (!socket.agentId) return;
+    const updated = moltbotRegistry.updateAgentProfile(socket.agentId, data);
+    if (updated) {
+      io.to('viewers').emit('agents:list', moltbotRegistry.getAllAgents());
+    }
+  });
+
   // ── Single-step move (legacy) ──
   socket.on('agent:move', async (data) => {
     const eventStart = Date.now();
