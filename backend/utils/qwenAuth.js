@@ -80,15 +80,16 @@ export const requestDeviceCode = async () => {
 };
 
 export const openVerificationUrl = (url) => {
-  const opener = process.platform === 'win32'
-    ? 'cmd'
-    : process.platform === 'darwin'
-      ? 'open'
-      : 'xdg-open';
-  const args = process.platform === 'win32'
-    ? ['/c', 'start', '', url]
-    : [url];
-  const child = spawn(opener, args, { detached: true, stdio: 'ignore' });
+  if (process.platform === 'win32') {
+    const child = spawn('powershell', ['-NoProfile', '-Command', `Start-Process "${url}"`], {
+      detached: true,
+      stdio: 'ignore'
+    });
+    child.unref();
+    return;
+  }
+  const opener = process.platform === 'darwin' ? 'open' : 'xdg-open';
+  const child = spawn(opener, [url], { detached: true, stdio: 'ignore' });
   child.unref();
 };
 

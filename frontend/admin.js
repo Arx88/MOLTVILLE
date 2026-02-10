@@ -180,6 +180,9 @@ if (connectQwenButton) {
   connectQwenButton.addEventListener('click', async () => {
     try {
       const start = await request('/api/admin/qwen/oauth/start', { method: 'POST' });
+      if (start?.device?.verificationUrl) {
+        window.open(start.device.verificationUrl, '_blank', 'noopener');
+      }
       showStatus('OAuth abierto. Autoriza en la pestaña nueva.', 'success');
       const startAt = Date.now();
       const poll = async () => {
