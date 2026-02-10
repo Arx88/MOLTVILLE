@@ -3438,6 +3438,22 @@ class MoltivilleScene extends Phaser.Scene {
   updateAgents(dt) {
     const dtSec = dt / 1000;
 
+    // Decrement timers for both live and simulated data
+    this.agents.forEach(agent => {
+      agent.idleTimer -= dtSec;
+      if (agent.talkTimer > 0) {
+        agent.talkTimer -= dtSec;
+        if (agent.talkTimer <= 0) {
+          agent.state = 'idle';
+          agent.talkingTo = null;
+          agent.lastSpeech = null;
+          if (agent._speechText) agent._speechText.setVisible(false);
+        }
+      } else if (agent._speechText && agent._speechText.visible) {
+        agent._speechText.setVisible(false);
+      }
+    });
+
     if (WORLD_CONTEXT.useLiveData) {
       this.agents.forEach(agent => {
         if (agent.progress < 1) {
@@ -3448,23 +3464,6 @@ class MoltivilleScene extends Phaser.Scene {
     }
 
     this.agents.forEach(agent => {
-      // Decrement timers
-      agent.idleTimer -= dtSec;
-      if (agent.talkTimer > 0) {
-        agent.talkTimer -= dtSec;
-        if (agent.talkTimer <= 0) {
-          agent.state = 'idle';
-          agent.talkingTo = null;
-          agent.lastSpeech = null;
-          if (agent._speechText) agent._speechText.setVisible(false);
-        }
-      } else {
-          // Double check to hide bubbles if timer is 0
-          if (agent._speechText && agent._speechText.visible) {
-              agent._speechText.setVisible(false);
-          }
-      }
-
       // If reached target, pick new behavior
       if (agent.progress >= 1) {
         agent.state = 'idle';
