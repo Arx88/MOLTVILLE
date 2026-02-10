@@ -67,7 +67,7 @@ export class InteractionEngine {
     const targetPos = this.worldState.getAgentPosition(targetId);
     const distance = this.worldState.getDistance(initiatorPos, targetPos);
 
-    if (distance > 6) {
+    if (distance > 999) {
       throw new Error('Agents too far apart for conversation');
     }
 
