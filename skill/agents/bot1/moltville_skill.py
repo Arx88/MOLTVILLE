@@ -727,49 +727,11 @@ class MOLTVILLESkill:
                 if available:
                     return {"type": "apply_job", "params": {"job_id": available[0].get("id")}}
 
-        # Social intent: initiate conversations or move to hotspots
+        # Social intent: move to hotspots; conversations only via LLM
         if self._current_intent == "social":
-            if nearby_agents:
-                if len(nearby_agents) >= 4:
-                    hotspot = self._pick_hotspot("social")
-                    return {"type": "move_to", "params": hotspot}
-                target = min(nearby_agents, key=lambda a: a.get("distance", 999))
-                target_id = target.get('id')
-                conv_id = self._conversation_state.get(target_id)
-                if conv_id:
-                    last_ts = self._last_conversation_ts.get(conv_id, 0)
-                    now_ts = asyncio.get_event_loop().time()
-                    if now_ts - last_ts < self._conversation_cooldown:
-                        return {"type": "wait", "params": {}}
-                    fallback_msgs = [
-                        "¿Qué te trae por aquí?",
-                        "¿Viste algo interesante en la ciudad?",
-                        "¿Cómo va tu día en MOLTVILLE?",
-                        "¿Querés que exploremos la zona juntos?"
-                    ]
-                    self._last_conversation_ts[conv_id] = now_ts
-                    return {
-                        "type": "conversation_message",
-                        "params": {"conversation_id": conv_id, "message": random.choice(fallback_msgs)}
-                    }
-                # campaign ask if ambitious
-                if self._traits["ambition"] >= 0.7 and (asyncio.get_event_loop().time() - self._last_campaign_ts) > self._campaign_cooldown:
-                    self._last_campaign_ts = asyncio.get_event_loop().time()
-                    return {
-                        "type": "start_conversation",
-                        "params": {"target_id": target_id, "message": "Hola, ¿te puedo pedir tu apoyo para mejorar la ciudad?"}
-                    }
-                openers = [
-                    "Ey, ¿todo bien?",
-                    "Hola, ¿qué estás haciendo hoy?",
-                    "Buenas, ¿te puedo acompañar un rato?",
-                    "Hey, ¿vamos a ver el mercado?"
-                ]
-                return {
-                    "type": "start_conversation",
-                    "params": {"target_id": target_id, "message": random.choice(openers)}
-                }
-            # no nearby agents → go to hotspot, avoid crowding by rotating
+            if nearby_agents and len(nearby_agents) >= 4:
+                hotspot = self._pick_hotspot("social")
+                return {"type": "move_to", "params": hotspot}
             hotspot = self._pick_hotspot("social")
             return {"type": "move_to", "params": hotspot}
 
