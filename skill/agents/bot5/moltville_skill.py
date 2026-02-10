@@ -222,6 +222,13 @@ class MOLTVILLESkill:
             return "afternoon"
         return "night"
 
+    def _is_meta_message(self, message: str) -> bool:
+        if not isinstance(message, str):
+            return True
+        lowered = message.lower()
+        banned = ["modelo", "llm", "ia", "sistema", "servidor", "api", "oauth", "prueba", "test", "prompt"]
+        return any(term in lowered for term in banned)
+
     def _select_intent(self, perception: Dict[str, Any]) -> str:
         needs = perception.get("needs", {}) or {}
         social = float(needs.get("social", 100) or 100)
@@ -559,6 +566,8 @@ class MOLTVILLESkill:
             target_id = params.get("target_id")
             message = params.get("message")
             if isinstance(target_id, str) and target_id.strip() and isinstance(message, str):
+                if self._is_meta_message(message):
+                    return None
                 return {
                     "type": "start_conversation",
                     "params": {"target_id": target_id.strip(), "message": message}
@@ -568,6 +577,8 @@ class MOLTVILLESkill:
             conversation_id = params.get("conversation_id") or params.get("conversationId")
             message = params.get("message")
             if isinstance(conversation_id, str) and conversation_id.strip() and isinstance(message, str):
+                if self._is_meta_message(message):
+                    return None
                 return {
                     "type": "conversation_message",
                     "params": {"conversation_id": conversation_id.strip(), "message": message}
@@ -711,7 +722,7 @@ class MOLTVILLESkill:
         }
         prompt = (
             "Eres un ciudadano de MOLTVILLE. Actúas solo dentro del mundo, en primera persona. "
-            "Nunca menciones IA, modelos, sistemas ni infraestructura. "
+            "Nunca menciones IA, modelos, sistemas, pruebas, servidores ni infraestructura. "
             "Usa relaciones, memoria y conversación previa si existen. "
             "Si hay una conversación activa donde tú participas, RESPONDE con conversation_message. "
             "Si no hay conversación y ves a alguien cerca, inicia start_conversation. "
