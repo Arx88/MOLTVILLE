@@ -493,6 +493,22 @@ class MOLTVILLESkill:
                     ],
                     "temperature": llm_config.get("temperature", 0.4)
                 }
+            elif provider == "qwen-oauth":
+                base_url = llm_config.get("baseUrl", "https://portal.qwen.ai/v1")
+                url = f"{base_url.rstrip('/')}/chat/completions"
+                headers = {
+                    "Content-Type": "application/json",
+                    "Authorization": f"Bearer {api_key}",
+                    "X-DashScope-AuthType": "qwen_oauth"
+                }
+                body = {
+                    "model": model,
+                    "messages": [
+                        {"role": "system", "content": prompt},
+                        {"role": "user", "content": json.dumps(payload)}
+                    ],
+                    "temperature": llm_config.get("temperature", 0.4)
+                }
             else:
                 return None
 
@@ -503,7 +519,7 @@ class MOLTVILLESkill:
                         logger.warning(f"LLM error: {data}")
                         return None
             content = None
-            if provider == "openai" or provider == "ollama":
+            if provider == "openai" or provider == "ollama" or provider == "qwen-oauth":
                 content = data.get("choices", [{}])[0].get("message", {}).get("content")
             elif provider == "anthropic" or provider == "minimax-portal":
                 parts = data.get("content", [])

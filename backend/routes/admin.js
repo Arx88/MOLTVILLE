@@ -7,6 +7,7 @@ import fs from 'fs';
 import path from 'path';
 import { spawn } from 'child_process';
 import { loadMiniMaxToken, getMiniMaxAuthPath } from '../utils/minimaxAuth.js';
+import { requestDeviceCode, openVerificationUrl, pollForToken, getAuthStatus, loadToken } from '../utils/qwenAuth.js';
 
 const router = express.Router();
 
@@ -256,11 +257,14 @@ router.get('/agents/llm', requireAdminKey, (req, res) => {
     minimaxAuthPath: getMiniMaxAuthPath(),
     providers: [
       { id: 'ollama', label: 'Ollama' },
-      { id: 'minimax-portal', label: 'MiniMax M2.1 (OAuth)' }
+      { id: 'minimax-portal', label: 'MiniMax M2.1 (OAuth)' },
+      { id: 'qwen-oauth', label: 'Qwen OAuth (Portal)' }
     ],
     models: {
-      'minimax-portal': ['MiniMax-M2.1', 'MiniMax-M2.1-lightning']
-    }
+      'minimax-portal': ['MiniMax-M2.1', 'MiniMax-M2.1-lightning'],
+      'qwen-oauth': ['alibaba/coder-model']
+    },
+    qwenAuth: getAuthStatus()
   });
 });
 
@@ -282,6 +286,14 @@ router.put('/agents/llm', requireAdminKey, (req, res) => {
     if (provider === 'minimax-portal') {
       loaded.data.llm.apiKey = loadMiniMaxToken();
       loaded.data.llm.baseUrl = loaded.data.llm.baseUrl || 'https://api.minimax.io/anthropic';
+    }
+    if (provider === 'qwen-oauth') {
+      const token = loadToken();
+      if (!token?.access) {
+        return res.status(400).json({ error: 'Qwen OAuth no conectado.' });
+      }
+      loaded.data.llm.apiKey = token.access;
+      loaded.data.llm.baseUrl = token.resourceUrl || 'https://portal.qwen.ai/v1';
     }
     saveAgentConfig(loaded.configPath, loaded.data);
     return res.json({ success: true, agentId, provider, model });
@@ -315,14 +327,54 @@ router.post('/agents/llm/sync-minimax', requireAdminKey, (req, res) => {
   }
 });
 
-router.post('/minimax/oauth/start', requireAdminKey, (req, res) => {
+router.post('/qwen/oauth/start', requireAdminKey, async (req, res) => {
   try {
-    const child = spawn('openclaw', ['models', 'auth', 'login', '--provider', 'minimax-portal'], {
-      detached: true,
-      stdio: 'ignore'
+    const device = await requestDeviceCode();
+    openVerificationUrl(device.verificationUrl);
+    return res.json({ success: true, device });
+  } catch (error) {
+    return res.status(500).json({ error: error.message });
+  }
+});
+
+router.get('/qwen/oauth/status', requireAdminKey, async (req, res) => {
+  try {
+    const result = await pollForToken();
+    if (result.status === 'idle') {
+      return res.json({ status: 'idle', auth: getAuthStatus() });
+    }
+    if (result.status === 'success') {
+      return res.json({ status: 'success', auth: getAuthStatus() });
+    }
+    return res.json(result);
+  } catch (error) {
+    return res.status(500).json({ error: error.message });
+  }
+});
+
+router.post('/agents/llm/sync-qwen', requireAdminKey, (req, res) => {
+  try {
+    const model = req.body?.model || 'alibaba/coder-model';
+    const token = loadToken();
+    if (!token?.access) {
+      return res.status(400).json({ error: 'Qwen OAuth no conectado.' });
+    }
+    const agentsDir = resolveAgentsDir();
+    const entries = fs.existsSync(agentsDir) ? fs.readdirSync(agentsDir, { withFileTypes: true }) : [];
+    const updated = [];
+    entries.filter((entry) => entry.isDirectory()).forEach((entry) => {
+      const agentDir = path.join(agentsDir, entry.name);
+      const loaded = loadAgentConfig(agentDir);
+      if (!loaded) return;
+      loaded.data.llm = loaded.data.llm || {};
+      loaded.data.llm.provider = 'qwen-oauth';
+      loaded.data.llm.model = model;
+      loaded.data.llm.apiKey = token.access;
+      loaded.data.llm.baseUrl = token.resourceUrl || 'https://portal.qwen.ai/v1';
+      saveAgentConfig(loaded.configPath, loaded.data);
+      updated.push({ id: entry.name, name: loaded.data.agent?.name || entry.name });
     });
-    child.unref();
-    return res.json({ success: true, message: 'OAuth flow launched.' });
+    return res.json({ success: true, updated });
   } catch (error) {
     return res.status(500).json({ error: error.message });
   }

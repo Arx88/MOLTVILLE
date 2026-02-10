@@ -15,8 +15,8 @@ const lockOverlay = document.getElementById('admin-lock');
 const lockInput = document.getElementById('lock-key-input');
 const lockEnter = document.getElementById('lock-enter');
 const agentLlmList = document.getElementById('agent-llm-list');
-const syncMiniMaxButton = document.getElementById('sync-minimax');
-const connectMiniMaxButton = document.getElementById('connect-minimax');
+const syncQwenButton = document.getElementById('sync-qwen');
+const connectQwenButton = document.getElementById('connect-qwen');
 
 statusBanner.className = 'admin-status';
 document.body.appendChild(statusBanner);
@@ -176,19 +176,41 @@ restartButton.addEventListener('click', () => {
     .catch((err) => showStatus(err.message, 'error'));
 });
 
-if (connectMiniMaxButton) {
-  connectMiniMaxButton.addEventListener('click', () => {
-    request('/api/admin/minimax/oauth/start', { method: 'POST' })
-      .then(() => showStatus('OAuth abierto. Completa el login en la pestaña nueva.', 'success'))
-      .catch((err) => showStatus(err.message, 'error'));
+if (connectQwenButton) {
+  connectQwenButton.addEventListener('click', async () => {
+    try {
+      const start = await request('/api/admin/qwen/oauth/start', { method: 'POST' });
+      showStatus('OAuth abierto. Autoriza en la pestaña nueva.', 'success');
+      const startAt = Date.now();
+      const poll = async () => {
+        const status = await request('/api/admin/qwen/oauth/status');
+        if (status.status === 'success' || status.auth?.connected) {
+          showStatus('Qwen OAuth conectado ✅', 'success');
+          loadAgentLlm();
+          return;
+        }
+        if (status.status === 'denied' || status.status === 'expired' || status.status === 'failed') {
+          showStatus('OAuth cancelado o expirado', 'error');
+          return;
+        }
+        if (Date.now() - startAt < 10 * 60 * 1000) {
+          setTimeout(poll, (start?.device?.interval || 2) * 1000);
+        } else {
+          showStatus('OAuth expirado', 'error');
+        }
+      };
+      setTimeout(poll, 2000);
+    } catch (err) {
+      showStatus(err.message, 'error');
+    }
   });
 }
 
-if (syncMiniMaxButton) {
-  syncMiniMaxButton.addEventListener('click', () => {
-    request('/api/admin/agents/llm/sync-minimax', { method: 'POST' })
+if (syncQwenButton) {
+  syncQwenButton.addEventListener('click', () => {
+    request('/api/admin/agents/llm/sync-qwen', { method: 'POST' })
       .then(() => {
-        showStatus('MiniMax OAuth sincronizado', 'success');
+        showStatus('Qwen OAuth sincronizado', 'success');
         loadAgentLlm();
       })
       .catch((err) => showStatus(err.message, 'error'));
