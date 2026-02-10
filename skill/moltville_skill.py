@@ -447,6 +447,8 @@ class MOLTVILLESkill:
                     "from": from_id,
                     "message": text
                 })
+            if conv_id and from_id and from_id != self.agent_id:
+                asyncio.create_task(self._respond_to_conversation(conv_id))
 
         @self.sio.on('conversation:ended')
         async def conversation_ended(data):
@@ -555,6 +557,28 @@ class MOLTVILLESkill:
             stale_keys = [k for k, v in self._conversation_state.items() if v not in active_ids]
             for key in stale_keys:
                 self._conversation_state.pop(key, None)
+
+    async def _respond_to_conversation(self, conv_id: str) -> None:
+        now = asyncio.get_event_loop().time()
+        last = self._last_conversation_ts.get(conv_id, 0)
+        if now - last < self._conversation_cooldown:
+            return
+        perception = await self.perceive()
+        if not perception or isinstance(perception, dict) and perception.get("error"):
+            return
+        convs = perception.get("conversations", []) or []
+        conv = next((c for c in convs if c.get("id") == conv_id), None)
+        if not conv:
+            return
+        messages = conv.get("messages", []) or []
+        if messages:
+            last_msg = max(messages, key=lambda m: m.get("timestamp", 0))
+            if last_msg.get("from") == self.agent_id:
+                return
+        action = await self._decide_with_llm(perception, force_conversation=True, forced_conversation_id=conv_id)
+        if action and action.get("type") == "conversation_message":
+            await self._execute_action(action)
+            self._last_conversation_ts[conv_id] = now
 
     async def _decide_action(self, perception: Dict[str, Any]) -> Optional[Dict[str, Any]]:
         decision_config = self.config.get("behavior", {}).get("decisionLoop", {})
@@ -730,7 +754,7 @@ class MOLTVILLESkill:
             logger.warning(f"LLM decision failed: {error}")
             return None
 
-    async def _decide_with_llm(self, perception: Dict[str, Any], force_conversation: bool = False) -> Optional[Dict[str, Any]]:
+    async def _decide_with_llm(self, perception: Dict[str, Any], force_conversation: bool = False, forced_conversation_id: Optional[str] = None) -> Optional[Dict[str, Any]]:
         llm_config = self.config.get("llm", {})
         provider = llm_config.get("provider", "")
         api_key = llm_config.get("apiKey", "")
@@ -752,7 +776,8 @@ class MOLTVILLESkill:
             "recentContext": self._get_recent_context(),
             "profile": self.long_memory.get("profile"),
             "activeConversations": self._conversation_state,
-            "activeConversationsLive": perception.get("conversations", [])
+            "activeConversationsLive": perception.get("conversations", []),
+            "forcedConversationId": forced_conversation_id
         }
         prompt = (
             "Eres un ciudadano de MOLTVILLE. Actúas solo dentro del mundo, en primera persona. "
@@ -771,6 +796,7 @@ class MOLTVILLESkill:
                 "Hay una conversación activa. Debes responder SOLO con conversation_message. "
                 "No uses move_to, enter_building, speak, apply_job ni start_conversation. "
                 "Mantente 100% in-world. Responde con un solo mensaje natural. "
+                "Si ves forcedConversationId úsalo como conversation_id. "
                 "Devuelve SOLO JSON válido con: {\"type\": \"conversation_message\", \"params\": {\"conversation_id\": \"...\", \"message\": \"...\"}}."
             )
 
@@ -871,6 +897,11 @@ class MOLTVILLESkill:
                     parsed = json.loads(snippet)
                 else:
                     raise
+            if force_conversation and isinstance(parsed, dict) and parsed.get("type") == "conversation_message":
+                params = parsed.get("params") if isinstance(parsed.get("params"), dict) else {}
+                if forced_conversation_id and not params.get("conversation_id") and not params.get("conversationId"):
+                    params["conversation_id"] = forced_conversation_id
+                    parsed["params"] = params
             sanitized = self._sanitize_llm_action(parsed)
             if not sanitized:
                 logger.warning("LLM returned invalid action.")
