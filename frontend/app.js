@@ -3998,11 +3998,13 @@ class MoltivilleScene extends Phaser.Scene {
       .replace(/"/g, '&quot;')
       .replace(/'/g, '&#39;');
 
-    const sorted = [...conversations].sort((a, b) => {
-      const aTime = a?.lastActivity || a?.startedAt || 0;
-      const bTime = b?.lastActivity || b?.startedAt || 0;
-      return bTime - aTime;
-    });
+    const getLastMessageTime = (conv) => {
+      const msgs = Array.isArray(conv?.messages) ? conv.messages : [];
+      const last = msgs.reduce((acc, msg) => (msg?.timestamp || 0) > (acc?.timestamp || 0) ? msg : acc, null);
+      return last?.timestamp || conv?.lastActivity || conv?.startedAt || 0;
+    };
+
+    const sorted = [...conversations].sort((a, b) => getLastMessageTime(b) - getLastMessageTime(a));
 
     statusEl.textContent = `${conversations.length} en curso`;
     bodyEl.innerHTML = sorted.slice(0, 2).map(conv => {
