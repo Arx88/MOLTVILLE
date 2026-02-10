@@ -38,6 +38,10 @@ class MOLTVILLESkill:
         self._auto_task: Optional[asyncio.Task] = None
         self._decision_task: Optional[asyncio.Task] = None
         self._active_goals: List[Dict[str, Any]] = []
+        self._conversation_state: Dict[str, str] = {}
+        self._recent_utterances: List[Dict[str, Any]] = []
+        self.long_memory_path = Path(__file__).parent / "memory.json"
+        self.long_memory = self._load_long_memory()
         
         # Setup event handlers
         self._setup_handlers()
@@ -115,6 +119,49 @@ class MOLTVILLESkill:
         except OSError as error:
             logger.warning(f"Failed to save config: {error}")
 
+    def _load_long_memory(self) -> Dict[str, Any]:
+        if not self.long_memory_path.exists():
+            return {"episodes": [], "notes": [], "relationships": {}}
+        try:
+            return json.loads(self.long_memory_path.read_text())
+        except OSError as error:
+            logger.warning(f"Failed to load long memory: {error}")
+            return {"episodes": [], "notes": [], "relationships": {}}
+
+    def _save_long_memory(self) -> None:
+        try:
+            self.long_memory_path.write_text(json.dumps(self.long_memory, indent=2))
+        except OSError as error:
+            logger.warning(f"Failed to save long memory: {error}")
+
+    def _remember_utterance(self, speaker_id: str, message: str) -> None:
+        if not speaker_id or not message:
+            return
+        entry = {
+            "speakerId": speaker_id,
+            "message": message.strip()[:280],
+            "timestamp": int(asyncio.get_event_loop().time() * 1000)
+        }
+        self._recent_utterances.append(entry)
+        self._recent_utterances = self._recent_utterances[-12:]
+
+    def _record_episode(self, kind: str, data: Dict[str, Any]) -> None:
+        entry = {
+            "type": kind,
+            "data": data,
+            "timestamp": int(asyncio.get_event_loop().time() * 1000)
+        }
+        self.long_memory.setdefault("episodes", []).append(entry)
+        self.long_memory["episodes"] = self.long_memory["episodes"][-80:]
+        self._save_long_memory()
+
+    def _get_recent_context(self) -> Dict[str, Any]:
+        return {
+            "recentUtterances": list(self._recent_utterances),
+            "episodes": self.long_memory.get("episodes", [])[-10:],
+            "relationshipNotes": self.long_memory.get("relationships", {})
+        }
+
     def _load_agent_id(self) -> Optional[str]:
         if not self.agent_id_path.exists():
             return None
@@ -177,9 +224,57 @@ class MOLTVILLESkill:
         
         @self.sio.on('perception:speech')
         async def perception_speech(data):
-            logger.info(f"Heard: {data['from']} said '{data['message']}'")
-            # This would trigger LLM to decide on response
-            # For now just log it
+            speaker = data.get('from') if isinstance(data, dict) else None
+            message = data.get('message') if isinstance(data, dict) else None
+            if speaker and message:
+                logger.info(f"Heard: {speaker} said '{message}'")
+                self._remember_utterance(speaker, message)
+                self._record_episode('heard_speech', {"from": speaker, "message": message})
+            else:
+                logger.info(f"Heard speech: {data}")
+
+        @self.sio.on('conversation:started')
+        async def conversation_started(data):
+            if not isinstance(data, dict):
+                return
+            participants = data.get('participants', [])
+            conv_id = data.get('id')
+            if not conv_id or not isinstance(participants, list):
+                return
+            other_id = next((pid for pid in participants if pid != self.agent_id), None)
+            if other_id:
+                self._conversation_state[other_id] = conv_id
+                self._record_episode('conversation_started', {
+                    "conversationId": conv_id,
+                    "with": other_id
+                })
+
+        @self.sio.on('conversation:message')
+        async def conversation_message(data):
+            if not isinstance(data, dict):
+                return
+            conv_id = data.get('conversationId')
+            message = data.get('message') or {}
+            from_id = message.get('fromId')
+            text = message.get('message')
+            if from_id and text:
+                self._remember_utterance(from_id, text)
+                self._record_episode('conversation_message', {
+                    "conversationId": conv_id,
+                    "from": from_id,
+                    "message": text
+                })
+
+        @self.sio.on('conversation:ended')
+        async def conversation_ended(data):
+            if not isinstance(data, dict):
+                return
+            conv_id = data.get('conversationId')
+            to_remove = [k for k, v in self._conversation_state.items() if v == conv_id]
+            for key in to_remove:
+                self._conversation_state.pop(key, None)
+            if conv_id:
+                self._record_episode('conversation_ended', {"conversationId": conv_id})
 
         @self.sio.on('agent:goal')
         async def agent_goal(data):
@@ -290,6 +385,24 @@ class MOLTVILLESkill:
             if isinstance(message, str):
                 return {"type": "speak", "params": {"message": message}}
             return None
+        if action_type == "start_conversation":
+            target_id = params.get("target_id")
+            message = params.get("message")
+            if isinstance(target_id, str) and target_id.strip() and isinstance(message, str):
+                return {
+                    "type": "start_conversation",
+                    "params": {"target_id": target_id.strip(), "message": message}
+                }
+            return None
+        if action_type == "conversation_message":
+            conversation_id = params.get("conversation_id")
+            message = params.get("message")
+            if isinstance(conversation_id, str) and conversation_id.strip() and isinstance(message, str):
+                return {
+                    "type": "conversation_message",
+                    "params": {"conversation_id": conversation_id.strip(), "message": message}
+                }
+            return None
         if action_type == "apply_job":
             job_id = params.get("job_id")
             if isinstance(job_id, str) and job_id.strip():
@@ -304,7 +417,9 @@ class MOLTVILLESkill:
         provider = llm_config.get("provider", "")
         api_key = llm_config.get("apiKey", "")
         model = llm_config.get("model", "")
-        if not (provider and api_key and model):
+        if not (provider and model):
+            return None
+        if provider != "ollama" and not api_key:
             return None
 
         self._prune_goals()
@@ -315,12 +430,18 @@ class MOLTVILLESkill:
                 "personality": self.config.get("agent", {}).get("personality")
             },
             "perception": perception,
-            "goals": self._active_goals[-5:]
+            "goals": self._active_goals[-5:],
+            "recentContext": self._get_recent_context(),
+            "activeConversations": self._conversation_state
         }
         prompt = (
             "Eres el motor de decisiones de un agente en MOLTVILLE. "
+            "Contexto crítico: usa relaciones, memoria y conversación previa si existen. "
+            "Si hay conversación activa con alguien cercano, responde dentro de esa conversación. "
+            "Si estás solo, ve a la plaza central para encontrar a otros. "
+            "No repitas mensajes recientes. "
             "Devuelve SOLO JSON válido con la acción a ejecutar. "
-            "Formato: {\"type\": \"move_to|enter_building|speak|apply_job|wait\", "
+            "Formato: {\"type\": \"move_to|enter_building|speak|apply_job|wait|start_conversation|conversation_message\", "
             "\"params\": { ... } }."
         )
 
@@ -348,6 +469,17 @@ class MOLTVILLESkill:
                     "messages": [{"role": "user", "content": json.dumps(payload)}],
                     "max_tokens": llm_config.get("maxTokens", 300)
                 }
+            elif provider == "ollama":
+                url = "http://localhost:11434/v1/chat/completions"
+                headers = {"Content-Type": "application/json"}
+                body = {
+                    "model": model,
+                    "messages": [
+                        {"role": "system", "content": prompt},
+                        {"role": "user", "content": json.dumps(payload)}
+                    ],
+                    "temperature": llm_config.get("temperature", 0.4)
+                }
             else:
                 return None
 
@@ -358,7 +490,7 @@ class MOLTVILLESkill:
                         logger.warning(f"LLM error: {data}")
                         return None
             content = None
-            if provider == "openai":
+            if provider == "openai" or provider == "ollama":
                 content = data.get("choices", [{}])[0].get("message", {}).get("content")
             elif provider == "anthropic":
                 parts = data.get("content", [])
@@ -416,7 +548,17 @@ class MOLTVILLESkill:
 
         if needs.get("social", 100) <= 40 and nearby_agents:
             target = min(nearby_agents, key=lambda a: a.get("distance", 999))
-            return {"type": "speak", "params": {"message": f"Hola {target.get('id')}, ¿cómo estás?"}}
+            target_id = target.get('id')
+            conv_id = self._conversation_state.get(target_id)
+            if conv_id:
+                return {
+                    "type": "conversation_message",
+                    "params": {"conversation_id": conv_id, "message": "¿Cómo vas hoy?"}
+                }
+            return {
+                "type": "start_conversation",
+                "params": {"target_id": target_id, "message": "Hola, ¿cómo estás?"}
+            }
 
         if isinstance(position.get("x"), int) and isinstance(position.get("y"), int):
             dx = random.randint(-3, 3)
@@ -447,6 +589,10 @@ class MOLTVILLESkill:
             await self.enter_building(params.get("building_id"))
         elif action_type == "speak":
             await self.speak(params.get("message", ""))
+        elif action_type == "start_conversation":
+            await self.start_conversation(params.get("target_id"), params.get("message", ""))
+        elif action_type == "conversation_message":
+            await self.send_conversation_message(params.get("conversation_id"), params.get("message", ""))
         elif action_type == "apply_job":
             await self.apply_job(params.get("job_id"))
         elif action_type == "wait":
@@ -592,7 +738,7 @@ class MOLTVILLESkill:
             await self.sio.emit('agent:speak', {
                 'message': message
             })
-            
+            self._record_episode('speak', {"message": message})
             return {
                 "success": True,
                 "message": message
@@ -601,6 +747,31 @@ class MOLTVILLESkill:
         except Exception as e:
             logger.error(f"Speak failed: {e}")
             return {"error": str(e)}
+
+    async def start_conversation(self, target_id: str, message: str) -> Dict[str, Any]:
+        if not self.agent_id:
+            return {"error": "Agent not registered"}
+        payload = {"targetId": target_id, "message": message}
+        result = await self._http_request('POST', f"/api/moltbot/{self.agent_id}/conversations/start", payload)
+        if not result.get('error'):
+            conv = result.get('conversation') or {}
+            conv_id = conv.get('id')
+            if conv_id:
+                self._conversation_state[target_id] = conv_id
+                self._record_episode('conversation_started', {"conversationId": conv_id, "with": target_id})
+        return result
+
+    async def send_conversation_message(self, conversation_id: str, message: str) -> Dict[str, Any]:
+        if not self.agent_id:
+            return {"error": "Agent not registered"}
+        payload = {"message": message}
+        result = await self._http_request('POST', f"/api/moltbot/{self.agent_id}/conversations/{conversation_id}/message", payload)
+        if not result.get('error'):
+            self._record_episode('conversation_message', {
+                "conversationId": conversation_id,
+                "message": message
+            })
+        return result
     
     async def enter_building(self, building_id: str) -> Dict[str, Any]:
         """
