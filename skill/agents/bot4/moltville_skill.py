@@ -662,17 +662,33 @@ class MOLTVILLESkill:
         now_ms = int(asyncio.get_event_loop().time() * 1000)
         return (now_ms - int(last)) > (self._plan_ttl_seconds * 1000)
 
+    async def _maybe_start_conversation(self, perception: Dict[str, Any]) -> Optional[Dict[str, Any]]:
+        nearby_agents = perception.get("nearbyAgents", []) or []
+        if not nearby_agents:
+            return None
+        target_id = nearby_agents[0].get("id")
+        if not target_id:
+            return None
+        prompt = (
+            "Eres un ciudadano de MOLTVILLE. Genera un saludo breve y natural para iniciar conversación. "
+            "Devuelve SOLO JSON con {message}."
+        )
+        payload = {
+            "self": self.config.get("agent", {}).get("name"),
+            "other": target_id,
+            "plan": self.long_memory.get("planState", {})
+        }
+        result = await self._call_llm_json(prompt, payload)
+        message = result.get("message") if isinstance(result, dict) else None
+        if isinstance(message, str) and message.strip():
+            return {"type": "start_conversation", "params": {"target_id": target_id, "message": message.strip()}}
+        return None
+
     def _build_heuristic_plan(self, perception: Dict[str, Any]) -> Dict[str, Any]:
         intent = self._select_intent(perception)
-        nearby_agents = perception.get("nearbyAgents", []) or []
         actions = []
         primary = "Explorar la ciudad"
-        if intent == "social" and nearby_agents:
-            target = nearby_agents[0].get("id")
-            if target:
-                actions.append({"type": "start_conversation", "params": {"target_id": target, "message": "Hola, ¿cómo va tu día?"}})
-                primary = "Conocer a vecinos"
-        elif intent == "work":
+        if intent == "work":
             hotspot = self._pick_hotspot("work")
             actions.append({"type": "move_to", "params": {"x": hotspot.get("x"), "y": hotspot.get("y")}})
             primary = "Buscar oportunidades de trabajo"
@@ -791,6 +807,9 @@ class MOLTVILLESkill:
             plan_action = await self._next_plan_action(perception)
             if plan_action:
                 return plan_action
+            convo_action = await self._maybe_start_conversation(perception)
+            if convo_action:
+                return convo_action
         return await self._heuristic_decision(perception)
 
     def _sanitize_llm_action(self, action: Any) -> Optional[Dict[str, Any]]:
