@@ -2258,17 +2258,16 @@ async function refreshWorldData(scene) {
     }
 
     try {
-      const [voteRes, voteHistoryRes, govRes, networkRes, aestheticsRes, aestheticsHistoryRes, aestheticsMetaRes, conversationsRes] = await Promise.all([
+      const [voteRes, voteHistoryRes, govRes, networkRes, aestheticsRes, aestheticsHistoryRes, aestheticsMetaRes] = await Promise.all([
         fetchWithViewerKey(`${API_BASE}/api/vote/current`),
         fetchWithViewerKey(`${API_BASE}/api/vote/history?limit=3`),
         fetchWithViewerKey(`${API_BASE}/api/governance/current`),
         fetchWithViewerKey(`${API_BASE}/api/world/social-network`),
         fetchWithViewerKey(`${API_BASE}/api/aesthetics/current`),
         fetchWithViewerKey(`${API_BASE}/api/aesthetics/history?limit=3`),
-        fetchWithViewerKey(`${API_BASE}/api/aesthetics/meta`),
-        fetchWithViewerKey(`${API_BASE}/api/world/conversations`)
+        fetchWithViewerKey(`${API_BASE}/api/aesthetics/meta`)
       ]);
-      if (!voteRes.ok || !voteHistoryRes.ok || !govRes.ok || !networkRes.ok || !aestheticsRes.ok || !aestheticsHistoryRes.ok || !aestheticsMetaRes.ok || !conversationsRes.ok) {
+      if (!voteRes.ok || !voteHistoryRes.ok || !govRes.ok || !networkRes.ok || !aestheticsRes.ok || !aestheticsHistoryRes.ok || !aestheticsMetaRes.ok) {
         throw new Error('HTTP 503');
       }
       const voteData = await voteRes.json();
@@ -2278,9 +2277,7 @@ async function refreshWorldData(scene) {
       const aestheticsData = await aestheticsRes.json();
       const aestheticsHistoryData = await aestheticsHistoryRes.json();
       const aestheticsMetaData = await aestheticsMetaRes.json();
-      const conversationsData = await conversationsRes.json();
       WORLD_CONTEXT.vote = voteData.vote || null;
-      WORLD_CONTEXT.activeConversations = conversationsData || WORLD_CONTEXT.activeConversations || [];
       WORLD_CONTEXT.voteHistory = historyData.history || [];
       WORLD_CONTEXT.governance = govData || null;
       WORLD_CONTEXT.socialNetwork = networkData || null;
@@ -2291,6 +2288,20 @@ async function refreshWorldData(scene) {
       console.warn('Failed to fetch governance/vote state', error);
       hadError = true;
       WORLD_CONTEXT.lastFailedSection = 'governance';
+      showStatusBanner(getStatusMessage(error), true);
+    }
+
+    try {
+      const conversationsRes = await fetchWithViewerKey(`${API_BASE}/api/world/conversations`);
+      if (!conversationsRes.ok) {
+        throw new Error(`HTTP ${conversationsRes.status}`);
+      }
+      const conversationsData = await conversationsRes.json();
+      WORLD_CONTEXT.activeConversations = conversationsData || WORLD_CONTEXT.activeConversations || [];
+    } catch (error) {
+      console.warn('Failed to fetch conversations', error);
+      hadError = true;
+      WORLD_CONTEXT.lastFailedSection = 'conversations';
       showStatusBanner(getStatusMessage(error), true);
     }
 
