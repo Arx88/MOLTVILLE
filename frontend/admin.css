@@ -273,6 +273,55 @@ select {
   width: 100%;
 }
 
+.agent-llm-section {
+  margin-top: 24px;
+  padding: 16px;
+  border: 1px solid rgba(99, 102, 241, 0.2);
+  border-radius: 12px;
+  background: rgba(10, 14, 30, 0.7);
+}
+
+.agent-llm-header {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 12px;
+  margin-bottom: 12px;
+}
+
+.agent-llm-list {
+  display: grid;
+  gap: 10px;
+}
+
+.agent-llm-row {
+  display: grid;
+  grid-template-columns: 1.2fr 1fr 1fr auto;
+  gap: 10px;
+  align-items: center;
+  padding: 10px;
+  border-radius: 10px;
+  background: rgba(15, 18, 36, 0.7);
+  border: 1px solid rgba(99, 102, 241, 0.15);
+}
+
+.agent-llm-row .agent-name {
+  font-weight: 600;
+  color: #e0e7ff;
+}
+
+.agent-llm-row select {
+  background: rgba(7, 10, 24, 0.8);
+  border: 1px solid rgba(99, 102, 241, 0.4);
+  color: #e0e7ff;
+  padding: 6px 8px;
+  border-radius: 8px;
+}
+
+.agent-llm-row button {
+  white-space: nowrap;
+}
+
 @media (max-width: 900px) {
   .admin-layout {
     grid-template-columns: 1fr;

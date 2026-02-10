@@ -14,6 +14,8 @@ const statusBanner = document.createElement('div');
 const lockOverlay = document.getElementById('admin-lock');
 const lockInput = document.getElementById('lock-key-input');
 const lockEnter = document.getElementById('lock-enter');
+const agentLlmList = document.getElementById('agent-llm-list');
+const syncMiniMaxButton = document.getElementById('sync-minimax');
 
 statusBanner.className = 'admin-status';
 document.body.appendChild(statusBanner);
@@ -94,6 +96,58 @@ const request = async (path, options = {}) => {
   return response.json();
 };
 
+const renderAgentLlmList = (payload) => {
+  if (!agentLlmList) return;
+  const providers = payload?.providers || [];
+  const models = payload?.models || {};
+  const agents = payload?.agents || [];
+
+  agentLlmList.innerHTML = agents.map((agent) => {
+    const providerOptions = providers.map(p => `<option value="${p.id}" ${agent.provider === p.id ? 'selected' : ''}>${p.label}</option>`).join('');
+    const modelOptions = (models[agent.provider] || ['MiniMax-M2.1']).map(m => `<option value="${m}" ${agent.model === m ? 'selected' : ''}>${m}</option>`).join('');
+    return `
+      <div class="agent-llm-row" data-agent="${agent.id}">
+        <div class="agent-name">${agent.name}</div>
+        <select class="agent-provider">${providerOptions}</select>
+        <select class="agent-model">${modelOptions}</select>
+        <button class="ghost apply-llm" type="button">Aplicar</button>
+      </div>
+    `;
+  }).join('') || '<div class="panel-muted">No hay agentes registrados.</div>';
+
+  agentLlmList.querySelectorAll('.agent-llm-row').forEach((row) => {
+    const providerSelect = row.querySelector('.agent-provider');
+    const modelSelect = row.querySelector('.agent-model');
+    providerSelect.addEventListener('change', () => {
+      const provider = providerSelect.value;
+      const options = (models[provider] || []).map(m => `<option value="${m}">${m}</option>`).join('');
+      modelSelect.innerHTML = options || '<option value="">—</option>';
+    });
+    row.querySelector('.apply-llm').addEventListener('click', () => {
+      request('/api/admin/agents/llm', {
+        method: 'PUT',
+        body: JSON.stringify({
+          agentId: row.dataset.agent,
+          provider: providerSelect.value,
+          model: modelSelect.value
+        })
+      })
+        .then(() => showStatus('LLM actualizado', 'success'))
+        .catch((err) => showStatus(err.message, 'error'));
+    });
+  });
+};
+
+const loadAgentLlm = async () => {
+  if (!agentLlmList) return;
+  try {
+    const payload = await request('/api/admin/agents/llm');
+    renderAgentLlmList(payload);
+  } catch (error) {
+    showStatus(error.message, 'error');
+  }
+};
+
 saveButton.addEventListener('click', () => {
   request('/api/admin/config', {
     method: 'PUT',
@@ -121,6 +175,17 @@ restartButton.addEventListener('click', () => {
     .catch((err) => showStatus(err.message, 'error'));
 });
 
+if (syncMiniMaxButton) {
+  syncMiniMaxButton.addEventListener('click', () => {
+    request('/api/admin/agents/llm/sync-minimax', { method: 'POST' })
+      .then(() => {
+        showStatus('MiniMax OAuth sincronizado', 'success');
+        loadAgentLlm();
+      })
+      .catch((err) => showStatus(err.message, 'error'));
+  });
+}
+
 const bootstrap = async () => {
   try {
     adminKeyInput.value = getAdminKey();
@@ -147,6 +212,7 @@ const bootstrap = async () => {
     showStatus(error.message, 'error');
   }
   renderPreview();
+  loadAgentLlm();
 };
 
 bootstrap();
