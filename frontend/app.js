@@ -104,7 +104,7 @@ const DEFAULT_UI_STATE = {
   economyActionsOpen: false,
   economyMode: 'jobs',
   aestheticsActionsOpen: false,
-  showModeActive: false,
+  showModeActive: true,
   showAllLabels: false
 };
 const SHOW_MODE_DEFAULTS = {
@@ -157,6 +157,7 @@ const SHOW_MODE_STATE = {
     }
   }
 };
+const SHOW_MODE_LAST_CONV_TS = new Map();
 let liveAgentPositions = {};
 
 function getAgentColor(agentId) {
@@ -1239,6 +1240,27 @@ function registerShowBeat({ type, participants, summary, dialogue }) {
   updateShowModeUI();
 }
 
+function registerConversationBeats(conversations = []) {
+  conversations.forEach(conv => {
+    const messages = conv?.messages || [];
+    if (!messages.length) return;
+    const lastMsg = messages[messages.length - 1];
+    const ts = lastMsg?.timestamp || 0;
+    if (!ts) return;
+    const lastSeen = SHOW_MODE_LAST_CONV_TS.get(conv.id) || 0;
+    if (ts <= lastSeen) return;
+    SHOW_MODE_LAST_CONV_TS.set(conv.id, ts);
+    const from = lastMsg.fromName || lastMsg.from || 'Agente';
+    const to = lastMsg.toName || lastMsg.to || 'Agente';
+    registerShowBeat({
+      type: 'interaccion',
+      participants: [from, to],
+      summary: lastMsg.message || 'Conversación activa',
+      dialogue: lastMsg.message || ''
+    });
+  });
+}
+
 function getUiState() {
   try {
     const stored = localStorage.getItem(STORAGE_KEYS.uiState);
@@ -2298,6 +2320,7 @@ async function refreshWorldData(scene) {
       }
       const conversationsData = await conversationsRes.json();
       WORLD_CONTEXT.activeConversations = conversationsData || WORLD_CONTEXT.activeConversations || [];
+      registerConversationBeats(WORLD_CONTEXT.activeConversations.value || WORLD_CONTEXT.activeConversations || []);
     } catch (error) {
       console.warn('Failed to fetch conversations', error);
       hadError = true;
