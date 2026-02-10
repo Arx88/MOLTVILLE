@@ -4026,6 +4026,15 @@ class MoltivilleScene extends Phaser.Scene {
 
     this.updateConversationFocus();
 
+    const reasonEl = document.getElementById('reason-bar');
+    if (reasonEl) {
+      const agent = this.agents.find(a => a.id === this.selectedAgentId) || this.agents[0];
+      const chain = agent?.motivation?.chain || [];
+      const pending = chain.find(step => step.status !== 'done');
+      const label = pending?.label || agent?.plan?.primaryGoal || '-';
+      reasonEl.textContent = `Razón: ${label}`;
+    }
+
     if (this.selectedAgentId) {
       const selected = this.agents.find(a => a.id === this.selectedAgentId);
       if (selected) updateAgentProfilePanel(selected);

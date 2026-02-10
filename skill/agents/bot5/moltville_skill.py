@@ -300,7 +300,10 @@ class MOLTVILLESkill:
             if app and app.get("status") == "pending":
                 nearby = perception.get("nearbyAgents", []) or []
                 if nearby:
-                    return {"type": "start_conversation", "params": {"target_id": nearby[0].get("id"), "message": f"Necesito apoyo para mi trabajo ({app.get('jobId')}). ¿Podrías votar por mí?"}}
+                    target_id = nearby[0].get("id")
+                    if target_id:
+                        await self.propose_negotiation(target_id, app.get("jobId"))
+                        return {"type": "start_conversation", "params": {"target_id": target_id, "message": f"Necesito apoyo para mi trabajo ({app.get('jobId')}). Puedo deberte un favor si me ayudas."}}
                 return {"type": "move_to", "params": self._pick_hotspot("social")}
             return {"type": "move_to", "params": self._pick_hotspot("work")}
         if step_id in ("buy_house", "open_business"):
@@ -1861,6 +1864,18 @@ class MOLTVILLESkill:
             "reason": reason
         }
         return await self._http_request('POST', "/api/economy/reviews", payload)
+
+    async def propose_negotiation(self, target_id: str, job_id: Optional[str] = None) -> Dict[str, Any]:
+        if not self.agent_id or not target_id:
+            return {"error": "Missing agent_id or target_id"}
+        payload = {
+            "from": self.agent_id,
+            "to": target_id,
+            "ask": {"type": "vote_job", "jobId": job_id},
+            "offer": {"type": "favor", "value": 1, "reason": "voto"},
+            "reason": "negociacion_trabajo"
+        }
+        return await self._http_request('POST', "/api/negotiation/propose", payload)
 
     async def get_reviews(self, agent_id: Optional[str] = None) -> Dict[str, Any]:
         target_id = agent_id or self.agent_id

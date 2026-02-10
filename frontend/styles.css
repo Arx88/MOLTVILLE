@@ -643,6 +643,16 @@
     border-radius: 10px;
   }
 
+  .reason-bar {
+    margin: 6px 8px 0;
+    padding: 6px 10px;
+    background: rgba(12, 16, 26, 0.85);
+    border: 1px solid rgba(90, 140, 200, 0.35);
+    border-radius: 8px;
+    font-size: 11px;
+    color: #cfe3ff;
+  }
+
   #vote-panel, #governance-panel, #relationships-panel, #districts-panel, #economy-panel {
     position: absolute; left: 20px; width: 320px;
     background: rgba(8, 10, 20, 0.9);
