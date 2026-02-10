@@ -2574,6 +2574,11 @@ class MoltivilleScene extends Phaser.Scene {
     this.chatLog = [];
     this.gameTime = 600; // minutes from midnight (10:00)
     this.clouds = [];
+    this.showModeCamera = {
+      sceneId: null,
+      targetX: null,
+      targetY: null
+    };
   }
 
   preload() {
@@ -3674,10 +3679,31 @@ class MoltivilleScene extends Phaser.Scene {
     this.updateTime(delta);
     this.updateMinimap();
     this.updateHUD();
+    this.updateShowModeCamera(delta);
   }
 
   updateMinimap() {
     if (this.minimapCtx) this.drawMinimap();
+  }
+
+  updateShowModeCamera(delta) {
+    if (!SHOW_MODE_STATE.active || this._dragStart) return;
+    const currentScene = SHOW_MODE_STATE.currentScene;
+    if (!currentScene?.location) return;
+    const isoPos = toIso(currentScene.location.x, currentScene.location.y);
+    const targetX = isoPos.x + this.sys.game.config.width / 2;
+    const targetY = isoPos.y + this.sys.game.config.height / 2 - 40;
+    const cam = this.cameras.main;
+    const desiredScrollX = targetX - cam.width / 2;
+    const desiredScrollY = targetY - cam.height / 2;
+    const followStrength = Math.min(0.18, Math.max(0.05, delta / 2000));
+
+    cam.scrollX = Phaser.Math.Linear(cam.scrollX, desiredScrollX, followStrength);
+    cam.scrollY = Phaser.Math.Linear(cam.scrollY, desiredScrollY, followStrength);
+
+    this.showModeCamera.sceneId = currentScene.id;
+    this.showModeCamera.targetX = desiredScrollX;
+    this.showModeCamera.targetY = desiredScrollY;
   }
 }
 

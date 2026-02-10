@@ -275,10 +275,10 @@
   }
   .show-mode-tracker {
     position: absolute;
-    right: 24px;
-    bottom: 24px;
-    width: 320px;
-    max-height: 58vh;
+    right: max(16px, env(safe-area-inset-right));
+    bottom: max(16px, env(safe-area-inset-bottom));
+    width: min(320px, 92vw);
+    max-height: min(58vh, calc(100vh - 32px));
     padding: 18px 16px;
     background: rgba(12, 14, 28, 0.86);
     border: 1px solid rgba(255, 209, 102, 0.25);
@@ -486,7 +486,8 @@
     left: 50%;
     transform: translateX(-50%);
     min-width: 280px;
-    max-width: 560px;
+    max-width: min(560px, 90vw);
+    padding: 0 16px;
     text-align: center;
     pointer-events: none;
     text-shadow: 0 6px 20px rgba(0, 0, 0, 0.55);
