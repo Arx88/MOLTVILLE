@@ -306,43 +306,47 @@ export class NPCSpawner {
   }
 
   async performBehavior(npc) {
-    const archetype = this.archetypes[npc.archetype];
-    if (!archetype) return;
-    const behavior = archetype.behaviors[Math.floor(Math.random() * archetype.behaviors.length)];
+    try {
+      const archetype = this.archetypes[npc.archetype];
+      if (!archetype) return;
+      const behavior = archetype.behaviors[Math.floor(Math.random() * archetype.behaviors.length)];
 
-    switch (behavior) {
-      case 'overhear_conversations':
-      case 'spread_rumors':
-      case 'create_misunderstandings':
-        await this.performGossip(npc);
-        break;
-      case 'compete_for_jobs':
-      case 'challenge_leadership':
-      case 'undercut_prices':
-        await this.performRivalry(npc);
-        break;
-      case 'propose_controversial_votes':
-      case 'organize_protests':
-      case 'incite_debates':
-        await this.performAgitation(npc);
-        break;
-      case 'help_new_agents':
-      case 'extract_favors':
-      case 'create_dependencies':
-        await this.performMentorship(npc);
-        break;
-      case 'manipulate_prices':
-      case 'hoard_items':
-      case 'create_scarcity':
-        await this.performMerchant(npc);
-        break;
-      case 'pursue_relationships':
-      case 'create_love_triangles':
-      case 'jealousy_outbursts':
-        await this.performRomance(npc);
-        break;
-      default:
-        break;
+      switch (behavior) {
+        case 'overhear_conversations':
+        case 'spread_rumors':
+        case 'create_misunderstandings':
+          await this.performGossip(npc);
+          break;
+        case 'compete_for_jobs':
+        case 'challenge_leadership':
+        case 'undercut_prices':
+          await this.performRivalry(npc);
+          break;
+        case 'propose_controversial_votes':
+        case 'organize_protests':
+        case 'incite_debates':
+          await this.performAgitation(npc);
+          break;
+        case 'help_new_agents':
+        case 'extract_favors':
+        case 'create_dependencies':
+          await this.performMentorship(npc);
+          break;
+        case 'manipulate_prices':
+        case 'hoard_items':
+        case 'create_scarcity':
+          await this.performMerchant(npc);
+          break;
+        case 'pursue_relationships':
+        case 'create_love_triangles':
+        case 'jealousy_outbursts':
+          await this.performRomance(npc);
+          break;
+        default:
+          break;
+      }
+    } catch (error) {
+      logger.warn(`NPC ${npc.name} behavior failed: ${error.message}`);
     }
   }
 
@@ -351,16 +355,34 @@ export class NPCSpawner {
     const target = this.getRandomTarget(npc.id);
     const listener = this.getRandomTarget(npc.id);
     if (!target || !listener) return;
-    const rumor = `${target.name} está ocultando algo sobre el trabajo en ${this.pickPlaceName()}.`;
+    
+    const rumors = [
+      `${target.name} está ocultando algo sobre lo que pasó en ${this.pickPlaceName()}.`,
+      "No me vas a creer lo que vi ayer por la noche...",
+      `Dicen que ${target.name} planea quedarse con todo el mercado.`,
+      "¿Has notado cómo actúa últimamente la gente del ayuntamiento?",
+      "Corre el rumor de que se avecinan cambios grandes en la ciudad."
+    ];
+    const rumor = rumors[Math.floor(Math.random() * rumors.length)];
+    
     await this.interactionEngine.initiateConversation(npc.id, listener.id, rumor);
     this.emitSpeech(npc.id, npc.name, rumor);
     metrics.npc.dramaPoints += 4;
   }
 
   async performRivalry(npc) {
+    this.moveToSocialSpace(npc.id, ['tower1', 'plaza']);
     const target = this.getRichestTarget(npc.id) || this.getRandomTarget(npc.id);
     if (!target) return;
-    const message = `Voy a superar a ${target.name} en la próxima votación.`;
+    
+    const challenges = [
+      `Voy a superar a ${target.name} en la próxima votación.`,
+      `${target.name}, disfruta de tu puesto mientras puedas.`,
+      "Esta ciudad no es lo suficientemente grande para dos líderes.",
+      "Pronto todos verán quién tiene el verdadero poder aquí."
+    ];
+    const message = challenges[Math.floor(Math.random() * challenges.length)];
+    
     await this.interactionEngine.performSocialAction(npc.id, 'compete', target.id, { contest: 'liderazgo' });
     this.emitSpeech(npc.id, npc.name, message);
 
@@ -377,6 +399,7 @@ export class NPCSpawner {
   }
 
   async performAgitation(npc) {
+    this.moveToSocialSpace(npc.id, ['plaza']);
     const proposalName = `Reforma radical ${Math.floor(Math.random() * 100)}`;
     try {
       this.votingManager.proposeBuilding({
@@ -389,8 +412,9 @@ export class NPCSpawner {
     }
 
     if (this.eventManager) {
+      const eventNames = ["Gran Protesta", "Mitin Popular", "Debate Callejero", "Huelga Simbólica"];
       this.eventManager.createEvent({
-        name: `Protesta organizada por ${npc.name}`,
+        name: `${eventNames[Math.floor(Math.random() * eventNames.length)]} por ${npc.name}`,
         type: 'protest',
         startAt: Date.now(),
         endAt: Date.now() + 30 * 60 * 1000,
@@ -400,11 +424,18 @@ export class NPCSpawner {
       });
     }
 
-    this.emitSpeech(npc.id, npc.name, '¡La ciudad necesita un cambio YA!');
+    const slogans = [
+      "¡La ciudad necesita un cambio YA!",
+      "¡No más promesas vacías!",
+      "¡Justicia para todos los ciudadanos!",
+      "¡Exigimos transparencia!"
+    ];
+    this.emitSpeech(npc.id, npc.name, slogans[Math.floor(Math.random() * slogans.length)]);
     metrics.npc.dramaPoints += 8;
   }
 
   async performMentorship(npc) {
+    this.moveToSocialSpace(npc.id, ['library', 'cafe']);
     const target = this.getRandomTarget(npc.id);
     if (!target) return;
     const favorCount = npc.favors.get(target.id) || 0;
@@ -437,6 +468,7 @@ export class NPCSpawner {
   }
 
   async performRomance(npc) {
+    this.moveToSocialSpace(npc.id, ['garden', 'cafe']);
     const target = this.getRandomTarget(npc.id);
     if (!target) return;
     await this.interactionEngine.performSocialAction(npc.id, 'compliment', target.id, {

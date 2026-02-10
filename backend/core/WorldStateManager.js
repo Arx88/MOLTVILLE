@@ -211,7 +211,7 @@ export class WorldStateManager {
         return;
       }
       if (state.progress < 1) {
-        state.progress += 0.05; // ~20 ticks per tile at 100ms tick = 2 seconds per tile
+        state.progress += 0.2; // ~5 ticks per tile at 200ms tick = 1 second per tile
         if (state.progress >= 1) {
           state.progress = 1;
           const agent = this.agents.get(agentId);
@@ -656,6 +656,9 @@ export class WorldStateManager {
   }
 
   getDistance(pos1, pos2) {
+    if (!pos1 || !pos2 || typeof pos1.x !== 'number' || typeof pos2.x !== 'number') {
+      return Infinity;
+    }
     return Math.sqrt((pos1.x - pos2.x) ** 2 + (pos1.y - pos2.y) ** 2);
   }
 

@@ -1,0 +1,26 @@
+{
+  "server": {
+    "url": "ws://localhost:3001",
+    "apiKey": "YOUR_MOLTVILLE_API_KEY"
+  },
+  "agent": {
+    "name": "RebelBot",
+    "avatar": "char1",
+    "personality": "proactive and technical"
+  },
+  "behavior": {
+    "autoExplore": true,
+    "conversationInitiation": "moderate",
+    "decisionInterval": 30000,
+    "decisionLoop": {
+      "enabled": true,
+      "intervalMs": 20000,
+      "mode": "heuristic"
+    }
+  },
+  "llm": {
+    "provider": "openai",
+    "model": "gpt-4o-mini",
+    "apiKey": ""
+  }
+}

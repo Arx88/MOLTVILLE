@@ -54,18 +54,35 @@ import { KickChatClient } from './services/KickChatClient.js';
 
 const app = express();
 const httpServer = createServer(app);
+const allowedOrigins = [config.frontendUrl, 'http://localhost:5173', 'http://127.0.0.1:5173', 'http://localhost:3000', 'http://127.0.0.1:3000'];
 const io = new Server(httpServer, {
+  pingTimeout: 60000,
+  pingInterval: 25000,
   cors: {
-    origin: config.frontendUrl,
+    origin: (origin, callback) => {
+      if (!origin || allowedOrigins.includes(origin)) {
+        callback(null, true);
+      } else {
+        callback(null, true); // Allow all for debugging
+      }
+    },
     methods: ['GET', 'POST'],
     credentials: true
   }
 });
 
 // Middleware
-app.use(helmet());
+app.use(helmet({
+  contentSecurityPolicy: false, // Disable CSP for easier local debugging
+}));
 app.use(cors({
-  origin: config.frontendUrl,
+  origin: (origin, callback) => {
+    if (!origin || allowedOrigins.includes(origin)) {
+      callback(null, true);
+    } else {
+      callback(null, true); // Allow all for debugging
+    }
+  },
   credentials: true
 }));
 app.use((req, res, next) => {
@@ -112,6 +129,7 @@ const SOCKET_RATE_BLOCK_MS = config.socketRateBlockMs;
 const AGENT_DISCONNECT_GRACE_MS = config.agentDisconnectGraceMs;
 
 const isSocketRateLimited = (socket, eventName, minIntervalMs) => {
+  return false; // Bypass for debugging connection issues
   if (!socket.rateLimits) {
     socket.rateLimits = new Map();
   }
@@ -1114,6 +1132,9 @@ setInterval(() => {
   }
 
   // Broadcast interpolated agent positions to viewers
+  if (worldState.tickCount % 100 === 0) {
+    logger.info(`World tick ${worldState.tickCount} - Agents: ${Object.keys(worldState.getAllAgentPositions()).length}`);
+  }
   io.to('viewers').emit('world:tick', {
     tick: worldState.getCurrentTick(),
     agents: worldState.getAllAgentPositions(), // includes interpolated x,y

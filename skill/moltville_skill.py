@@ -152,7 +152,7 @@ class MOLTVILLESkill:
                 self._decision_task.cancel()
                 self._decision_task = None
         
-        @self.sio.event
+        @self.sio.on('agent:registered')
         async def agent_registered(data):
             logger.info(f"Agent registered: {data}")
             self.agent_id = data['agentId']
@@ -170,12 +170,12 @@ class MOLTVILLESkill:
                 self._save_config()
                 logger.info("API key rotated and saved.")
         
-        @self.sio.event
+        @self.sio.on('perception:update')
         async def perception_update(data):
             logger.debug(f"Perception update: {data}")
             self.current_state['perception'] = data
         
-        @self.sio.event
+        @self.sio.on('perception:speech')
         async def perception_speech(data):
             logger.info(f"Heard: {data['from']} said '{data['message']}'")
             # This would trigger LLM to decide on response
@@ -851,10 +851,12 @@ if __name__ == "__main__":
             prompt = skill.get_system_prompt()
             print("\nSystem Prompt:\n", prompt)
             
-            # Stay connected for a bit
-            await asyncio.sleep(10)
-            
-            # Disconnect
-            await skill.disconnect()
+            # Stay connected and active
+            print("\nRebelBot is now active in MOLTVILLE. Press Ctrl+C to exit.")
+            while True:
+                await asyncio.sleep(1)
     
-    asyncio.run(main())
+    try:
+        asyncio.run(main())
+    except KeyboardInterrupt:
+        pass

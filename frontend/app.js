@@ -2246,6 +2246,11 @@ async function refreshWorldData(scene) {
       showStatusBanner(getStatusMessage(error), true);
     }
 
+    if (!hadError) {
+      hideStatusBanner();
+      WORLD_CONTEXT.refreshFailureCount = 0;
+    }
+
     const timeDisplay = formatServerTime(WORLD_CONTEXT.worldTime);
     if (timeDisplay) {
       document.getElementById('time-display').textContent = timeDisplay;
