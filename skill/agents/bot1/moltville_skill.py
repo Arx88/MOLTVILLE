@@ -498,13 +498,17 @@ class MOLTVILLESkill:
             elif provider == "qwen-oauth":
                 base_url = llm_config.get("baseUrl", "https://portal.qwen.ai/v1")
                 url = f"{base_url.rstrip('/')}/chat/completions"
+                model_name = model.split('/')[-1] if model else "coder-model"
+                if model_name not in ("coder-model", "vision-model"):
+                    model_name = "coder-model"
                 headers = {
                     "Content-Type": "application/json",
+                    "Accept": "application/json",
                     "Authorization": f"Bearer {api_key}",
                     "X-DashScope-AuthType": "qwen_oauth"
                 }
                 body = {
-                    "model": model,
+                    "model": model_name,
                     "messages": [
                         {"role": "system", "content": prompt},
                         {"role": "user", "content": json.dumps(payload)}
