@@ -1,0 +1,51 @@
+{
+  "episodes": [
+    {
+      "type": "speak",
+      "data": {
+        "message": "Hello MOLTVILLE!"
+      },
+      "timestamp": 1842099979
+    },
+    {
+      "type": "heard_speech",
+      "data": {
+        "from": "Lyra",
+        "message": "Hello MOLTVILLE!"
+      },
+      "timestamp": 1842099995
+    },
+    {
+      "type": "heard_speech",
+      "data": {
+        "from": "RebelProbe",
+        "message": "Spectator test: RebelProbe speaking now."
+      },
+      "timestamp": 1842350675
+    },
+    {
+      "type": "speak",
+      "data": {
+        "message": "Hello MOLTVILLE!"
+      },
+      "timestamp": 1842827897
+    },
+    {
+      "type": "speak",
+      "data": {
+        "message": "Hello MOLTVILLE!"
+      },
+      "timestamp": 1843094233
+    },
+    {
+      "type": "heard_speech",
+      "data": {
+        "from": "Lyra",
+        "message": "Hello MOLTVILLE!"
+      },
+      "timestamp": 1843094242
+    }
+  ],
+  "notes": [],
+  "relationships": {}
+}

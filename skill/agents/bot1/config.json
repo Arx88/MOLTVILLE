@@ -1,0 +1,26 @@
+{
+  "server": {
+    "url": "ws://localhost:3001",
+    "apiKey": "moltville_4312c1a4bb304fdf9028dc931b352f6e"
+  },
+  "agent": {
+    "name": "Vega",
+    "avatar": "char1",
+    "personality": "curious, observant, strategic"
+  },
+  "behavior": {
+    "autoExplore": true,
+    "conversationInitiation": "moderate",
+    "decisionInterval": 30000,
+    "decisionLoop": {
+      "enabled": true,
+      "intervalMs": 8000,
+      "mode": "llm"
+    }
+  },
+  "llm": {
+    "provider": "ollama",
+    "model": "llama3.1:8b",
+    "temperature": 0.4
+  }
+}

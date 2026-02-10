@@ -3,6 +3,9 @@ import Joi from 'joi';
 import { requireAdminKey } from '../utils/adminAuth.js';
 import { allowedConfigKeys, loadConfigOverrides, saveConfigOverrides } from '../utils/configStore.js';
 import { config, refreshConfig } from '../utils/config.js';
+import fs from 'fs';
+import path from 'path';
+import { loadMiniMaxToken, getMiniMaxAuthPath } from '../utils/minimaxAuth.js';
 
 const router = express.Router();
 
@@ -212,6 +215,102 @@ router.put('/config', requireAdminKey, async (req, res, next) => {
     });
   } catch (err) {
     return next(err);
+  }
+});
+
+const resolveAgentsDir = () => path.resolve(process.cwd(), '..', 'skill', 'agents');
+
+const loadAgentConfig = (agentDir) => {
+  const configPath = path.join(agentDir, 'config.json');
+  if (!fs.existsSync(configPath)) return null;
+  const raw = fs.readFileSync(configPath, 'utf8');
+  return { configPath, data: JSON.parse(raw) };
+};
+
+const saveAgentConfig = (configPath, data) => {
+  fs.writeFileSync(configPath, JSON.stringify(data, null, 2));
+};
+
+router.get('/agents/llm', requireAdminKey, (req, res) => {
+  const agentsDir = resolveAgentsDir();
+  const entries = fs.existsSync(agentsDir) ? fs.readdirSync(agentsDir, { withFileTypes: true }) : [];
+  const agents = entries
+    .filter((entry) => entry.isDirectory())
+    .map((entry) => {
+      const agentDir = path.join(agentsDir, entry.name);
+      const loaded = loadAgentConfig(agentDir);
+      if (!loaded) return null;
+      const llm = loaded.data.llm || {};
+      return {
+        id: entry.name,
+        name: loaded.data.agent?.name || entry.name,
+        provider: llm.provider || '',
+        model: llm.model || ''
+      };
+    })
+    .filter(Boolean);
+
+  res.json({
+    agents,
+    minimaxAuthPath: getMiniMaxAuthPath(),
+    providers: [
+      { id: 'ollama', label: 'Ollama' },
+      { id: 'minimax-portal', label: 'MiniMax M2.1 (OAuth)' }
+    ],
+    models: {
+      'minimax-portal': ['MiniMax-M2.1', 'MiniMax-M2.1-lightning']
+    }
+  });
+});
+
+router.put('/agents/llm', requireAdminKey, (req, res) => {
+  try {
+    const { agentId, provider, model } = req.body || {};
+    if (!agentId || !provider || !model) {
+      return res.status(400).json({ error: 'agentId, provider y model son obligatorios.' });
+    }
+    const agentsDir = resolveAgentsDir();
+    const agentDir = path.join(agentsDir, agentId);
+    const loaded = loadAgentConfig(agentDir);
+    if (!loaded) {
+      return res.status(404).json({ error: 'Agente no encontrado.' });
+    }
+    loaded.data.llm = loaded.data.llm || {};
+    loaded.data.llm.provider = provider;
+    loaded.data.llm.model = model;
+    if (provider === 'minimax-portal') {
+      loaded.data.llm.apiKey = loadMiniMaxToken();
+      loaded.data.llm.baseUrl = loaded.data.llm.baseUrl || 'https://api.minimax.io/anthropic';
+    }
+    saveAgentConfig(loaded.configPath, loaded.data);
+    return res.json({ success: true, agentId, provider, model });
+  } catch (error) {
+    return res.status(500).json({ error: error.message });
+  }
+});
+
+router.post('/agents/llm/sync-minimax', requireAdminKey, (req, res) => {
+  try {
+    const model = req.body?.model || 'MiniMax-M2.1';
+    const agentsDir = resolveAgentsDir();
+    const entries = fs.existsSync(agentsDir) ? fs.readdirSync(agentsDir, { withFileTypes: true }) : [];
+    const token = loadMiniMaxToken();
+    const updated = [];
+    entries.filter((entry) => entry.isDirectory()).forEach((entry) => {
+      const agentDir = path.join(agentsDir, entry.name);
+      const loaded = loadAgentConfig(agentDir);
+      if (!loaded) return;
+      loaded.data.llm = loaded.data.llm || {};
+      loaded.data.llm.provider = 'minimax-portal';
+      loaded.data.llm.model = model;
+      loaded.data.llm.apiKey = token;
+      loaded.data.llm.baseUrl = loaded.data.llm.baseUrl || 'https://api.minimax.io/anthropic';
+      saveAgentConfig(loaded.configPath, loaded.data);
+      updated.push({ id: entry.name, name: loaded.data.agent?.name || entry.name });
+    });
+    return res.json({ success: true, updated });
+  } catch (error) {
+    return res.status(500).json({ error: error.message });
   }
 });
 

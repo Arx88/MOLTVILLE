@@ -1,0 +1,26 @@
+{
+  "server": {
+    "url": "ws://localhost:3001",
+    "apiKey": "moltville_3928434a597c4505ba36805423687e4a"
+  },
+  "agent": {
+    "name": "Atlas",
+    "avatar": "char3",
+    "personality": "methodical, analytical, pragmatic"
+  },
+  "behavior": {
+    "autoExplore": true,
+    "conversationInitiation": "moderate",
+    "decisionInterval": 30000,
+    "decisionLoop": {
+      "enabled": true,
+      "intervalMs": 8000,
+      "mode": "llm"
+    }
+  },
+  "llm": {
+    "provider": "ollama",
+    "model": "llama3.1:8b",
+    "temperature": 0.3
+  }
+}

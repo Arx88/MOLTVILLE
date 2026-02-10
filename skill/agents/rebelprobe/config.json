@@ -1,0 +1,26 @@
+{
+  "server": {
+    "url": "ws://localhost:3001",
+    "apiKey": "moltville_506a271e877c4a0cb45ab561cc8fa32a"
+  },
+  "agent": {
+    "name": "RebelProbe",
+    "avatar": "char6",
+    "personality": "diagnostic, observant, precise"
+  },
+  "behavior": {
+    "autoExplore": true,
+    "conversationInitiation": "high",
+    "decisionInterval": 30000,
+    "decisionLoop": {
+      "enabled": true,
+      "intervalMs": 8000,
+      "mode": "llm"
+    }
+  },
+  "llm": {
+    "provider": "ollama",
+    "model": "llama3.1:8b",
+    "temperature": 0.4
+  }
+}

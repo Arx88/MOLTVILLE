@@ -119,9 +119,24 @@ export class NPCSpawner {
 
     const allAgents = this.registry.getAllAgents();
     const realAgents = allAgents.filter(agent => !agent.isNPC);
+    const npcAgents = allAgents.filter(agent => agent.isNPC);
     const realCount = realAgents.length;
-    const npcCount = this.activeNPCs.size;
+    const npcCount = npcAgents.length;
     const totalCount = realCount + npcCount;
+
+    // Rehydrate activeNPCs from registry (snapshot restore safety)
+    if (npcCount > this.activeNPCs.size) {
+      npcAgents.forEach(agent => {
+        if (!this.activeNPCs.has(agent.id)) {
+          this.activeNPCs.set(agent.id, {
+            id: agent.id,
+            spawnedAt: now,
+            lastActionAt: now,
+            archetype: 'legacy'
+          });
+        }
+      });
+    }
 
     metrics.population.real = realCount;
     metrics.population.npc = npcCount;
@@ -143,7 +158,20 @@ export class NPCSpawner {
       }
     }
 
-    if (realCount >= this.config.minRealAgents + 2 && npcCount > 0) {
+    const maxAllowed = Math.min(
+      this.config.maxNPCs,
+      Math.floor((totalCount || 1) * this.config.maxNPCRatio / (1 - this.config.maxNPCRatio))
+    );
+
+    // Hard cap: if NPCs exceed maxAllowed, despawn extras immediately
+    if (npcCount > maxAllowed) {
+      const excess = npcCount - maxAllowed;
+      const npcList = Array.from(this.activeNPCs.values()).sort((a, b) => a.spawnedAt - b.spawnedAt);
+      for (let i = 0; i < excess; i += 1) {
+        const npc = npcList[i];
+        if (npc) this.despawnNPC(npc.id);
+      }
+    } else if (realCount >= this.config.minRealAgents + 2 && npcCount > 0) {
       const npc = Array.from(this.activeNPCs.values())[0];
       if (npc && now - npc.spawnedAt > this.config.despawnGracePeriodMs) {
         this.despawnNPC(npc.id);
@@ -151,7 +179,11 @@ export class NPCSpawner {
     }
 
     this.activeNPCs.forEach(npc => {
-      if (now - npc.lastActionAt >= this.config.behaviorIntervalMs) {
+      const agent = this.registry.getAgent(npc.id);
+      const movement = this.worldState.getAgentMovementState(npc.id);
+      const isMoving = agent?.state === 'moving' || (movement && movement.progress < 1);
+
+      if (!isMoving && now - npc.lastActionAt >= this.config.behaviorIntervalMs) {
         npc.lastActionAt = now;
         void this.performBehavior(npc);
       }
@@ -259,54 +291,41 @@ export class NPCSpawner {
     return this.registry.getAllAgents().filter(agent => agent.id !== excludeId);
   }
 
-  getRandomTarget(excludeId) {
+  getRandomTarget(excludeId, maxDist = Infinity) {
     const candidates = this.getAvailableTargets(excludeId);
     if (!candidates.length) return null;
+
+    if (maxDist !== Infinity) {
+      const myPos = this.worldState.getAgentPosition(excludeId);
+      if (myPos) {
+        const near = candidates.filter(c => {
+          const pos = this.worldState.getAgentPosition(c.id);
+          return pos && this.worldState.getDistance(myPos, pos) <= maxDist;
+        });
+        if (near.length) return near[Math.floor(Math.random() * near.length)];
+      }
+      return null; // Nobody nearby
+    }
+
     return candidates[Math.floor(Math.random() * candidates.length)];
   }
 
-  getRichestTarget(excludeId) {
-    const candidates = this.getAvailableTargets(excludeId);
-    if (!candidates.length) return null;
-    return candidates.reduce((best, candidate) => {
-      const candidateBalance = this.economyManager.getBalance(candidate.id);
-      const bestBalance = best ? this.economyManager.getBalance(best.id) : -Infinity;
-      return candidateBalance > bestBalance ? candidate : best;
-    }, null);
-  }
-
-  moveToSocialSpace(npcId, preferredTypes = ['plaza', 'cafe', 'market', 'garden']) {
-    if (!this.actionQueue) return;
-    const buildings = this.worldState.buildings.filter(building => preferredTypes.includes(building.type));
-    if (!buildings.length) return;
-    const target = buildings[Math.floor(Math.random() * buildings.length)];
-    const targetX = target.x + Math.floor(target.width / 2);
-    const targetY = target.y + Math.floor(target.height / 2);
-    this.actionQueue.enqueue({
-      type: 'MOVE_TO',
-      agentId: npcId,
-      targetX,
-      targetY,
-      timestamp: Date.now()
-    });
-  }
-
-  emitSpeech(npcId, npcName, message) {
-    const position = this.worldState.getAgentPosition(npcId);
-    if (this.io) {
-      this.io.emit('agent:spoke', {
-        agentId: npcId,
-        agentName: npcName,
-        message,
-        position,
-        timestamp: Date.now(),
-        isNPC: true
-      });
-    }
+  isAtSocialSpace(npcId) {
+    const pos = this.worldState.getAgentPosition(npcId);
+    if (!pos) return false;
+    const building = this.worldState.getBuildingAt(pos.x, pos.y);
+    return building && ['cafe', 'plaza', 'market', 'garden', 'library', 'tower1'].includes(building.type);
   }
 
   async performBehavior(npc) {
     try {
+      // Logic: Move to social space first, then act
+      const isSocial = this.isAtSocialSpace(npc.id);
+      if (!isSocial && Math.random() < 0.7) {
+        this.moveToSocialSpace(npc.id);
+        return;
+      }
+
       const archetype = this.archetypes[npc.archetype];
       if (!archetype) return;
       const behavior = archetype.behaviors[Math.floor(Math.random() * archetype.behaviors.length)];
@@ -351,9 +370,8 @@ export class NPCSpawner {
   }
 
   async performGossip(npc) {
-    this.moveToSocialSpace(npc.id, ['cafe', 'plaza', 'market']);
     const target = this.getRandomTarget(npc.id);
-    const listener = this.getRandomTarget(npc.id);
+    const listener = this.getRandomTarget(npc.id, 2.5); // Must be near to hear gossip
     if (!target || !listener) return;
     
     const rumors = [
@@ -371,8 +389,8 @@ export class NPCSpawner {
   }
 
   async performRivalry(npc) {
-    this.moveToSocialSpace(npc.id, ['tower1', 'plaza']);
     const target = this.getRichestTarget(npc.id) || this.getRandomTarget(npc.id);
+    const listener = this.getRandomTarget(npc.id, 3); // Challenges should be heard by someone (slightly larger for shouting)
     if (!target) return;
     
     const challenges = [
@@ -384,6 +402,9 @@ export class NPCSpawner {
     const message = challenges[Math.floor(Math.random() * challenges.length)];
     
     await this.interactionEngine.performSocialAction(npc.id, 'compete', target.id, { contest: 'liderazgo' });
+    if (listener) {
+        await this.interactionEngine.initiateConversation(npc.id, listener.id, message);
+    }
     this.emitSpeech(npc.id, npc.name, message);
 
     const jobs = this.economyManager.listJobs().filter(job => !job.assignedTo);
@@ -399,7 +420,6 @@ export class NPCSpawner {
   }
 
   async performAgitation(npc) {
-    this.moveToSocialSpace(npc.id, ['plaza']);
     const proposalName = `Reforma radical ${Math.floor(Math.random() * 100)}`;
     try {
       this.votingManager.proposeBuilding({
@@ -435,8 +455,7 @@ export class NPCSpawner {
   }
 
   async performMentorship(npc) {
-    this.moveToSocialSpace(npc.id, ['library', 'cafe']);
-    const target = this.getRandomTarget(npc.id);
+    const target = this.getRandomTarget(npc.id, 2.5); // Target must be near
     if (!target) return;
     const favorCount = npc.favors.get(target.id) || 0;
     if (favorCount === 0) {
@@ -456,7 +475,6 @@ export class NPCSpawner {
   }
 
   async performMerchant(npc) {
-    this.moveToSocialSpace(npc.id, ['market', 'shop']);
     const itemId = 'bread';
     try {
       this.economyManager.addItem(npc.id, { itemId, name: 'Pan', quantity: 3 });
@@ -468,8 +486,7 @@ export class NPCSpawner {
   }
 
   async performRomance(npc) {
-    this.moveToSocialSpace(npc.id, ['garden', 'cafe']);
-    const target = this.getRandomTarget(npc.id);
+    const target = this.getRandomTarget(npc.id, 4); // Romance needs proximity
     if (!target) return;
     await this.interactionEngine.performSocialAction(npc.id, 'compliment', target.id, {
       message: 'No puedo dejar de pensar en ti.'
@@ -481,5 +498,50 @@ export class NPCSpawner {
   pickPlaceName() {
     const places = ['Hobbs Café', 'Market Square', 'Central Plaza', 'City Hall'];
     return places[Math.floor(Math.random() * places.length)];
+  }
+
+  emitSpeech(agentId, agentName, message) {
+    if (!this.io) return;
+    this.io.emit('agent:spoke', {
+      agentId,
+      agentName,
+      message
+    });
+    logger.debug(`NPC Speech: ${agentName}: ${message}`);
+  }
+
+  moveToSocialSpace(npcId) {
+    const socialBuildings = this.worldState.buildings.filter(b => 
+      ['cafe', 'plaza', 'market', 'garden', 'library', 'tower1'].includes(b.type)
+    );
+    if (!socialBuildings.length) return;
+    const building = socialBuildings[Math.floor(Math.random() * socialBuildings.length)];
+    // Pick a random spot inside the building footprint
+    const tx = building.x + Math.floor(Math.random() * building.width);
+    const ty = building.y + Math.floor(Math.random() * building.height);
+    
+    try {
+      this.worldState.moveAgentTo(npcId, tx, ty);
+    } catch (error) {
+      logger.debug(`NPC ${npcId} failed to move to social space: ${error.message}`);
+    }
+  }
+
+  getRichestTarget(excludeId) {
+    let richestId = null;
+    let maxBalance = -1;
+
+    for (const [agentId, balance] of this.economyManager.balances.entries()) {
+      if (agentId !== excludeId && balance > maxBalance) {
+        maxBalance = balance;
+        richestId = agentId;
+      }
+    }
+
+    if (richestId) {
+      const agent = this.registry.getAgent(richestId);
+      return agent ? { id: richestId, name: agent.name } : null;
+    }
+    return null;
   }
 }

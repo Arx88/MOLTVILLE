@@ -1,0 +1,35 @@
+{
+  "episodes": [
+    {
+      "type": "speak",
+      "data": {
+        "message": "Hello MOLTVILLE!"
+      },
+      "timestamp": 1842099984
+    },
+    {
+      "type": "heard_speech",
+      "data": {
+        "from": "Nova",
+        "message": "Hello MOLTVILLE!"
+      },
+      "timestamp": 1842827903
+    },
+    {
+      "type": "speak",
+      "data": {
+        "message": "Hello MOLTVILLE!"
+      },
+      "timestamp": 1842827905
+    },
+    {
+      "type": "speak",
+      "data": {
+        "message": "Hello MOLTVILLE!"
+      },
+      "timestamp": 1843094242
+    }
+  ],
+  "notes": [],
+  "relationships": {}
+}
