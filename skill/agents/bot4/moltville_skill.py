@@ -735,9 +735,15 @@ class MOLTVILLESkill:
                 target_id = target.get('id')
                 conv_id = self._conversation_state.get(target_id)
                 if conv_id:
+                    fallback_msgs = [
+                        "¿Qué te trae por aquí?",
+                        "¿Viste algo interesante en la ciudad?",
+                        "¿Cómo va tu día en MOLTVILLE?",
+                        "¿Querés que exploremos la zona juntos?"
+                    ]
                     return {
                         "type": "conversation_message",
-                        "params": {"conversation_id": conv_id, "message": "¿Cómo vas hoy?"}
+                        "params": {"conversation_id": conv_id, "message": random.choice(fallback_msgs)}
                     }
                 # campaign ask if ambitious
                 if self._traits["ambition"] >= 0.7 and (asyncio.get_event_loop().time() - self._last_campaign_ts) > self._campaign_cooldown:
@@ -746,9 +752,15 @@ class MOLTVILLESkill:
                         "type": "start_conversation",
                         "params": {"target_id": target_id, "message": "Hola, ¿te puedo pedir tu apoyo para mejorar la ciudad?"}
                     }
+                openers = [
+                    "Ey, ¿todo bien?",
+                    "Hola, ¿qué estás haciendo hoy?",
+                    "Buenas, ¿te puedo acompañar un rato?",
+                    "Hey, ¿vamos a ver el mercado?"
+                ]
                 return {
                     "type": "start_conversation",
-                    "params": {"target_id": target_id, "message": "Hola, ¿cómo estás?"}
+                    "params": {"target_id": target_id, "message": random.choice(openers)}
                 }
             # no nearby agents → go to hotspot, avoid crowding by rotating
             hotspot = self._pick_hotspot("social")
