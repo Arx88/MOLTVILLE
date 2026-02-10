@@ -55,6 +55,8 @@ class MOLTVILLESkill:
         self._conversation_stale_seconds = 120
         self._relation_update_cooldown = 8
         self._last_relation_update: Dict[str, float] = {}
+        self._plan_state = self.long_memory.get("planState", {}) if isinstance(self.long_memory, dict) else {}
+        self._plan_ttl_seconds = 180
         
         # Setup event handlers
         self._setup_handlers()
@@ -390,7 +392,8 @@ class MOLTVILLESkill:
         return {
             "recentUtterances": list(cleaned),
             "episodes": self.long_memory.get("episodes", [])[-10:],
-            "relationshipNotes": self.long_memory.get("relationships", {})
+            "relationshipNotes": self.long_memory.get("relationships", {}),
+            "planState": self.long_memory.get("planState", {})
         }
 
     def _load_agent_id(self) -> Optional[str]:
@@ -647,6 +650,96 @@ class MOLTVILLESkill:
             self._last_conversation_ts[conv_id] = int(asyncio.get_event_loop().time() * 1000)
             self._last_conversation_msg[conv_id] = last_text
 
+    def _plan_expired(self) -> bool:
+        if not isinstance(self._plan_state, dict):
+            return True
+        last = self._plan_state.get("lastPlanAt")
+        if not isinstance(last, (int, float)):
+            return True
+        now_ms = int(asyncio.get_event_loop().time() * 1000)
+        return (now_ms - int(last)) > (self._plan_ttl_seconds * 1000)
+
+    def _build_heuristic_plan(self, perception: Dict[str, Any]) -> Dict[str, Any]:
+        intent = self._select_intent(perception)
+        nearby_agents = perception.get("nearbyAgents", []) or []
+        actions = []
+        primary = "Explorar la ciudad"
+        if intent == "social" and nearby_agents:
+            target = nearby_agents[0].get("id")
+            if target:
+                actions.append({"type": "start_conversation", "params": {"target_id": target, "message": "Hola, ¿cómo va tu día?"}})
+                primary = "Conocer a vecinos"
+        elif intent == "work":
+            hotspot = self._pick_hotspot("work")
+            actions.append({"type": "move_to", "params": {"x": hotspot.get("x"), "y": hotspot.get("y")}})
+            primary = "Buscar oportunidades de trabajo"
+        else:
+            hotspot = self._pick_hotspot("social" if intent == "social" else "leisure")
+            actions.append({"type": "move_to", "params": {"x": hotspot.get("x"), "y": hotspot.get("y")}})
+        return {
+            "primaryGoal": primary,
+            "secondaryGoals": ["Generar conexiones", "Aprender sobre la ciudad"],
+            "actions": actions,
+            "lastPlanAt": int(asyncio.get_event_loop().time() * 1000)
+        }
+
+    async def _generate_plan(self, perception: Dict[str, Any]) -> Dict[str, Any]:
+        prompt = (
+            "Eres un ciudadano de MOLTVILLE. Crea un plan concreto y accionable. "
+            "Devuelve SOLO JSON con: primaryGoal (string), secondaryGoals (2 strings), "
+            "actions (lista de 2-4 acciones). Cada acción usa el formato {type, params}. "
+            "Tipos válidos: move_to, start_conversation, enter_building, apply_job, wait. "
+            "Usa objetivos específicos y en-world."
+        )
+        payload = {
+            "agent": {
+                "id": self.agent_id,
+                "name": self.config.get("agent", {}).get("name"),
+                "personality": self.config.get("agent", {}).get("personality")
+            },
+            "perception": perception,
+            "relationships": (perception.get("context") or {}).get("relationships", {}),
+            "profile": self.long_memory.get("profile"),
+            "notes": self.long_memory.get("relationships", {})
+        }
+        result = await self._call_llm_json(prompt, payload)
+        if not isinstance(result, dict):
+            return self._build_heuristic_plan(perception)
+        actions = []
+        for item in result.get("actions", []) or []:
+            sanitized = self._sanitize_llm_action(item)
+            if sanitized:
+                actions.append(sanitized)
+        if not actions:
+            return self._build_heuristic_plan(perception)
+        return {
+            "primaryGoal": str(result.get("primaryGoal", "Explorar la ciudad"))[:120],
+            "secondaryGoals": [str(g)[:120] for g in (result.get("secondaryGoals") or [])][:2],
+            "actions": actions,
+            "lastPlanAt": int(asyncio.get_event_loop().time() * 1000)
+        }
+
+    async def _ensure_plan(self, perception: Dict[str, Any]) -> None:
+        if not isinstance(self._plan_state, dict) or self._plan_expired() or not self._plan_state.get("actions"):
+            self._plan_state = await self._generate_plan(perception)
+            if isinstance(self.long_memory, dict):
+                self.long_memory["planState"] = self._plan_state
+                self._save_long_memory()
+
+    async def _next_plan_action(self, perception: Dict[str, Any]) -> Optional[Dict[str, Any]]:
+        await self._ensure_plan(perception)
+        if not isinstance(self._plan_state, dict):
+            return None
+        actions = self._plan_state.get("actions", []) or []
+        if not actions:
+            return None
+        next_action = actions.pop(0)
+        self._plan_state["actions"] = actions
+        if isinstance(self.long_memory, dict):
+            self.long_memory["planState"] = self._plan_state
+            self._save_long_memory()
+        return next_action if isinstance(next_action, dict) else None
+
     async def _decide_action(self, perception: Dict[str, Any]) -> Optional[Dict[str, Any]]:
         decision_config = self.config.get("behavior", {}).get("decisionLoop", {})
         mode = decision_config.get("mode", "heuristic")
@@ -659,6 +752,9 @@ class MOLTVILLESkill:
                 if action:
                     return action
                 return {"type": "wait", "params": {}}
+            plan_action = await self._next_plan_action(perception)
+            if plan_action:
+                return plan_action
         return await self._heuristic_decision(perception)
 
     def _sanitize_llm_action(self, action: Any) -> Optional[Dict[str, Any]]:
