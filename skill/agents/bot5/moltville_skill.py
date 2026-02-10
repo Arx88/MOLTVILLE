@@ -837,6 +837,16 @@ class MOLTVILLESkill:
             ty = params.get("targetY")
             if isinstance(tx, (int, float)) and isinstance(ty, (int, float)):
                 return {"type": "move_to", "params": {"x": int(tx), "y": int(ty)}}
+            target_id = params.get("targetId") or params.get("target")
+            if isinstance(target_id, str) and target_id:
+                target_id = target_id.strip().lower()
+                buildings = (self.current_state.get("perception") or {}).get("nearbyBuildings", []) or []
+                match = next((b for b in buildings if (b.get("id") == target_id) or (str(b.get("name", "")).lower() == target_id)), None)
+                if match:
+                    pos = match.get("position") or {}
+                    bx, by = pos.get("x"), pos.get("y")
+                    if isinstance(bx, (int, float)) and isinstance(by, (int, float)):
+                        return {"type": "move_to", "params": {"x": int(bx), "y": int(by)}}
             return None
         if action_type == "enter_building":
             building_id = params.get("building_id")
