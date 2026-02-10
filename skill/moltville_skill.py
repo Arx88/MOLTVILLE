@@ -395,7 +395,7 @@ class MOLTVILLESkill:
                 }
             return None
         if action_type == "conversation_message":
-            conversation_id = params.get("conversation_id")
+            conversation_id = params.get("conversation_id") or params.get("conversationId")
             message = params.get("message")
             if isinstance(conversation_id, str) and conversation_id.strip() and isinstance(message, str):
                 return {
