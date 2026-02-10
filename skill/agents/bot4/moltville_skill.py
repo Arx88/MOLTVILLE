@@ -58,6 +58,7 @@ class MOLTVILLESkill:
         self._plan_state = self.long_memory.get("planState", {}) if isinstance(self.long_memory, dict) else {}
         self._plan_ttl_seconds = 180
         self._plan_action_timeout = 45
+        self._goal_state = self.long_memory.get("goalState", {}) if isinstance(self.long_memory, dict) else {}
         
         # Setup event handlers
         self._setup_handlers()
@@ -394,7 +395,8 @@ class MOLTVILLESkill:
             "recentUtterances": list(cleaned),
             "episodes": self.long_memory.get("episodes", [])[-10:],
             "relationshipNotes": self.long_memory.get("relationships", {}),
-            "planState": self.long_memory.get("planState", {})
+            "planState": self.long_memory.get("planState", {}),
+            "goalState": self.long_memory.get("goalState", {})
         }
 
     def _load_agent_id(self) -> Optional[str]:
@@ -662,6 +664,37 @@ class MOLTVILLESkill:
         now_ms = int(asyncio.get_event_loop().time() * 1000)
         return (now_ms - int(last)) > (self._plan_ttl_seconds * 1000)
 
+    def _ensure_goal_state(self, perception: Dict[str, Any]) -> None:
+        if not isinstance(self._goal_state, dict) or not self._goal_state.get("primary"):
+            self._goal_state = {
+                "primary": "buy_house",
+                "status": "active",
+                "progress": {},
+                "updatedAt": int(asyncio.get_event_loop().time() * 1000)
+            }
+            if isinstance(self.long_memory, dict):
+                self.long_memory["goalState"] = self._goal_state
+                self._save_long_memory()
+
+    async def _goal_action(self, perception: Dict[str, Any]) -> Optional[Dict[str, Any]]:
+        self._ensure_goal_state(perception)
+        context = perception.get("context", {}) or {}
+        economy = context.get("economy", {}) or {}
+        balance = economy.get("balance", 0)
+        job = economy.get("job")
+        primary = self._goal_state.get("primary") if isinstance(self._goal_state, dict) else None
+        if primary == "buy_house":
+            if not job:
+                jobs = await self.list_jobs()
+                if isinstance(jobs, dict):
+                    available = [j for j in jobs.get("jobs", []) if not j.get("assignedTo")]
+                    if available:
+                        return {"type": "apply_job", "params": {"job_id": available[0].get("id")}}
+                return {"type": "move_to", "params": self._pick_hotspot("work")}
+            if balance < 50:
+                return {"type": "move_to", "params": self._pick_hotspot("work")}
+        return None
+
     async def _maybe_start_conversation(self, perception: Dict[str, Any]) -> Optional[Dict[str, Any]]:
         plan = self.long_memory.get("planState", {}) if isinstance(self.long_memory, dict) else {}
         primary = str(plan.get("primaryGoal", "")).lower()
@@ -808,6 +841,9 @@ class MOLTVILLESkill:
                 if action:
                     return action
                 return {"type": "wait", "params": {}}
+            goal_action = await self._goal_action(perception)
+            if goal_action:
+                return goal_action
             plan_action = await self._next_plan_action(perception)
             if plan_action:
                 return plan_action
