@@ -1,6 +1,8 @@
+  @import url('https://fonts.googleapis.com/css2?family=Space+Grotesk:wght@400;600;700&family=Sora:wght@400;600;700&display=swap');
   * { margin: 0; padding: 0; box-sizing: border-box; }
-  body { background: #1a1a2e; overflow: hidden; font-family: 'Segoe UI', sans-serif; }
+  body { background: radial-gradient(circle at 20% 0%, #223158 0%, #171c33 45%, #0f1326 100%); overflow: hidden; font-family: 'Sora', sans-serif; }
   body.show-mode-active #chat-log,
+  body.show-mode-active #conversation-focus,
   body.show-mode-active #agents-panel,
   body.show-mode-active #vote-panel,
   body.show-mode-active #governance-panel,
@@ -23,17 +25,17 @@
     top: 16px;
     left: 50%;
     transform: translateX(-50%);
-    background: rgba(12, 14, 28, 0.92);
-    border: 1px solid rgba(100, 140, 255, 0.25);
-    border-radius: 14px;
-    padding: 10px 18px;
+    background: rgba(8, 10, 20, 0.92);
+    border: 1px solid rgba(100, 140, 255, 0.35);
+    border-radius: 16px;
+    padding: 12px 20px;
     display: flex;
     align-items: center;
     gap: 16px;
-    backdrop-filter: blur(12px);
-    box-shadow: 0 10px 30px rgba(8, 10, 20, 0.35);
+    backdrop-filter: blur(16px);
+    box-shadow: 0 12px 36px rgba(5, 8, 18, 0.45);
   }
-  #top-bar .city-name { color: #a8c4ff; font-size: 18px; font-weight: 700; letter-spacing: 3px; text-transform: uppercase; }
+  #top-bar .city-name { color: #cfe0ff; font-size: 18px; font-weight: 700; letter-spacing: 4px; text-transform: uppercase; font-family: 'Space Grotesk', sans-serif; }
   #top-bar .time-display { color: #7faaee; font-size: 13px; }
   #top-bar .weather-display { color: #f5c542; font-size: 13px; }
   #top-bar .agent-count { color: #6bcb77; font-size: 13px; }
@@ -94,6 +96,16 @@
     background: rgba(255, 133, 96, 0.35);
     border-color: rgba(255, 133, 96, 0.6);
     color: #ffe4d6;
+  }
+  #top-bar .labels-toggle {
+    background: rgba(120, 150, 255, 0.16);
+    border-color: rgba(120, 150, 255, 0.35);
+    color: #cfe0ff;
+  }
+  #top-bar .labels-toggle.is-active {
+    background: rgba(80, 200, 140, 0.25);
+    border-color: rgba(120, 255, 190, 0.4);
+    color: #dfffee;
   }
   #status-banner {
     position: absolute; top: 60px; left: 50%; transform: translateX(-50%);
@@ -220,12 +232,63 @@
   }
 
   #chat-log {
-    position: absolute; bottom: 80px; left: 20px; width: 320px; max-height: 200px;
-    background: rgba(15,15,30,0.8); border: 1px solid rgba(100,140,255,0.2);
-    border-radius: 12px; padding: 12px; overflow-y: auto; backdrop-filter: blur(6px);
+    position: absolute; bottom: 20px; left: 20px; width: 320px; max-height: 180px;
+    background: rgba(10,10,20,0.82); border: 1px solid rgba(100,140,255,0.25);
+    border-radius: 12px; padding: 12px; overflow-y: auto; backdrop-filter: blur(8px);
   }
   .chat-msg { color: #ccc; font-size: 12px; margin-bottom: 4px; line-height: 1.4; }
   .chat-msg .name { color: #a8c4ff; font-weight: 600; }
+
+  .conversation-focus {
+    position: absolute;
+    bottom: 210px;
+    left: 20px;
+    width: 320px;
+    background: rgba(6, 8, 18, 0.92);
+    border: 1px solid rgba(120, 150, 255, 0.35);
+    border-radius: 14px;
+    padding: 10px 12px;
+    color: #e6ecff;
+    backdrop-filter: blur(12px);
+    box-shadow: 0 14px 30px rgba(4, 6, 15, 0.5);
+    pointer-events: none;
+  }
+  .conversation-focus-header {
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+    font-size: 12px;
+    color: #c8d7ff;
+    text-transform: uppercase;
+    letter-spacing: 1.4px;
+    margin-bottom: 8px;
+  }
+  .conversation-focus-status {
+    font-size: 11px;
+    color: #7dd3fc;
+  }
+  .conversation-focus-body {
+    display: flex;
+    flex-direction: column;
+    gap: 8px;
+  }
+  .conversation-card {
+    display: flex;
+    flex-direction: column;
+    gap: 6px;
+    background: rgba(12, 16, 32, 0.75);
+    border: 1px solid rgba(90, 120, 255, 0.2);
+    border-radius: 10px;
+    padding: 8px;
+    font-size: 12px;
+  }
+  .conversation-card .participants {
+    font-weight: 600;
+    color: #e0e7ff;
+  }
+  .conversation-card .last-line {
+    color: #b7c5e6;
+  }
   .chat-msg .time { color: #555; font-size: 10px; }
 
   #minimap-container {
@@ -512,18 +575,81 @@
   }
 
   #agents-panel {
-    position: absolute; top: 60px; right: 20px; width: 160px;
-    background: rgba(15,15,30,0.8); border: 1px solid rgba(100,140,255,0.2);
-    border-radius: 12px; padding: 10px; backdrop-filter: blur(6px);
+    position: absolute; top: 60px; right: 20px; width: 180px;
+    background: rgba(8, 10, 20, 0.9); border: 1px solid rgba(100,140,255,0.28);
+    border-radius: 14px; padding: 12px; backdrop-filter: blur(8px);
+    box-shadow: 0 12px 24px rgba(5, 8, 18, 0.35);
   }
   .agent-item { display: flex; align-items: center; gap: 8px; padding: 4px 0; }
-  .agent-dot { width: 8px; height: 8px; border-radius: 50%; }
-  .agent-name-hud { color: #ccc; font-size: 12px; }
+  .agent-dot { width: 8px; height: 8px; border-radius: 50%; box-shadow: 0 0 6px rgba(255,255,255,0.2); }
+  .agent-name-hud { color: #d7e2ff; font-size: 12px; }
+
+  .agent-profile {
+    position: absolute; right: 210px; top: 90px; width: 280px;
+    background: rgba(6, 8, 18, 0.95);
+    border: 1px solid rgba(120, 150, 255, 0.4);
+    border-radius: 16px;
+    padding: 14px;
+    color: #e6ecff;
+    backdrop-filter: blur(14px);
+    box-shadow: 0 20px 44px rgba(4, 6, 15, 0.55);
+    pointer-events: auto;
+    display: none;
+  }
+  .agent-profile.is-open { display: block; }
+  .agent-profile-header {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    margin-bottom: 6px;
+  }
+  .agent-profile-title {
+    font-size: 14px;
+    font-weight: 700;
+    color: #a8c4ff;
+  }
+  .agent-profile-close {
+    background: transparent;
+    border: 1px solid rgba(120, 150, 255, 0.3);
+    color: #cfd8ff;
+    border-radius: 8px;
+    padding: 2px 6px;
+    cursor: pointer;
+  }
+  .agent-profile-sub {
+    font-size: 11px;
+    color: #9bb0f5;
+    margin-bottom: 10px;
+  }
+  .agent-profile-body {
+    display: grid;
+    gap: 6px;
+    font-size: 12px;
+  }
+  .agent-profile-row {
+    display: flex;
+    justify-content: space-between;
+    color: #cfd8ff;
+  }
+  .agent-profile-row span:first-child {
+    color: #7a85a9;
+  }
+  .agent-profile-speech {
+    margin-top: 10px;
+    font-size: 12px;
+    color: #f7f3e8;
+    background: rgba(120, 150, 255, 0.12);
+    border: 1px solid rgba(120, 150, 255, 0.2);
+    padding: 8px;
+    border-radius: 10px;
+  }
 
   #vote-panel, #governance-panel, #relationships-panel, #districts-panel, #economy-panel {
-    position: absolute; left: 20px; width: 300px;
-    background: rgba(15,15,30,0.82); border: 1px solid rgba(100,140,255,0.2);
-    border-radius: 12px; padding: 10px; backdrop-filter: blur(6px);
+    position: absolute; left: 20px; width: 320px;
+    background: rgba(8, 10, 20, 0.9);
+    border: 1px solid rgba(120, 150, 255, 0.3);
+    border-radius: 14px; padding: 12px; backdrop-filter: blur(10px);
+    box-shadow: 0 12px 28px rgba(4, 6, 15, 0.45);
     pointer-events: auto;
   }
   #vote-panel { top: 60px; }

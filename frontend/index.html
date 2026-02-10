@@ -4,7 +4,7 @@
 <meta charset="UTF-8">
 <meta name="viewport" content="width=device-width, initial-scale=1.0">
 <title>MOLTVILLE</title>
-<link rel="stylesheet" href="./styles.css">
+<link rel="stylesheet" href="./styles.css?v=20260210a">
 </head>
 <body>
 <div id="game-container"></div>
@@ -23,6 +23,7 @@
       </div>
     </div>
     <button class="show-mode-toggle" id="show-mode-toggle" type="button">Modo Show</button>
+    <button class="show-mode-toggle labels-toggle" id="labels-toggle" type="button">Etiquetas</button>
   </div>
   <div id="status-banner">
     <div class="banner-content">
@@ -50,6 +51,13 @@
     <span>Actualizando…</span>
   </div>
   <div id="chat-log"></div>
+  <div id="conversation-focus" class="conversation-focus">
+    <div class="conversation-focus-header">
+      <span>🎙️ Conversación activa</span>
+      <span class="conversation-focus-status" id="conversation-focus-status">Sin diálogo</span>
+    </div>
+    <div class="conversation-focus-body" id="conversation-focus-body"></div>
+  </div>
   <div id="agents-panel"></div>
   <div id="vote-panel">
     <div class="panel-title">Votación diaria</div>
@@ -73,6 +81,20 @@
   </div>
   <div id="minimap-container">
     <canvas id="minimap" width="140" height="140"></canvas>
+  </div>
+  <div id="agent-profile" class="agent-profile">
+    <div class="agent-profile-header">
+      <div class="agent-profile-title" id="agent-profile-name">Agente</div>
+      <button class="agent-profile-close" id="agent-profile-close" type="button">✕</button>
+    </div>
+    <div class="agent-profile-sub" id="agent-profile-role">—</div>
+    <div class="agent-profile-body">
+      <div class="agent-profile-row"><span>Estado</span><span id="agent-profile-state">—</span></div>
+      <div class="agent-profile-row"><span>Ubicación</span><span id="agent-profile-location">—</span></div>
+      <div class="agent-profile-row"><span>Trabajo</span><span id="agent-profile-job">—</span></div>
+      <div class="agent-profile-row"><span>Relaciones</span><span id="agent-profile-relations">—</span></div>
+    </div>
+    <div class="agent-profile-speech" id="agent-profile-speech">—</div>
   </div>
   <div id="show-mode-container" class="show-mode">
     <div class="show-mode-viewport">
@@ -118,6 +140,6 @@
 
 <script src="https://cdnjs.cloudflare.com/ajax/libs/phaser/3.60.0/phaser.min.js"></script>
 <script src="https://cdn.socket.io/4.6.1/socket.io.min.js" crossorigin="anonymous"></script>
-<script src="./app.js"></script>
+<script src="./app.js?v=20260210a"></script>
 </body>
 </html>

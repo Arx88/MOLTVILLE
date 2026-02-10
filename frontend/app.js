@@ -77,6 +77,7 @@ const WORLD_CONTEXT = {
   lastRefreshDurationMs: null,
   lastModalAutoOpenAt: null,
   useLiveData: false,
+  activeConversations: [],
   economy: {
     jobs: [],
     balance: null,
@@ -103,7 +104,8 @@ const DEFAULT_UI_STATE = {
   economyActionsOpen: false,
   economyMode: 'jobs',
   aestheticsActionsOpen: false,
-  showModeActive: false
+  showModeActive: false,
+  showAllLabels: false
 };
 const SHOW_MODE_DEFAULTS = {
   minSceneDurationMs: 10000,
@@ -240,6 +242,7 @@ function handleWorldTick(scene, payload) {
   WORLD_CONTEXT.governance = payload.governance || WORLD_CONTEXT.governance;
   WORLD_CONTEXT.mood = payload.mood || WORLD_CONTEXT.mood;
   WORLD_CONTEXT.aestheticsVote = payload.aesthetics || WORLD_CONTEXT.aestheticsVote;
+  WORLD_CONTEXT.activeConversations = payload.conversations || [];
   liveAgentPositions = payload.agents || liveAgentPositions;
   WORLD_CONTEXT.agentCount = liveAgentPositions ? Object.keys(liveAgentPositions).length : WORLD_CONTEXT.agentCount;
   syncLiveAgents(scene, liveAgentPositions);
@@ -264,6 +267,7 @@ function setupViewerSocket(scene) {
     const agentName = payload?.agentName || 'Agente';
     const message = payload?.message || '';
     pushFeedMessage(agentName, message);
+    updateAgentSpeech(payload.agentId || agentName, message);
     registerShowBeat({
       participants: [agentName],
       summary: message,
@@ -276,6 +280,7 @@ function setupViewerSocket(scene) {
     const to = payload.toName || 'Agente';
     const message = payload.message || '';
     pushFeedMessage('Conversación', `💬 ${from} → ${to}: ${message}`);
+    updateAgentSpeech(payload.fromId || from, message);
     registerShowBeat({
       participants: [from, to],
       summary: `${from} inició conversación con ${to}`,
@@ -288,6 +293,7 @@ function setupViewerSocket(scene) {
     const from = message.fromName || 'Agente';
     const to = message.toName || 'Agente';
     pushFeedMessage('Conversación', `💬 ${from} → ${to}: ${message.message}`);
+    updateAgentSpeech(message.from || from, message.message);
     registerShowBeat({
       participants: [from, to],
       summary: message.message,
@@ -427,6 +433,19 @@ function pushFeedMessage(name, message) {
   scene.addChatMessage(name, safeMessage);
 }
 
+function updateAgentSpeech(idOrName, message) {
+  const scene = window._moltvilleScene;
+  if (!scene || !scene.agents) return;
+  const agent = scene.agents.find(a => a.id === idOrName || a.name === idOrName);
+  if (agent) {
+    agent.talkTimer = 6;
+    agent.lastSpeech = message;
+    if (agent._speechText) {
+      agent._speechText.setText(message);
+    }
+  }
+}
+
 function setupShowModeControls() {
   const elements = getShowModeElements();
   if (!elements.toggle) return;
@@ -468,6 +487,76 @@ function getShowModeElements() {
     captionSpeaker: document.getElementById('show-mode-caption-speaker'),
     captionText: document.getElementById('show-mode-caption-text')
   };
+}
+
+function getAgentUiElements() {
+  return {
+    labelsToggle: document.getElementById('labels-toggle'),
+    profile: document.getElementById('agent-profile'),
+    profileName: document.getElementById('agent-profile-name'),
+    profileRole: document.getElementById('agent-profile-role'),
+    profileState: document.getElementById('agent-profile-state'),
+    profileLocation: document.getElementById('agent-profile-location'),
+    profileJob: document.getElementById('agent-profile-job'),
+    profileRelations: document.getElementById('agent-profile-relations'),
+    profileSpeech: document.getElementById('agent-profile-speech'),
+    profileClose: document.getElementById('agent-profile-close')
+  };
+}
+
+function setupAgentUiControls(scene) {
+  const elements = getAgentUiElements();
+  const uiState = getUiState();
+  if (elements.labelsToggle) {
+    elements.labelsToggle.classList.toggle('is-active', uiState.showAllLabels);
+    elements.labelsToggle.addEventListener('click', () => {
+      const next = !getUiState().showAllLabels;
+      setUiState({ showAllLabels: next });
+      elements.labelsToggle.classList.toggle('is-active', next);
+      if (scene) scene.showAllLabels = next;
+    });
+  }
+  if (elements.profileClose) {
+    elements.profileClose.addEventListener('click', closeAgentProfile);
+  }
+  document.addEventListener('keydown', (event) => {
+    if (event.key === 'Escape') closeAgentProfile();
+  });
+}
+
+function resolveAgentLocationLabel(agent) {
+  if (!agent) return '—';
+  const building = BUILDINGS.find(b => agent.x >= b.x && agent.x < b.x + b.w && agent.y >= b.y && agent.y < b.y + b.h);
+  return building ? building.name : `(${agent.x}, ${agent.y})`;
+}
+
+function updateAgentProfilePanel(agent) {
+  const elements = getAgentUiElements();
+  if (!elements.profile || !agent) return;
+  elements.profileName.textContent = agent.name || 'Agente';
+  elements.profileRole.textContent = agent.isNPC ? 'NPC' : 'Ciudadano';
+  elements.profileState.textContent = agent.state || '—';
+  elements.profileLocation.textContent = resolveAgentLocationLabel(agent);
+  elements.profileJob.textContent = agent.job?.name || '—';
+  const relations = agent.relationships?.length ?? agent.relationshipCount ?? 0;
+  elements.profileRelations.textContent = relations.toString();
+  elements.profileSpeech.textContent = agent.lastSpeech || 'Sin diálogo reciente';
+}
+
+function openAgentProfile(agent, scene) {
+  const elements = getAgentUiElements();
+  if (!elements.profile || !agent) return;
+  updateAgentProfilePanel(agent);
+  elements.profile.classList.add('is-open');
+  if (scene) scene.selectedAgentId = agent.id;
+}
+
+function closeAgentProfile() {
+  const elements = getAgentUiElements();
+  if (!elements.profile) return;
+  elements.profile.classList.remove('is-open');
+  const scene = window._moltvilleScene;
+  if (scene) scene.selectedAgentId = null;
 }
 
 function setShowModeActive(nextActive) {
@@ -2589,6 +2678,11 @@ class MoltivilleScene extends Phaser.Scene {
     window._moltvilleScene = this;
     setupStatusBannerControls();
     loadShowModeConfig().finally(() => setupShowModeControls());
+    setupAgentUiControls(this);
+    this.selectedAgentId = null;
+    this.hoveredAgentId = null;
+    this.agentHitZones = new Map();
+    this.showAllLabels = getUiState().showAllLabels;
     const modalClose = document.getElementById('status-modal-close');
     if (modalClose) {
       modalClose.addEventListener('click', closeStatusModal);
@@ -3341,7 +3435,20 @@ class MoltivilleScene extends Phaser.Scene {
     this.agents.forEach(agent => {
       // Decrement timers
       agent.idleTimer -= dtSec;
-      if (agent.talkTimer > 0) agent.talkTimer -= dtSec;
+      if (agent.talkTimer > 0) {
+        agent.talkTimer -= dtSec;
+        if (agent.talkTimer <= 0) {
+          agent.state = 'idle';
+          agent.talkingTo = null;
+          agent.lastSpeech = null;
+          if (agent._speechText) agent._speechText.setVisible(false);
+        }
+      } else {
+          // Double check to hide bubbles if timer is 0
+          if (agent._speechText && agent._speechText.visible) {
+              agent._speechText.setVisible(false);
+          }
+      }
 
       // If reached target, pick new behavior
       if (agent.progress >= 1) {
@@ -3365,17 +3472,34 @@ class MoltivilleScene extends Phaser.Scene {
         // Check for nearby agents to talk to
         const nearby = this.agents.filter(other =>
           other.id !== agent.id &&
-          Math.abs(other.x - agent.x) <= 2 &&
-          Math.abs(other.y - agent.y) <= 2 &&
-          other.talkTimer <= 0
+          Math.abs(other.x - agent.x) <= 1.5 &&
+          Math.abs(other.y - agent.y) <= 1.5 &&
+          other.talkTimer <= 0 &&
+          other.state !== 'walking' &&
+          other.state !== 'talking'
         );
 
-        if (!WORLD_CONTEXT.useLiveData && nearby.length > 0 && Math.random() < 0.08 && agent.talkTimer <= 0) {
+        if (!WORLD_CONTEXT.useLiveData && nearby.length > 0 && Math.random() < 0.05 && agent.talkTimer <= 0 && agent.state !== 'talking') {
           const target = nearby[0];
-          agent.talkTimer = 4 + Math.random() * 3;
-          target.talkTimer = 4 + Math.random() * 3;
+          agent.talkTimer = 5 + Math.random() * 2;
+          target.talkTimer = 5 + Math.random() * 2;
           agent.state = 'talking';
           target.state = 'talking';
+
+          // Store partner
+          agent.talkingTo = target.id;
+          target.talkingTo = agent.id;
+
+          // Face each other
+          const adx = target.x - agent.x;
+          const ady = target.y - agent.y;
+          if (Math.abs(adx) > Math.abs(ady)) {
+            agent.facing = adx > 0 ? 'right' : 'left';
+            target.facing = adx > 0 ? 'left' : 'right';
+          } else {
+            agent.facing = ady > 0 ? 'down' : 'up';
+            target.facing = ady > 0 ? 'up' : 'down';
+          }
 
           // Generate chat message
           const messages = [
@@ -3423,28 +3547,62 @@ class MoltivilleScene extends Phaser.Scene {
   pickTarget(agent) {
     // Options: walk to a nearby road tile, a building entrance, or another agent
     const choices = [];
+    const searchRadius = 8;
 
     // Road tiles nearby
-    for (let dy = -6; dy <= 6; dy++) {
-      for (let dx = -6; dx <= 6; dx++) {
-        const tx = agent.x + dx;
-        const ty = agent.y + dy;
+    for (let dy = -searchRadius; dy <= searchRadius; dy++) {
+      for (let dx = -searchRadius; dx <= searchRadius; dx++) {
+        const tx = Math.floor(agent.x + dx);
+        const ty = Math.floor(agent.y + dy);
         if (tx >= 0 && tx < WORLD_W && ty >= 0 && ty < WORLD_H) {
           const t = this.tileMap[ty][tx];
           if (t === T.ROAD || t === T.PATH || t === T.GRASS) {
-            choices.push({ x: tx, y: ty });
+            // Check if another agent is already targeting or standing on this tile to avoid clumping
+            const isOccupied = this.agents.some(other => 
+              other.id !== agent.id && 
+              ((Math.floor(other.x) === tx && Math.floor(other.y) === ty) || 
+               (Math.floor(other.tx) === tx && Math.floor(other.ty) === ty))
+            );
+            
+            if (!isOccupied) {
+              choices.push({ x: tx, y: ty });
+            }
           }
         }
       }
     }
 
-    if (choices.length === 0) return null;
-    return choices[Math.floor(Math.random() * choices.length)];
+    if (choices.length === 0) {
+        // Fallback to any walkable if all preferred are occupied
+        return { x: Math.floor(Math.random() * WORLD_W), y: Math.floor(Math.random() * WORLD_H) };
+    }
+    
+    // Prioritize tiles further away to encourage spreading out
+    choices.sort((a, b) => {
+        const distA = Math.abs(a.x - agent.x) + Math.abs(a.y - agent.y);
+        const distB = Math.abs(b.x - agent.x) + Math.abs(b.y - agent.y);
+        return distB - distA;
+    });
+
+    // Pick from the top 20% furthest tiles
+    const topCount = Math.max(1, Math.floor(choices.length * 0.2));
+    return choices[Math.floor(Math.random() * topCount)];
   }
 
   addChatMessage(name, msg) {
-    this.chatLog.push({ name, msg, time: new Date() });
+    const now = new Date();
+    this.chatLog.push({ name, msg, time: now });
     if (this.chatLog.length > 15) this.chatLog.shift();
+
+    // Sync with agent speech bubble
+    const agent = this.agents.find(a => a.name === name);
+    if (agent) {
+      agent.lastSpeech = msg;
+      agent.talkTimer = 6;
+      agent.state = 'talking';
+      // Store timestamp to auto-clear if needed
+      agent.lastSpeechTime = now.getTime();
+    }
 
     const chatEl = document.getElementById('chat-log');
     chatEl.innerHTML = this.chatLog.map(c =>
@@ -3461,6 +3619,60 @@ class MoltivilleScene extends Phaser.Scene {
     gfx.clear();
     const speechGfx = this.speechGraphics;
     speechGfx.clear();
+    this._crowdCounts = new Map();
+
+    // Draw conversation lines
+    if (WORLD_CONTEXT.activeConversations && WORLD_CONTEXT.activeConversations.length > 0) {
+      WORLD_CONTEXT.activeConversations.forEach(conv => {
+        const a1 = this.agents.find(a => a.id === conv.participants[0]);
+        const a2 = this.agents.find(a => a.id === conv.participants[1]);
+        if (a1 && a2) {
+          // Calculate screen positions
+          let x1, y1, x2, y2;
+          if (a1.progress < 1) {
+            x1 = a1.x + (a1.tx - a1.x) * a1.progress; y1 = a1.y + (a1.ty - a1.y) * a1.progress;
+          } else { x1 = a1.x; y1 = a1.y; }
+          if (a2.progress < 1) {
+            x2 = a2.x + (a2.tx - a2.x) * a2.progress; y2 = a2.y + (a2.ty - a2.y) * a2.progress;
+          } else { x2 = a2.x; y2 = a2.y; }
+
+          const p1 = toIso(x1, y1);
+          const p2 = toIso(x2, y2);
+          const s1 = { x: p1.x + this.sys.game.config.width / 2, y: p1.y + this.sys.game.config.height / 2 };
+          const s2 = { x: p2.x + this.sys.game.config.width / 2, y: p2.y + this.sys.game.config.height / 2 };
+
+          speechGfx.fillStyle(0x22c55e, 0.18);
+          speechGfx.fillCircle(s1.x, s1.y - 10, 18);
+          speechGfx.fillCircle(s2.x, s2.y - 10, 18);
+          speechGfx.lineStyle(2.6, 0x4ade80, 0.75);
+          speechGfx.beginPath();
+          speechGfx.moveTo(s1.x, s1.y - 15);
+          speechGfx.lineTo(s2.x, s2.y - 15);
+          speechGfx.strokePath();
+        }
+      });
+    }
+
+    // Draw local conversation lines (random talks)
+    if (!WORLD_CONTEXT.useLiveData) {
+      this.agents.forEach(a1 => {
+        if (a1.talkingTo && a1.state === 'talking') {
+          const a2 = this.agents.find(a => a.id === a1.talkingTo);
+          if (a2 && a2.talkingTo === a1.id && a1.id < a2.id) {
+            const p1 = toIso(a1.progress < 1 ? a1.x + (a1.tx - a1.x) * a1.progress : a1.x, a1.progress < 1 ? a1.y + (a1.ty - a1.y) * a1.progress : a1.y);
+            const p2 = toIso(a2.progress < 1 ? a2.x + (a2.tx - a2.x) * a2.progress : a2.x, a2.progress < 1 ? a2.y + (a2.ty - a2.y) * a2.progress : a2.y);
+            const s1 = { x: p1.x + this.sys.game.config.width / 2, y: p1.y + this.sys.game.config.height / 2 };
+            const s2 = { x: p2.x + this.sys.game.config.width / 2, y: p2.y + this.sys.game.config.height / 2 };
+
+            speechGfx.lineStyle(2, 0xffd700, 0.4);
+            speechGfx.beginPath();
+            speechGfx.moveTo(s1.x, s1.y - 15);
+            speechGfx.lineTo(s2.x, s2.y - 15);
+            speechGfx.strokePath();
+          }
+        }
+      });
+    }
 
     // Sort agents by y for depth
     const sorted = [...this.agents].sort((a, b) => {
@@ -3469,6 +3681,7 @@ class MoltivilleScene extends Phaser.Scene {
       return ay - by;
     });
 
+    const activeIds = new Set();
     sorted.forEach(agent => {
       // Current interpolated position
       let curX, curY;
@@ -3480,7 +3693,17 @@ class MoltivilleScene extends Phaser.Scene {
         curY = agent.y;
       }
 
-      const pos = toIso(curX, curY);
+      // Visual crowd dispersion (avoid pile-up on same tile)
+      const tileKey = `${Math.round(curX)}:${Math.round(curY)}`;
+      const crowdIndex = (this._crowdCounts?.get(tileKey) || 0);
+      if (!this._crowdCounts) this._crowdCounts = new Map();
+      this._crowdCounts.set(tileKey, crowdIndex + 1);
+      const angle = (crowdIndex * 137.5) * (Math.PI / 180);
+      const radius = Math.min(6, 2 + crowdIndex);
+      const spreadX = Math.cos(angle) * radius * 0.15;
+      const spreadY = Math.sin(angle) * radius * 0.15;
+
+      const pos = toIso(curX + spreadX, curY + spreadY);
       const px = pos.x + this.sys.game.config.width / 2;
       const py = pos.y + this.sys.game.config.height / 2;
 
@@ -3488,8 +3711,13 @@ class MoltivilleScene extends Phaser.Scene {
       const bob = agent.state === 'walking' ? Math.sin(agent.walkCycle) * 3 : 0;
 
       // Shadow
-      gfx.fillStyle(0x000000, 0.25);
-      gfx.fillEllipse(px, py + 4, 14, 5);
+      if (agent.talkTimer > 0) {
+        gfx.fillStyle(agent.color, 0.3);
+        gfx.fillEllipse(px, py + 4, 18, 7);
+      } else {
+        gfx.fillStyle(0x000000, 0.25);
+        gfx.fillEllipse(px, py + 4, 14, 5);
+      }
 
       // Body (simple character: head + body)
       const bodyY = py - 6 + bob;
@@ -3519,10 +3747,11 @@ class MoltivilleScene extends Phaser.Scene {
         gfx.fillRect(px - 7, bodyY + 3, 2, 5 - armSwing);
         gfx.fillRect(px + 5, bodyY + 3, 2, 5 + armSwing);
       } else if (agent.state === 'talking') {
-        // One arm raised
+        // Subtle talking animation: wiggle arms
+        const wiggle = Math.sin(Date.now() * 0.01) * 3;
         gfx.fillStyle(agent.color, 0.85);
-        gfx.fillRect(px - 7, bodyY - 1, 2, 5);
-        gfx.fillRect(px + 5, bodyY + 3, 2, 5);
+        gfx.fillRect(px - 7, bodyY + 1 + wiggle, 2, 5);
+        gfx.fillRect(px + 5, bodyY + 1 - wiggle, 2, 5);
       } else {
         gfx.fillStyle(agent.color, 0.85);
         gfx.fillRect(px - 7, bodyY + 3, 2, 5);
@@ -3549,51 +3778,111 @@ class MoltivilleScene extends Phaser.Scene {
         gfx.fillCircle(px + 2, bodyY - 1, 1.2);
       }
 
-      // Name tag
-      gfx.fillStyle(0x000000, 0.5);
-      const nameW = agent.name.length * 6 + 8;
-      gfx.fillRect(px - nameW/2, bodyY - 20, nameW, 12);
-      gfx.fillStyle(agent.color, 1);
-      gfx.fillRect(px - nameW/2, bodyY - 21, nameW, 2);
+      const isSpeaking = agent.talkTimer > 0 && agent.lastSpeech;
+      const isSelected = this.selectedAgentId === agent.id;
+      const isHovered = this.hoveredAgentId === agent.id;
+      const isFocused = isSpeaking || isSelected || isHovered;
 
-      // Name text (draw as simple pixels - we use a text object approach)
-      // We'll use the scene's text for names - but for perf, let's just mark position
-      if (!agent._nameText) {
-        agent._nameText = this.add.text(0, 0, agent.name, {
-          fontSize: '10px', color: '#fff', stroke: '#000', strokeThickness: 1
-        }).setOrigin(0.5, 1).setDepth(601);
+      // Focus ring
+      if (isFocused) {
+        gfx.lineStyle(2, agent.color, 0.9);
+        gfx.strokeEllipse(px, py + 3, 22, 10);
       }
-      agent._nameText.setPosition(px, bodyY - 10);
 
-      // Speech bubble (if talking)
-      if (agent.talkTimer > 0) {
-        const bubbleW = 60;
-        const bubbleH = 20;
-        const bx = px + 10;
-        const by = bodyY - 28;
+      // Name tag (declutter)
+      if (this.showAllLabels || isFocused) {
+        gfx.fillStyle(0x000000, 0.7);
+        const nameW = agent.name.length * 6 + 12;
+        gfx.fillRect(px - nameW/2, bodyY - 21, nameW, 14);
+        gfx.fillStyle(agent.color, 1);
+        gfx.fillRect(px - nameW/2, bodyY - 22, nameW, 3);
 
-        speechGfx.fillStyle(0xffffff, 0.9);
-        speechGfx.fillRoundedRect(bx - bubbleW/2, by - bubbleH/2, bubbleW, bubbleH, 6);
-        speechGfx.lineStyle(1, 0xcccccc, 1);
-        speechGfx.strokeRoundedRect(bx - bubbleW/2, by - bubbleH/2, bubbleW, bubbleH, 6);
+        if (!agent._nameText) {
+          agent._nameText = this.add.text(0, 0, agent.name, {
+            fontSize: '11px', color: '#fff', stroke: '#000', strokeThickness: 1.5, fontWeight: 'bold'
+          }).setOrigin(0.5, 1).setDepth(601);
+        }
+        agent._nameText.setText(agent.name).setPosition(px, bodyY - 10).setVisible(true);
+      } else if (agent._nameText) {
+        agent._nameText.setVisible(false);
+      }
+
+      // Speech bubble (speaking or selected)
+      if ((isSpeaking || (isSelected && agent.lastSpeech)) && agent.lastSpeech) {
+        const bubbleW = Math.min(200, Math.max(70, agent.lastSpeech.length * 7.5 + 20));
+        const bubbleH = (agent.lastSpeech.length > 30) ? 46 : 28;
+        const bx = px;
+        const by = bodyY - 45;
+
+        // Background with agent color border
+        speechGfx.fillStyle(0xffffff, 0.98);
+        speechGfx.lineStyle(2, agent.color, 1);
+        speechGfx.fillRoundedRect(bx - bubbleW/2, by - bubbleH/2, bubbleW, bubbleH, 10);
+        speechGfx.strokeRoundedRect(bx - bubbleW/2, by - bubbleH/2, bubbleW, bubbleH, 10);
 
         // Tail
-        speechGfx.fillStyle(0xffffff, 0.9);
+        speechGfx.fillStyle(0xffffff, 1);
         speechGfx.beginPath();
         speechGfx.moveTo(bx - 8, by + bubbleH/2);
-        speechGfx.lineTo(px, by + bubbleH/2 + 6);
-        speechGfx.lineTo(bx - 2, by + bubbleH/2);
+        speechGfx.lineTo(px, by + bubbleH/2 + 10);
+        speechGfx.lineTo(bx + 8, by + bubbleH/2);
         speechGfx.closePath();
         speechGfx.fillPath();
 
-        // Dots (typing indicator)
-        const dotPhase = (Date.now() / 400 + agent.id) % 3;
-        for (let i = 0; i < 3; i++) {
-          speechGfx.fillStyle(i === Math.floor(dotPhase) ? '#333' : '#aaa', 1);
-          speechGfx.fillCircle(bx - 6 + i * 6, by, 2.5);
+        // Tail border
+        speechGfx.lineStyle(2, agent.color, 1);
+        speechGfx.beginPath();
+        speechGfx.moveTo(bx - 8, by + bubbleH/2);
+        speechGfx.lineTo(px, by + bubbleH/2 + 10);
+        speechGfx.lineTo(bx + 8, by + bubbleH/2);
+        speechGfx.strokePath();
+
+        if (!agent._speechText) {
+          agent._speechText = this.add.text(bx, by, agent.lastSpeech, {
+            fontSize: '11px', color: '#000', fontWeight: 'bold', align: 'center', wordWrap: { width: bubbleW - 15 }
+          }).setOrigin(0.5, 0.5).setDepth(605);
         }
+        agent._speechText.setText(agent.lastSpeech).setPosition(bx, by).setVisible(true);
+      } else if (agent._speechText) {
+        agent._speechText.setVisible(false);
       }
+
+      activeIds.add(agent.id);
+      this.updateAgentHitZone(agent, px, bodyY);
     });
+
+    this.cleanupAgentHitZones(activeIds);
+  }
+
+  updateAgentHitZone(agent, px, bodyY) {
+    if (!agent) return;
+    let zone = this.agentHitZones.get(agent.id);
+    if (!zone) {
+      zone = this.add.zone(px, bodyY - 6, 28, 34).setOrigin(0.5, 0.5).setInteractive({ useHandCursor: true });
+      zone.setDepth(610);
+      zone.on('pointerover', () => {
+        this.hoveredAgentId = agent.id;
+      });
+      zone.on('pointerout', () => {
+        if (this.hoveredAgentId === agent.id) this.hoveredAgentId = null;
+      });
+      zone.on('pointerdown', () => {
+        openAgentProfile(agent, this);
+      });
+      this.agentHitZones.set(agent.id, zone);
+    }
+    zone.x = px;
+    zone.y = bodyY - 6;
+  }
+
+  cleanupAgentHitZones(activeIds) {
+    if (!this.agentHitZones) return;
+    for (const [agentId, zone] of this.agentHitZones.entries()) {
+      if (!activeIds.has(agentId)) {
+        zone.destroy();
+        this.agentHitZones.delete(agentId);
+      }
+    }
   }
 
   // ============================================================
@@ -3666,6 +3955,42 @@ class MoltivilleScene extends Phaser.Scene {
       this.agents.map(a =>
         `<div class="agent-item"><span class="agent-dot" style="background:${a.color}"></span><span class="agent-name-hud">${a.name} <span style="color:#555;font-size:10px">${a.state}</span></span></div>`
       ).join('');
+
+    this.updateConversationFocus();
+
+    if (this.selectedAgentId) {
+      const selected = this.agents.find(a => a.id === this.selectedAgentId);
+      if (selected) updateAgentProfilePanel(selected);
+    }
+  }
+
+  updateConversationFocus() {
+    const statusEl = document.getElementById('conversation-focus-status');
+    const bodyEl = document.getElementById('conversation-focus-body');
+    if (!statusEl || !bodyEl) return;
+
+    const conversations = WORLD_CONTEXT.activeConversations || [];
+    if (!conversations.length) {
+      statusEl.textContent = 'Sin diálogo';
+      bodyEl.innerHTML = '<div class="conversation-card"><div class="participants">—</div><div class="last-line">Nadie está hablando ahora.</div></div>';
+      return;
+    }
+
+    statusEl.textContent = `${conversations.length} en curso`;
+    bodyEl.innerHTML = conversations.slice(0, 2).map(conv => {
+      const [a, b] = conv.participants || [];
+      const nameA = AGENT_DIRECTORY.get(a)?.name || this.agents.find(x => x.id === a)?.name || (a ? `Agent ${a.slice(0,4)}` : '—');
+      const nameB = AGENT_DIRECTORY.get(b)?.name || this.agents.find(x => x.id === b)?.name || (b ? `Agent ${b.slice(0,4)}` : '—');
+      const messages = Array.isArray(conv.messages) ? conv.messages : [];
+      const lastMsg = messages.length ? messages[messages.length - 1] : null;
+      const lastLine = lastMsg?.message ? `${lastMsg.message}` : 'Conexión activa, esperando diálogo…';
+      return `
+        <div class="conversation-card">
+          <div class="participants">${nameA} ↔ ${nameB}</div>
+          <div class="last-line">${lastLine}</div>
+        </div>
+      `;
+    }).join('');
   }
 
   // ============================================================
