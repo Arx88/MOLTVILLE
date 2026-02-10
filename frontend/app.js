@@ -215,6 +215,7 @@ function handleWorldState(scene, state) {
   WORLD_CONTEXT.weather = state.weather || null;
   WORLD_CONTEXT.mood = state.mood || null;
   WORLD_CONTEXT.districts = state.districts || null;
+  WORLD_CONTEXT.activeConversations = state.conversations || WORLD_CONTEXT.activeConversations || [];
   WORLD_CONTEXT.agentCount = state.agents ? Object.keys(state.agents).length : 0;
   liveAgentPositions = state.agents || {};
   const themeHash = (state.districts || []).map(d => `${d.id}:${d.theme || 'classic'}`).join('|');
@@ -2257,16 +2258,17 @@ async function refreshWorldData(scene) {
     }
 
     try {
-      const [voteRes, voteHistoryRes, govRes, networkRes, aestheticsRes, aestheticsHistoryRes, aestheticsMetaRes] = await Promise.all([
+      const [voteRes, voteHistoryRes, govRes, networkRes, aestheticsRes, aestheticsHistoryRes, aestheticsMetaRes, conversationsRes] = await Promise.all([
         fetchWithViewerKey(`${API_BASE}/api/vote/current`),
         fetchWithViewerKey(`${API_BASE}/api/vote/history?limit=3`),
         fetchWithViewerKey(`${API_BASE}/api/governance/current`),
         fetchWithViewerKey(`${API_BASE}/api/world/social-network`),
         fetchWithViewerKey(`${API_BASE}/api/aesthetics/current`),
         fetchWithViewerKey(`${API_BASE}/api/aesthetics/history?limit=3`),
-        fetchWithViewerKey(`${API_BASE}/api/aesthetics/meta`)
+        fetchWithViewerKey(`${API_BASE}/api/aesthetics/meta`),
+        fetchWithViewerKey(`${API_BASE}/api/world/conversations`)
       ]);
-      if (!voteRes.ok || !voteHistoryRes.ok || !govRes.ok || !networkRes.ok || !aestheticsRes.ok || !aestheticsHistoryRes.ok || !aestheticsMetaRes.ok) {
+      if (!voteRes.ok || !voteHistoryRes.ok || !govRes.ok || !networkRes.ok || !aestheticsRes.ok || !aestheticsHistoryRes.ok || !aestheticsMetaRes.ok || !conversationsRes.ok) {
         throw new Error('HTTP 503');
       }
       const voteData = await voteRes.json();
@@ -2276,7 +2278,9 @@ async function refreshWorldData(scene) {
       const aestheticsData = await aestheticsRes.json();
       const aestheticsHistoryData = await aestheticsHistoryRes.json();
       const aestheticsMetaData = await aestheticsMetaRes.json();
+      const conversationsData = await conversationsRes.json();
       WORLD_CONTEXT.vote = voteData.vote || null;
+      WORLD_CONTEXT.activeConversations = conversationsData || WORLD_CONTEXT.activeConversations || [];
       WORLD_CONTEXT.voteHistory = historyData.history || [];
       WORLD_CONTEXT.governance = govData || null;
       WORLD_CONTEXT.socialNetwork = networkData || null;
