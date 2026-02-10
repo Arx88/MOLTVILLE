@@ -354,9 +354,12 @@ class MOLTVILLESkill:
         decision_config = self.config.get("behavior", {}).get("decisionLoop", {})
         mode = decision_config.get("mode", "heuristic")
         if mode == "llm":
-            action = await self._decide_with_llm(perception)
-            if action:
-                return action
+            has_conversation = bool(self._conversation_state) or bool(perception.get("conversations"))
+            has_nearby_agents = bool(perception.get("nearbyAgents"))
+            if has_conversation or has_nearby_agents:
+                action = await self._decide_with_llm(perception)
+                if action:
+                    return action
         return await self._heuristic_decision(perception)
 
     def _sanitize_llm_action(self, action: Any) -> Optional[Dict[str, Any]]:
