@@ -1,6 +1,7 @@
 import fs from 'fs';
 import path from 'path';
 import { spawn } from 'child_process';
+import crypto from 'crypto';
 
 const TOKEN_PATH = path.resolve(process.cwd(), 'qwen-oauth.json');
 
@@ -15,7 +16,15 @@ const QWEN_OAUTH = {
 
 const DEFAULT_BASE_URL = 'https://portal.qwen.ai/v1';
 
-let activeDeviceFlow = null; // { deviceCode, interval, startedAt }
+let activeDeviceFlow = null; // { deviceCode, interval, startedAt, verifier }
+
+const base64Url = (buffer) => buffer.toString('base64').replace(/\+/g, '-').replace(/\//g, '_').replace(/=+$/g, '');
+
+const generatePkce = () => {
+  const verifier = base64Url(crypto.randomBytes(32));
+  const challenge = base64Url(crypto.createHash('sha256').update(verifier).digest());
+  return { verifier, challenge };
+};
 
 const saveToken = (token) => {
   fs.writeFileSync(TOKEN_PATH, JSON.stringify(token, null, 2));
@@ -33,9 +42,12 @@ export const loadToken = () => {
 export const getTokenPath = () => TOKEN_PATH;
 
 export const requestDeviceCode = async () => {
+  const pkce = generatePkce();
   const body = new URLSearchParams({
     client_id: QWEN_OAUTH.CLIENT_ID,
-    scope: QWEN_OAUTH.SCOPE
+    scope: QWEN_OAUTH.SCOPE,
+    code_challenge: pkce.challenge,
+    code_challenge_method: 'S256'
   });
   const res = await fetch(QWEN_OAUTH.DEVICE_CODE_URL, {
     method: 'POST',
@@ -56,7 +68,8 @@ export const requestDeviceCode = async () => {
   activeDeviceFlow = {
     deviceCode: json.device_code,
     interval: (json.interval || 2) * 1000,
-    startedAt: Date.now()
+    startedAt: Date.now(),
+    verifier: pkce.verifier
   };
   return {
     verificationUrl,
@@ -86,7 +99,8 @@ export const pollForToken = async () => {
   const body = new URLSearchParams({
     grant_type: QWEN_OAUTH.GRANT_TYPE_DEVICE,
     client_id: QWEN_OAUTH.CLIENT_ID,
-    device_code: activeDeviceFlow.deviceCode
+    device_code: activeDeviceFlow.deviceCode,
+    code_verifier: activeDeviceFlow.verifier
   });
   const res = await fetch(QWEN_OAUTH.TOKEN_URL, {
     method: 'POST',
