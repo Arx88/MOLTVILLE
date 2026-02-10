@@ -5,6 +5,7 @@ import { allowedConfigKeys, loadConfigOverrides, saveConfigOverrides } from '../
 import { config, refreshConfig } from '../utils/config.js';
 import fs from 'fs';
 import path from 'path';
+import { spawn } from 'child_process';
 import { loadMiniMaxToken, getMiniMaxAuthPath } from '../utils/minimaxAuth.js';
 
 const router = express.Router();
@@ -309,6 +310,19 @@ router.post('/agents/llm/sync-minimax', requireAdminKey, (req, res) => {
       updated.push({ id: entry.name, name: loaded.data.agent?.name || entry.name });
     });
     return res.json({ success: true, updated });
+  } catch (error) {
+    return res.status(500).json({ error: error.message });
+  }
+});
+
+router.post('/minimax/oauth/start', requireAdminKey, (req, res) => {
+  try {
+    const child = spawn('openclaw', ['models', 'auth', 'login', '--provider', 'minimax-portal'], {
+      detached: true,
+      stdio: 'ignore'
+    });
+    child.unref();
+    return res.json({ success: true, message: 'OAuth flow launched.' });
   } catch (error) {
     return res.status(500).json({ error: error.message });
   }

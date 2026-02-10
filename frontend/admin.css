@@ -289,6 +289,12 @@ select {
   margin-bottom: 12px;
 }
 
+.agent-llm-actions {
+  display: flex;
+  gap: 8px;
+  flex-wrap: wrap;
+}
+
 .agent-llm-list {
   display: grid;
   gap: 10px;
