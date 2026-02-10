@@ -57,6 +57,7 @@ class MOLTVILLESkill:
         self._last_relation_update: Dict[str, float] = {}
         self._plan_state = self.long_memory.get("planState", {}) if isinstance(self.long_memory, dict) else {}
         self._plan_ttl_seconds = 180
+        self._plan_action_timeout = 45
         
         # Setup event handlers
         self._setup_handlers()
@@ -689,7 +690,7 @@ class MOLTVILLESkill:
             "Devuelve SOLO JSON con: primaryGoal (string), secondaryGoals (2 strings), "
             "actions (lista de 2-4 acciones). Cada acción usa el formato {type, params}. "
             "Tipos válidos: move_to, start_conversation, enter_building, apply_job, wait. "
-            "Usa objetivos específicos y en-world."
+            "Usa objetivos específicos y en-world y asegura que el plan produzca RESULTADOS." 
         )
         payload = {
             "agent": {
@@ -726,7 +727,40 @@ class MOLTVILLESkill:
                 self.long_memory["planState"] = self._plan_state
                 self._save_long_memory()
 
+    def _action_succeeded(self, perception: Dict[str, Any]) -> bool:
+        last_action = self._plan_state.get("lastAction") if isinstance(self._plan_state, dict) else None
+        if not isinstance(last_action, dict):
+            return True
+        action_type = last_action.get("type")
+        params = last_action.get("params", {}) if isinstance(last_action.get("params"), dict) else {}
+        if action_type == "move_to":
+            pos = perception.get("position", {}) or {}
+            tx, ty = params.get("x"), params.get("y")
+            if isinstance(tx, (int, float)) and isinstance(ty, (int, float)):
+                if isinstance(pos.get("x"), (int, float)) and isinstance(pos.get("y"), (int, float)):
+                    return abs(pos.get("x") - tx) <= 2 and abs(pos.get("y") - ty) <= 2
+        if action_type == "enter_building":
+            current = perception.get("currentBuilding") or {}
+            return current.get("id") == params.get("building_id")
+        if action_type == "start_conversation":
+            convs = perception.get("conversations", []) or []
+            return any(params.get("target_id") in (c.get("participants") or []) for c in convs)
+        return True
+
+    def _should_replan(self, perception: Dict[str, Any]) -> bool:
+        if not isinstance(self._plan_state, dict):
+            return True
+        last_at = self._plan_state.get("lastActionAt")
+        if not isinstance(last_at, (int, float)):
+            return False
+        now_ms = int(asyncio.get_event_loop().time() * 1000)
+        if now_ms - int(last_at) < self._plan_action_timeout * 1000:
+            return False
+        return not self._action_succeeded(perception)
+
     async def _next_plan_action(self, perception: Dict[str, Any]) -> Optional[Dict[str, Any]]:
+        if self._should_replan(perception):
+            self._plan_state = await self._generate_plan(perception)
         await self._ensure_plan(perception)
         if not isinstance(self._plan_state, dict):
             return None
@@ -946,6 +980,7 @@ class MOLTVILLESkill:
             "Eres un ciudadano de MOLTVILLE. Actúas solo dentro del mundo, en primera persona. "
             "Nunca menciones IA, modelos, sistemas, pruebas, servidores ni infraestructura. "
             "Usa relaciones, memoria y conversación previa si existen. "
+            "Tu respuesta debe AVANZAR un objetivo concreto del plan actual. "
             "Si hay una conversación activa donde tú participas, RESPONDE con conversation_message. "
             "Si no hay conversación y ves a alguien cerca, inicia start_conversation. "
             "Si estás solo, muévete hacia un lugar relevante según tu intención. "
@@ -1178,6 +1213,12 @@ class MOLTVILLESkill:
             await self.apply_job(params.get("job_id"))
         elif action_type == "wait":
             return
+        if isinstance(self._plan_state, dict):
+            self._plan_state["lastAction"] = {"type": action_type, "params": params}
+            self._plan_state["lastActionAt"] = int(asyncio.get_event_loop().time() * 1000)
+            if isinstance(self.long_memory, dict):
+                self.long_memory["planState"] = self._plan_state
+                self._save_long_memory()
     
     async def connect_to_moltville(self) -> Dict[str, Any]:
         """
