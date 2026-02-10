@@ -2362,6 +2362,13 @@ async function refreshWorldData(scene) {
     const weatherLabel = getWeatherLabel(WORLD_CONTEXT.weather?.current);
     document.getElementById('weather-display').textContent = `${weatherLabel.icon} ${weatherLabel.label}`;
     document.getElementById('mood-display').textContent = formatMoodLabel(WORLD_CONTEXT.mood);
+    const presidentName = WORLD_CONTEXT.governance?.president?.name || 'Sin presidente';
+    const presidentEl = document.getElementById('president-display');
+    if (presidentEl) presidentEl.textContent = `🏛️ ${presidentName}`;
+    const currentScene = SHOW_MODE_STATE.currentScene;
+    const eventLabel = currentScene?.summary || currentScene?.title || 'Sin evento';
+    const eventEl = document.getElementById('event-display');
+    if (eventEl) eventEl.textContent = `🎭 ${eventLabel}`;
     updateVotePanel(WORLD_CONTEXT.vote);
     updateGovernancePanel(WORLD_CONTEXT.governance);
     updateRelationshipsPanel(WORLD_CONTEXT.socialNetwork);
@@ -4054,6 +4061,18 @@ class MoltivilleScene extends Phaser.Scene {
 
     cam.scrollX = Phaser.Math.Linear(cam.scrollX, desiredScrollX, followStrength);
     cam.scrollY = Phaser.Math.Linear(cam.scrollY, desiredScrollY, followStrength);
+
+    const baseZoom = 1.0;
+    const zoomByType = {
+      romance: 1.15,
+      conflicto: 1.25,
+      politica: 1.2,
+      negocio: 1.15,
+      interaccion: 1.1
+    };
+    const sceneType = currentScene.type || 'interaccion';
+    const targetZoom = Math.min(1.35, Math.max(0.95, (zoomByType[sceneType] || baseZoom) + (currentScene.showScore || 0) / 300));
+    cam.zoom = Phaser.Math.Linear(cam.zoom, targetZoom, 0.06);
 
     this.showModeCamera.sceneId = currentScene.id;
     this.showModeCamera.targetX = desiredScrollX;

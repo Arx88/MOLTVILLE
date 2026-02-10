@@ -42,6 +42,13 @@ class MOLTVILLESkill:
         self._recent_utterances: List[Dict[str, Any]] = []
         self.long_memory_path = Path(__file__).parent / "memory.json"
         self.long_memory = self._load_long_memory()
+        self._current_intent: Optional[str] = None
+        self._intent_expires_at: Optional[float] = None
+        self._traits = self._init_traits()
+        self._political_candidate: bool = False
+        self._last_campaign_ts: float = 0
+        self._campaign_cooldown = 45
+        self._last_hotspot: Optional[Dict[str, Any]] = None
         
         # Setup event handlers
         self._setup_handlers()
@@ -133,6 +140,120 @@ class MOLTVILLESkill:
             self.long_memory_path.write_text(json.dumps(self.long_memory, indent=2))
         except OSError as error:
             logger.warning(f"Failed to save long memory: {error}")
+
+    def _init_traits(self) -> Dict[str, float]:
+        traits = self.config.get("agent", {}).get("traits", {}) if isinstance(self.config.get("agent", {}), dict) else {}
+        if isinstance(traits, dict) and traits:
+            return {
+                "ambition": float(traits.get("ambition", 0.5)),
+                "sociability": float(traits.get("sociability", 0.6)),
+                "curiosity": float(traits.get("curiosity", 0.5)),
+                "discipline": float(traits.get("discipline", 0.5))
+            }
+        # Stable fallback by agent id hash
+        seed = sum(ord(c) for c in (self.agent_id or self.config.get("agent", {}).get("name", "agent")))
+        random.seed(seed)
+        return {
+            "ambition": round(random.uniform(0.3, 0.9), 2),
+            "sociability": round(random.uniform(0.3, 0.9), 2),
+            "curiosity": round(random.uniform(0.3, 0.9), 2),
+            "discipline": round(random.uniform(0.3, 0.9), 2)
+        }
+
+    def _get_daily_phase(self, perception: Dict[str, Any]) -> str:
+        phase = (perception.get("worldTime") or {}).get("phase")
+        if isinstance(phase, str) and phase:
+            return phase
+        progress = (perception.get("worldTime") or {}).get("dayProgress", 0)
+        try:
+            progress = float(progress)
+        except (TypeError, ValueError):
+            progress = 0
+        if progress < 0.35:
+            return "morning"
+        if progress < 0.7:
+            return "afternoon"
+        return "night"
+
+    def _select_intent(self, perception: Dict[str, Any]) -> str:
+        needs = perception.get("needs", {}) or {}
+        social = float(needs.get("social", 100) or 100)
+        energy = float(needs.get("energy", 100) or 100)
+        hunger = float(needs.get("hunger", 0) or 0)
+        phase = self._get_daily_phase(perception)
+
+        # Base weights
+        weights = {
+            "social": 0.4 + (1 - social / 100) * 0.7 + self._traits["sociability"] * 0.3,
+            "work": 0.3 + self._traits["discipline"] * 0.4 + (phase == "morning") * 0.2,
+            "leisure": 0.2 + self._traits["curiosity"] * 0.4 + (phase == "night") * 0.2
+        }
+        if hunger > 60:
+            weights["work"] *= 0.7
+            weights["leisure"] *= 0.6
+        if energy < 35:
+            weights["social"] *= 0.7
+            weights["work"] *= 0.5
+
+        intent = max(weights, key=weights.get)
+        return intent
+
+    def _approval_ratio(self, relationships: Dict[str, Any]) -> float:
+        if not relationships:
+            return 0.0
+        approvals = 0
+        total = 0
+        for _, rel in relationships.items():
+            if not isinstance(rel, dict):
+                continue
+            total += 1
+            if rel.get("affinity", 0) >= 2 or rel.get("trust", 0) >= 2:
+                approvals += 1
+        return approvals / max(total, 1)
+
+    def _pick_hotspot(self, intent: str) -> Dict[str, int]:
+        hotspots = {
+            "social": [
+                {"name": "plaza", "x": 16, "y": 18},
+                {"name": "cafe", "x": 14, "y": 8},
+                {"name": "market", "x": 36, "y": 28}
+            ],
+            "work": [
+                {"name": "cityhall", "x": 28, "y": 22},
+                {"name": "shop", "x": 30, "y": 14},
+                {"name": "library", "x": 24, "y": 6}
+            ],
+            "leisure": [
+                {"name": "park", "x": 40, "y": 42},
+                {"name": "gallery", "x": 50, "y": 8},
+                {"name": "library", "x": 24, "y": 6}
+            ]
+        }
+        options = hotspots.get(intent, hotspots["social"])
+        if self._last_hotspot and random.random() < 0.6:
+            options = [opt for opt in options if opt["name"] != self._last_hotspot.get("name")] or options
+        choice = random.choice(options)
+        self._last_hotspot = choice
+        return {"x": choice["x"], "y": choice["y"]}
+
+    async def _maybe_register_candidate(self, perception: Dict[str, Any]) -> None:
+        if self._political_candidate:
+            return
+        if self._traits["ambition"] < 0.7:
+            return
+        relationships = (perception.get("context") or {}).get("relationships", {}) or {}
+        approval = self._approval_ratio(relationships)
+        if approval < 0.2:
+            return
+        platform = f"Impulsar MOLTVILLE con comunidad y crecimiento local."
+        payload = {
+            "agentId": self.agent_id,
+            "name": self.config.get("agent", {}).get("name", "Ciudadano"),
+            "platform": platform
+        }
+        result = await self._http_request('POST', '/api/governance/candidate', payload)
+        if not result.get('error'):
+            self._political_candidate = True
 
     def _remember_utterance(self, speaker_id: str, message: str) -> None:
         if not speaker_id or not message:
@@ -565,6 +686,16 @@ class MOLTVILLESkill:
         needs = perception.get("needs", {}) or {}
         context = perception.get("context", {}) or {}
 
+        # Update intent with TTL
+        now = asyncio.get_event_loop().time()
+        if not self._current_intent or not self._intent_expires_at or now >= self._intent_expires_at:
+            self._current_intent = self._select_intent(perception)
+            ttl = 240 + random.randint(0, 180)
+            self._intent_expires_at = now + ttl
+
+        # Political ambition check
+        await self._maybe_register_candidate(perception)
+
         if goals:
             goal = goals[0]
             location = goal.get("location", {})
@@ -594,23 +725,48 @@ class MOLTVILLESkill:
                 if available:
                     return {"type": "apply_job", "params": {"job_id": available[0].get("id")}}
 
-        if needs.get("social", 100) <= 40 and nearby_agents:
-            target = min(nearby_agents, key=lambda a: a.get("distance", 999))
-            target_id = target.get('id')
-            conv_id = self._conversation_state.get(target_id)
-            if conv_id:
+        # Social intent: initiate conversations or move to hotspots
+        if self._current_intent == "social":
+            if nearby_agents:
+                if len(nearby_agents) >= 4:
+                    hotspot = self._pick_hotspot("social")
+                    return {"type": "move_to", "params": hotspot}
+                target = min(nearby_agents, key=lambda a: a.get("distance", 999))
+                target_id = target.get('id')
+                conv_id = self._conversation_state.get(target_id)
+                if conv_id:
+                    return {
+                        "type": "conversation_message",
+                        "params": {"conversation_id": conv_id, "message": "¿Cómo vas hoy?"}
+                    }
+                # campaign ask if ambitious
+                if self._traits["ambition"] >= 0.7 and (asyncio.get_event_loop().time() - self._last_campaign_ts) > self._campaign_cooldown:
+                    self._last_campaign_ts = asyncio.get_event_loop().time()
+                    return {
+                        "type": "start_conversation",
+                        "params": {"target_id": target_id, "message": "Hola, ¿te puedo pedir tu apoyo para mejorar la ciudad?"}
+                    }
                 return {
-                    "type": "conversation_message",
-                    "params": {"conversation_id": conv_id, "message": "¿Cómo vas hoy?"}
+                    "type": "start_conversation",
+                    "params": {"target_id": target_id, "message": "Hola, ¿cómo estás?"}
                 }
-            return {
-                "type": "start_conversation",
-                "params": {"target_id": target_id, "message": "Hola, ¿cómo estás?"}
-            }
+            # no nearby agents → go to hotspot, avoid crowding by rotating
+            hotspot = self._pick_hotspot("social")
+            return {"type": "move_to", "params": hotspot}
+
+        # Work intent: move to job-related hotspots
+        if self._current_intent == "work":
+            hotspot = self._pick_hotspot("work")
+            return {"type": "move_to", "params": hotspot}
+
+        # Leisure intent
+        if self._current_intent == "leisure":
+            hotspot = self._pick_hotspot("leisure")
+            return {"type": "move_to", "params": hotspot}
 
         if isinstance(position.get("x"), int) and isinstance(position.get("y"), int):
-            dx = random.randint(-3, 3)
-            dy = random.randint(-3, 3)
+            dx = random.randint(-2, 2)
+            dy = random.randint(-2, 2)
             if dx == 0 and dy == 0:
                 dx = 1
             return {"type": "move_to", "params": {"x": position["x"] + dx, "y": position["y"] + dy}}
