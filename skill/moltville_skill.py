@@ -733,6 +733,35 @@ class MOLTVILLESkill:
             self.long_memory["goalState"] = self._goal_state
             self._save_long_memory()
 
+    async def _request_job_vote(self, perception: Dict[str, Any], application: Dict[str, Any]) -> Optional[Dict[str, Any]]:
+        nearby_agents = perception.get("nearbyAgents", []) or []
+        if not nearby_agents:
+            return None
+        target_id = nearby_agents[0].get("id")
+        if not target_id:
+            return None
+        job_id = application.get("jobId")
+        job_name = job_id
+        jobs = await self.list_jobs()
+        if isinstance(jobs, dict):
+            match = next((j for j in jobs.get("jobs", []) if j.get("id") == job_id), None)
+            if match:
+                job_name = f"{match.get('role', '')} en {match.get('buildingName', '')}".strip()
+        prompt = (
+            "Eres un ciudadano de MOLTVILLE. Necesitas votos para obtener un trabajo. "
+            "Pide un voto de forma breve y natural. Devuelve SOLO JSON con {message}."
+        )
+        payload = {
+            "self": self.config.get("agent", {}).get("name"),
+            "job": job_name,
+            "jobId": job_id
+        }
+        result = await self._call_llm_json(prompt, payload)
+        message = result.get("message") if isinstance(result, dict) else None
+        if isinstance(message, str) and message.strip():
+            return {"type": "start_conversation", "params": {"target_id": target_id, "message": message.strip()}}
+        return None
+
     async def _goal_action(self, perception: Dict[str, Any]) -> Optional[Dict[str, Any]]:
         self._ensure_goal_state(perception)
         await self._update_goal_progress(perception)
@@ -746,6 +775,19 @@ class MOLTVILLESkill:
             if nodes.get("buy_house", {}).get("status") == "done":
                 return None
             if not job:
+                application_resp = await self.get_job_application()
+                application = application_resp.get("application") if isinstance(application_resp, dict) else None
+                if isinstance(application, dict) and application.get("jobId"):
+                    votes = application.get("votes", [])
+                    vote_count = len(votes) if isinstance(votes, list) else int(votes or 0)
+                    required = application.get("required") or 2
+                    if vote_count < required:
+                        convo_action = await self._request_job_vote(perception, application)
+                        if convo_action:
+                            logger.info("GoalGraph: get_job -> request_votes")
+                            return convo_action
+                    logger.info("GoalGraph: get_job -> wait_votes")
+                    return {"type": "wait", "params": {}}
                 jobs = await self.list_jobs()
                 if isinstance(jobs, dict):
                     available = [j for j in jobs.get("jobs", []) if not j.get("assignedTo")]
@@ -1009,6 +1051,15 @@ class MOLTVILLESkill:
             if isinstance(property_id, str) and property_id.strip():
                 return {"type": "buy_property", "params": {"property_id": property_id.strip()}}
             return None
+        if action_type == "vote_job":
+            applicant_id = params.get("applicant_id") or params.get("applicantId")
+            job_id = params.get("job_id") or params.get("jobId")
+            if isinstance(applicant_id, str) and applicant_id.strip() and isinstance(job_id, str) and job_id.strip():
+                return {
+                    "type": "vote_job",
+                    "params": {"applicant_id": applicant_id.strip(), "job_id": job_id.strip()}
+                }
+            return None
         if action_type == "wait":
             return {"type": "wait", "params": {}}
         return None
@@ -1127,6 +1178,7 @@ class MOLTVILLESkill:
             return None
 
         self._prune_goals()
+        job_applications = await self.list_job_applications()
         payload = {
             "agent": {
                 "id": self.agent_id,
@@ -1139,7 +1191,8 @@ class MOLTVILLESkill:
             "profile": self.long_memory.get("profile"),
             "activeConversations": self._conversation_state,
             "activeConversationsLive": perception.get("conversations", []),
-            "forcedConversationId": forced_conversation_id
+            "forcedConversationId": forced_conversation_id,
+            "jobApplications": job_applications
         }
         prompt = (
             "Eres un ciudadano de MOLTVILLE. Actúas solo dentro del mundo, en primera persona. "
@@ -1151,13 +1204,13 @@ class MOLTVILLESkill:
             "Si estás solo, muévete hacia un lugar relevante según tu intención. "
             "No repitas mensajes recientes. "
             "Devuelve SOLO JSON válido con la acción a ejecutar. "
-            "Formato: {\"type\": \"move_to|enter_building|speak|apply_job|buy_property|wait|start_conversation|conversation_message\", "
+            "Formato: {\"type\": \"move_to|enter_building|speak|apply_job|buy_property|vote_job|wait|start_conversation|conversation_message\", "
             "\"params\": { ... } }."
         )
         if force_conversation:
             prompt = (
                 "Hay una conversación activa. Debes responder SOLO con conversation_message. "
-                "No uses move_to, enter_building, speak, apply_job, buy_property ni start_conversation. "
+                "No uses move_to, enter_building, speak, apply_job, buy_property, vote_job ni start_conversation. "
                 "Mantente 100% in-world. Responde con un solo mensaje natural. "
                 "Si ves forcedConversationId úsalo como conversation_id. "
                 "Devuelve SOLO JSON válido con: {\"type\": \"conversation_message\", \"params\": {\"conversation_id\": \"...\", \"message\": \"...\"}}."
@@ -1385,6 +1438,8 @@ class MOLTVILLESkill:
             await self.apply_job(params.get("job_id"))
         elif action_type == "buy_property":
             await self.buy_property(params.get("property_id"))
+        elif action_type == "vote_job":
+            await self.vote_job(params.get("applicant_id"), params.get("job_id"))
         elif action_type == "wait":
             return
         if isinstance(self._plan_state, dict):
@@ -1639,6 +1694,35 @@ class MOLTVILLESkill:
     async def list_jobs(self) -> Dict[str, Any]:
         return await self._http_request('GET', "/api/economy/jobs")
 
+    async def list_job_applications(self) -> List[Dict[str, Any]]:
+        jobs = await self.list_jobs()
+        if not isinstance(jobs, dict):
+            return []
+        items = []
+        for job in jobs.get("jobs", []) or []:
+            app = job.get("application")
+            if isinstance(app, dict):
+                items.append({
+                    "jobId": job.get("id"),
+                    "applicantId": app.get("applicantId"),
+                    "votes": app.get("votes", 0),
+                    "createdAt": app.get("createdAt")
+                })
+        return items
+
+    async def get_job_application(self) -> Optional[Dict[str, Any]]:
+        if not self.agent_id:
+            return None
+        return await self._http_request('GET', f"/api/economy/jobs/applications/{self.agent_id}")
+
+    async def vote_job(self, applicant_id: str, job_id: str) -> Dict[str, Any]:
+        if not self.agent_id:
+            return {"error": "Agent not registered yet"}
+        if not applicant_id or not job_id:
+            return {"error": "applicant_id and job_id are required"}
+        payload = {"applicantId": applicant_id, "voterId": self.agent_id, "jobId": job_id}
+        return await self._http_request('POST', "/api/economy/jobs/vote", payload)
+
     async def list_properties(self) -> Dict[str, Any]:
         return await self._http_request('GET', "/api/economy/properties")
 
@@ -1790,8 +1874,10 @@ async def execute_command(skill: MOLTVILLESkill, command: str, params: Dict[str,
         'get_balance': skill.get_balance,
         'list_jobs': skill.list_jobs,
         'list_properties': skill.list_properties,
+        'list_job_applications': skill.list_job_applications,
         'apply_job': lambda: skill.apply_job(params.get('job_id')),
         'buy_property': lambda: skill.buy_property(params.get('property_id')),
+        'vote_job': lambda: skill.vote_job(params.get('applicant_id'), params.get('job_id')),
         'submit_review': lambda: skill.submit_review(
             params.get('target_agent_id'),
             params.get('score'),

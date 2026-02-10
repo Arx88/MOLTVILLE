@@ -8,6 +8,7 @@ export class EconomyManager {
     this.balances = new Map();
     this.jobs = new Map();
     this.jobAssignments = new Map();
+    this.jobApplications = new Map();
     this.reviews = new Map();
     this.properties = new Map();
     this.transactions = new Map();
@@ -30,6 +31,8 @@ export class EconomyManager {
     this.incomeIntervalMs = parseInt(process.env.INCOME_INTERVAL_MS, 10) || 60000;
     this.baseIncome = parseFloat(process.env.BASE_INCOME || '2');
     this.reviewThreshold = parseFloat(process.env.REVIEW_THRESHOLD || '2.5');
+    this.jobVoteThreshold = parseInt(process.env.JOB_VOTE_THRESHOLD, 10) || 2;
+    this.jobVoteExpiryMs = parseInt(process.env.JOB_VOTE_EXPIRY_MS, 10) || 15 * 60 * 1000;
     this.jobTemplates = this.initializeJobTemplates();
     this.initializeJobs();
     this.initializeProperties();
@@ -535,7 +538,45 @@ export class EconomyManager {
   }
 
   listJobs() {
-    return Array.from(this.jobs.values());
+    const applications = new Map();
+    this.jobApplications.forEach((app, jobId) => {
+      applications.set(jobId, {
+        applicantId: app.applicantId,
+        votes: app.votes.size,
+        createdAt: app.createdAt
+      });
+    });
+    return Array.from(this.jobs.values()).map(job => ({
+      ...job,
+      application: applications.get(job.id) || null
+    }));
+  }
+
+  listApplications() {
+    return Array.from(this.jobApplications.entries()).map(([jobId, app]) => ({
+      jobId,
+      applicantId: app.applicantId,
+      votes: Array.from(app.votes),
+      createdAt: app.createdAt
+    }));
+  }
+
+  getApplicationForAgent(agentId) {
+    for (const [jobId, app] of this.jobApplications.entries()) {
+      if (app.applicantId === agentId) {
+        return { jobId, ...app, votes: Array.from(app.votes), required: this.jobVoteThreshold };
+      }
+    }
+    return null;
+  }
+
+  cleanupExpiredApplications() {
+    const now = Date.now();
+    for (const [jobId, app] of this.jobApplications.entries()) {
+      if (now - app.createdAt > this.jobVoteExpiryMs) {
+        this.jobApplications.delete(jobId);
+      }
+    }
   }
 
   addJobsForBuilding(building) {
@@ -621,16 +662,52 @@ export class EconomyManager {
 
   applyForJob(agentId, jobId) {
     this.registerAgent(agentId);
+    this.cleanupExpiredApplications();
     if (this.jobAssignments.has(agentId)) {
       throw new Error('Agent already employed');
+    }
+    const existing = this.getApplicationForAgent(agentId);
+    if (existing) {
+      return { status: 'pending', jobId: existing.jobId, votes: existing.votes.length, required: this.jobVoteThreshold };
     }
     const job = this.jobs.get(jobId);
     if (!job) throw new Error('Job not found');
     if (job.assignedTo) throw new Error('Job already filled');
-    job.assignedTo = agentId;
-    this.jobAssignments.set(agentId, jobId);
-    this.persistJobAssignment(agentId, jobId);
-    return job;
+    this.jobApplications.set(jobId, {
+      applicantId: agentId,
+      votes: new Set(),
+      createdAt: Date.now()
+    });
+    return { status: 'pending', jobId, votes: 0, required: this.jobVoteThreshold };
+  }
+
+  voteForJob({ applicantId, voterId, jobId }) {
+    this.registerAgent(applicantId);
+    this.registerAgent(voterId);
+    this.cleanupExpiredApplications();
+    if (applicantId === voterId) {
+      throw new Error('Cannot vote for self');
+    }
+    if (this.jobAssignments.has(applicantId)) {
+      return { status: 'already_employed' };
+    }
+    const application = this.jobApplications.get(jobId);
+    if (!application || application.applicantId !== applicantId) {
+      throw new Error('Application not found');
+    }
+    application.votes.add(voterId);
+    const votes = application.votes.size;
+    if (votes >= this.jobVoteThreshold) {
+      const job = this.jobs.get(jobId);
+      if (!job) throw new Error('Job not found');
+      if (job.assignedTo) throw new Error('Job already filled');
+      job.assignedTo = applicantId;
+      this.jobAssignments.set(applicantId, jobId);
+      this.persistJobAssignment(applicantId, jobId);
+      this.jobApplications.delete(jobId);
+      return { status: 'approved', job, votes };
+    }
+    return { status: 'pending', jobId, votes, required: this.jobVoteThreshold };
   }
 
   submitReview({ agentId, reviewerId, score, tags = [], reason = '' }) {
@@ -784,6 +861,7 @@ export class EconomyManager {
       balances: Array.from(this.balances.entries()),
       jobs: Array.from(this.jobs.entries()),
       jobAssignments: Array.from(this.jobAssignments.entries()),
+      jobApplications: Array.from(this.jobApplications.entries()).map(([jobId, app]) => [jobId, { ...app, votes: Array.from(app.votes) }]),
       reviews: Array.from(this.reviews.entries()),
       properties: Array.from(this.properties.entries()),
       transactions: Array.from(this.transactions.entries()),
@@ -819,6 +897,11 @@ export class EconomyManager {
         job.assignedTo = agentId;
       }
     });
+
+    this.jobApplications = new Map((snapshot.jobApplications || []).map(([jobId, app]) => [
+      jobId,
+      { ...app, votes: new Set(app?.votes || []) }
+    ]));
 
     this.reviews = new Map(snapshot.reviews || []);
 

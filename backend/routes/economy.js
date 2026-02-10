@@ -19,6 +19,12 @@ const reviewSchema = Joi.object({
   reason: Joi.string().allow('').default('')
 });
 
+const jobVoteSchema = Joi.object({
+  applicantId: Joi.string().trim().required(),
+  voterId: Joi.string().trim().required(),
+  jobId: Joi.string().trim().required()
+});
+
 const propertyBuySchema = Joi.object({
   agentId: Joi.string().trim().required(),
   propertyId: Joi.string().trim().required()
@@ -59,6 +65,16 @@ router.get('/jobs', (req, res) => {
   res.json({ jobs: economy.listJobs() });
 });
 
+router.get('/jobs/applications/:agentId', requireAgentKey({
+  allowAdmin: true,
+  useSuccessResponse: true,
+  getAgentId: (req) => req.params.agentId
+}), (req, res) => {
+  const { agentId } = req.params;
+  const economy = req.app.locals.economyManager;
+  res.json({ application: economy.getApplicationForAgent(agentId) });
+});
+
 router.post('/jobs/apply', requireAgentKey({
   allowAdmin: true,
   useSuccessResponse: true,
@@ -69,6 +85,21 @@ router.post('/jobs/apply', requireAgentKey({
   try {
     const job = economy.applyForJob(agentId, jobId);
     res.json({ success: true, job });
+  } catch (error) {
+    res.status(400).json({ success: false, error: error.message });
+  }
+});
+
+router.post('/jobs/vote', requireAgentKey({
+  allowAdmin: true,
+  useSuccessResponse: true,
+  getAgentId: (req) => req.body?.voterId
+}), validateBody(jobVoteSchema), (req, res) => {
+  const { applicantId, voterId, jobId } = req.body;
+  const economy = req.app.locals.economyManager;
+  try {
+    const result = economy.voteForJob({ applicantId, voterId, jobId });
+    res.json({ success: true, result });
   } catch (error) {
     res.status(400).json({ success: false, error: error.message });
   }
