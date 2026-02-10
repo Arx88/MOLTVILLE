@@ -663,6 +663,10 @@ class MOLTVILLESkill:
         return (now_ms - int(last)) > (self._plan_ttl_seconds * 1000)
 
     async def _maybe_start_conversation(self, perception: Dict[str, Any]) -> Optional[Dict[str, Any]]:
+        plan = self.long_memory.get("planState", {}) if isinstance(self.long_memory, dict) else {}
+        primary = str(plan.get("primaryGoal", "")).lower()
+        if not primary or not any(token in primary for token in ("convers", "alian", "negoci", "inform", "persu")):
+            return None
         nearby_agents = perception.get("nearbyAgents", []) or []
         if not nearby_agents:
             return None
@@ -676,7 +680,7 @@ class MOLTVILLESkill:
         payload = {
             "self": self.config.get("agent", {}).get("name"),
             "other": target_id,
-            "plan": self.long_memory.get("planState", {})
+            "plan": plan
         }
         result = await self._call_llm_json(prompt, payload)
         message = result.get("message") if isinstance(result, dict) else None
