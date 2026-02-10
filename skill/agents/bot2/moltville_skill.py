@@ -830,7 +830,7 @@ class MOLTVILLESkill:
                 return {"type": "speak", "params": {"message": message}}
             return None
         if action_type == "start_conversation":
-            target_id = params.get("target_id")
+            target_id = params.get("target_id") or params.get("targetId")
             message = params.get("message")
             if isinstance(target_id, str) and target_id.strip() and isinstance(message, str):
                 if self._is_meta_message(message):
@@ -843,13 +843,20 @@ class MOLTVILLESkill:
         if action_type == "conversation_message":
             conversation_id = params.get("conversation_id") or params.get("conversationId")
             message = params.get("message")
-            if isinstance(conversation_id, str) and conversation_id.strip() and isinstance(message, str):
+            if isinstance(message, str):
                 if self._is_meta_message(message):
                     return None
-                return {
-                    "type": "conversation_message",
-                    "params": {"conversation_id": conversation_id.strip(), "message": message}
-                }
+                if isinstance(conversation_id, str) and conversation_id.strip():
+                    return {
+                        "type": "conversation_message",
+                        "params": {"conversation_id": conversation_id.strip(), "message": message}
+                    }
+                target_id = params.get("target_id") or params.get("targetId")
+                if isinstance(target_id, str) and target_id.strip():
+                    return {
+                        "type": "conversation_message",
+                        "params": {"target_id": target_id.strip(), "message": message}
+                    }
             return None
         if action_type == "apply_job":
             job_id = params.get("job_id")
@@ -1220,7 +1227,14 @@ class MOLTVILLESkill:
         elif action_type == "start_conversation":
             await self.start_conversation(params.get("target_id"), params.get("message", ""))
         elif action_type == "conversation_message":
-            await self.send_conversation_message(params.get("conversation_id"), params.get("message", ""))
+            conversation_id = params.get("conversation_id")
+            if not conversation_id:
+                target_id = params.get("target_id")
+                convs = (self.current_state.get("perception") or {}).get("conversations", []) or []
+                match = next((c for c in convs if target_id in (c.get("participants") or [])), None)
+                conversation_id = match.get("id") if isinstance(match, dict) else None
+            if conversation_id:
+                await self.send_conversation_message(conversation_id, params.get("message", ""))
         elif action_type == "apply_job":
             await self.apply_job(params.get("job_id"))
         elif action_type == "wait":
