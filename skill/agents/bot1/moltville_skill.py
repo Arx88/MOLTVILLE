@@ -547,6 +547,7 @@ class MOLTVILLESkill:
             sanitized = self._sanitize_llm_action(parsed)
             if not sanitized:
                 logger.warning("LLM returned invalid action, falling back to heuristic.")
+                logger.warning(f"LLM raw: {content[:500]}")
             return sanitized
         except (OSError, json.JSONDecodeError, aiohttp.ClientError) as error:
             logger.warning(f"LLM decision failed: {error}")
