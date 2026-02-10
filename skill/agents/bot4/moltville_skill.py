@@ -53,6 +53,8 @@ class MOLTVILLESkill:
         self._last_conversation_msg: Dict[str, str] = {}
         self._conversation_cooldown = 0
         self._conversation_stale_seconds = 120
+        self._relation_update_cooldown = 8
+        self._last_relation_update: Dict[str, float] = {}
         
         # Setup event handlers
         self._setup_handlers()
@@ -338,6 +340,51 @@ class MOLTVILLESkill:
         self.long_memory["episodes"] = self.long_memory["episodes"][-80:]
         self._save_long_memory()
 
+    async def _analyze_relationship(self, speaker_id: str, message: str) -> Dict[str, Any]:
+        prompt = (
+            "Eres un ciudadano de MOLTVILLE evaluando una interacción social. "
+            "Devuelve SOLO JSON con campos: affinityDelta, trustDelta, respectDelta (-2 a 2), "
+            "y note (máx 8 palabras) en tono in-world."
+        )
+        payload = {
+            "self": self.config.get("agent", {}).get("name"),
+            "otherId": speaker_id,
+            "message": message
+        }
+        result = await self._call_llm_json(prompt, payload)
+        if isinstance(result, dict):
+            return result
+        lowered = message.lower()
+        pos = ["gracias", "genial", "perfecto", "me encanta", "bien", "claro"]
+        neg = ["no", "mal", "nunca", "molesta", "odio", "mentira"]
+        score = 1 if any(p in lowered for p in pos) else (-1 if any(n in lowered for n in neg) else 0)
+        return {
+            "affinityDelta": score,
+            "trustDelta": score,
+            "respectDelta": 0,
+            "note": "buena impresión" if score > 0 else ("tenso" if score < 0 else "neutral")
+        }
+
+    def _update_relationship_memory(self, speaker_id: str, message: str, analysis: Dict[str, Any]) -> None:
+        if not speaker_id:
+            return
+        rels = self.long_memory.setdefault("relationships", {})
+        current = rels.get(speaker_id, {}) if isinstance(rels.get(speaker_id), dict) else {}
+        def clamp(val, lo=-10, hi=10):
+            return max(lo, min(hi, val))
+        affinity = clamp(int(current.get("affinity", 0)) + int(analysis.get("affinityDelta", 0)))
+        trust = clamp(int(current.get("trust", 0)) + int(analysis.get("trustDelta", 0)))
+        respect = clamp(int(current.get("respect", 0)) + int(analysis.get("respectDelta", 0)))
+        rels[speaker_id] = {
+            **current,
+            "affinity": affinity,
+            "trust": trust,
+            "respect": respect,
+            "lastNote": str(analysis.get("note", ""))[:80],
+            "lastMessage": message[:160]
+        }
+        self._save_long_memory()
+
     def _get_recent_context(self) -> Dict[str, Any]:
         cleaned = [u for u in self._recent_utterances if not self._is_meta_message(u.get("message", ""))]
         return {
@@ -448,6 +495,16 @@ class MOLTVILLESkill:
                     "from": from_id,
                     "message": text
                 })
+                if from_id != self.agent_id:
+                    now = asyncio.get_event_loop().time()
+                    last_rel = self._last_relation_update.get(from_id, 0)
+                    if now - last_rel >= self._relation_update_cooldown:
+                        async def rel_task():
+                            analysis = await self._analyze_relationship(from_id, text)
+                            if isinstance(analysis, dict):
+                                self._update_relationship_memory(from_id, text, analysis)
+                            self._last_relation_update[from_id] = asyncio.get_event_loop().time()
+                        asyncio.create_task(rel_task())
             if conv_id and from_id and from_id != self.agent_id:
                 asyncio.create_task(self._respond_to_conversation(conv_id))
 
