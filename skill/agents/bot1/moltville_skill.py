@@ -59,6 +59,9 @@ class MOLTVILLESkill:
         self._plan_ttl_seconds = 180
         self._plan_action_timeout = 45
         self._goal_state = self.long_memory.get("goalState", {}) if isinstance(self.long_memory, dict) else {}
+        self._world_state_cache = None
+        self._world_state_cache_at = 0
+        self._world_state_cache_ttl = 30
         
         # Setup event handlers
         self._setup_handlers()
@@ -669,30 +672,99 @@ class MOLTVILLESkill:
             self._goal_state = {
                 "primary": "buy_house",
                 "status": "active",
-                "progress": {},
+                "nodes": {
+                    "get_job": {"status": "pending"},
+                    "earn_money": {"status": "pending"},
+                    "buy_house": {"status": "pending"}
+                },
+                "targetPrice": None,
                 "updatedAt": int(asyncio.get_event_loop().time() * 1000)
             }
             if isinstance(self.long_memory, dict):
                 self.long_memory["goalState"] = self._goal_state
                 self._save_long_memory()
 
+    async def _get_world_state(self) -> Dict[str, Any]:
+        now = int(asyncio.get_event_loop().time())
+        if self._world_state_cache and (now - int(self._world_state_cache_at)) <= self._world_state_cache_ttl:
+            return self._world_state_cache
+        state = await self._http_request('GET', "/api/world/state")
+        if isinstance(state, dict):
+            self._world_state_cache = state
+            self._world_state_cache_at = now
+            return state
+        return {}
+
+    async def _resolve_building_position(self, building_id: str) -> Optional[Dict[str, int]]:
+        if not building_id:
+            return None
+        state = await self._get_world_state()
+        buildings = state.get("buildings", []) if isinstance(state, dict) else []
+        for b in buildings:
+            if b.get("id") == building_id:
+                x, y = b.get("x"), b.get("y")
+                if isinstance(x, (int, float)) and isinstance(y, (int, float)):
+                    return {"x": int(x), "y": int(y)}
+        return None
+
+    async def _update_goal_progress(self, perception: Dict[str, Any]) -> None:
+        context = perception.get("context", {}) or {}
+        economy = context.get("economy", {}) or {}
+        nodes = self._goal_state.get("nodes", {}) if isinstance(self._goal_state, dict) else {}
+        job = economy.get("job")
+        if job:
+            nodes.setdefault("get_job", {})["status"] = "done"
+        properties_owned = economy.get("properties", []) or []
+        if properties_owned:
+            nodes.setdefault("buy_house", {})["status"] = "done"
+        if not self._goal_state.get("targetPrice"):
+            props = await self.list_properties()
+            if isinstance(props, dict):
+                for_sale = [p for p in props.get("properties", []) if p.get("forSale")]
+                if for_sale:
+                    self._goal_state["targetPrice"] = min(p.get("price", 0) for p in for_sale)
+        target_price = self._goal_state.get("targetPrice") or 0
+        balance = economy.get("balance", 0)
+        if target_price and balance >= target_price:
+            nodes.setdefault("earn_money", {})["status"] = "done"
+        self._goal_state["nodes"] = nodes
+        self._goal_state["updatedAt"] = int(asyncio.get_event_loop().time() * 1000)
+        if isinstance(self.long_memory, dict):
+            self.long_memory["goalState"] = self._goal_state
+            self._save_long_memory()
+
     async def _goal_action(self, perception: Dict[str, Any]) -> Optional[Dict[str, Any]]:
         self._ensure_goal_state(perception)
+        await self._update_goal_progress(perception)
         context = perception.get("context", {}) or {}
         economy = context.get("economy", {}) or {}
         balance = economy.get("balance", 0)
         job = economy.get("job")
+        nodes = self._goal_state.get("nodes", {}) if isinstance(self._goal_state, dict) else {}
         primary = self._goal_state.get("primary") if isinstance(self._goal_state, dict) else None
         if primary == "buy_house":
+            if nodes.get("buy_house", {}).get("status") == "done":
+                return None
             if not job:
                 jobs = await self.list_jobs()
                 if isinstance(jobs, dict):
                     available = [j for j in jobs.get("jobs", []) if not j.get("assignedTo")]
                     if available:
+                        logger.info("GoalGraph: get_job -> apply_job")
                         return {"type": "apply_job", "params": {"job_id": available[0].get("id")}}
+                logger.info("GoalGraph: get_job -> move_to(work)")
                 return {"type": "move_to", "params": self._pick_hotspot("work")}
-            if balance < 50:
-                return {"type": "move_to", "params": self._pick_hotspot("work")}
+            target_price = self._goal_state.get("targetPrice") or 0
+            if target_price and balance >= target_price:
+                props = await self.list_properties()
+                if isinstance(props, dict):
+                    for_sale = [p for p in props.get("properties", []) if p.get("forSale")]
+                    if for_sale:
+                        chosen = sorted(for_sale, key=lambda p: p.get("price", 0))[0]
+                        logger.info("GoalGraph: buy_house -> buy_property")
+                        return {"type": "buy_property", "params": {"property_id": chosen.get("id")}}
+            logger.info("GoalGraph: earn_money -> move_to(work)")
+            return {"type": "move_to", "params": self._pick_hotspot("work")}
         return None
 
     async def _maybe_start_conversation(self, perception: Dict[str, Any]) -> Optional[Dict[str, Any]]:
@@ -744,7 +816,7 @@ class MOLTVILLESkill:
             "Eres un ciudadano de MOLTVILLE. Crea un plan concreto y accionable. "
             "Devuelve SOLO JSON con: primaryGoal (string), secondaryGoals (2 strings), "
             "actions (lista de 2-4 acciones). Cada acción usa el formato {type, params}. "
-            "Tipos válidos: move_to, start_conversation, enter_building, apply_job, wait. "
+            "Tipos válidos: move_to, start_conversation, enter_building, apply_job, buy_property, wait. "
             "Usa objetivos específicos y en-world y asegura que el plan produzca RESULTADOS." 
         )
         payload = {
@@ -932,6 +1004,11 @@ class MOLTVILLESkill:
             if isinstance(job_id, str) and job_id.strip():
                 return {"type": "apply_job", "params": {"job_id": job_id.strip()}}
             return None
+        if action_type == "buy_property":
+            property_id = params.get("property_id") or params.get("propertyId")
+            if isinstance(property_id, str) and property_id.strip():
+                return {"type": "buy_property", "params": {"property_id": property_id.strip()}}
+            return None
         if action_type == "wait":
             return {"type": "wait", "params": {}}
         return None
@@ -1074,13 +1151,13 @@ class MOLTVILLESkill:
             "Si estás solo, muévete hacia un lugar relevante según tu intención. "
             "No repitas mensajes recientes. "
             "Devuelve SOLO JSON válido con la acción a ejecutar. "
-            "Formato: {\"type\": \"move_to|enter_building|speak|apply_job|wait|start_conversation|conversation_message\", "
+            "Formato: {\"type\": \"move_to|enter_building|speak|apply_job|buy_property|wait|start_conversation|conversation_message\", "
             "\"params\": { ... } }."
         )
         if force_conversation:
             prompt = (
                 "Hay una conversación activa. Debes responder SOLO con conversation_message. "
-                "No uses move_to, enter_building, speak, apply_job ni start_conversation. "
+                "No uses move_to, enter_building, speak, apply_job, buy_property ni start_conversation. "
                 "Mantente 100% in-world. Responde con un solo mensaje natural. "
                 "Si ves forcedConversationId úsalo como conversation_id. "
                 "Devuelve SOLO JSON válido con: {\"type\": \"conversation_message\", \"params\": {\"conversation_id\": \"...\", \"message\": \"...\"}}."
@@ -1306,6 +1383,8 @@ class MOLTVILLESkill:
                 await self.send_conversation_message(conversation_id, params.get("message", ""))
         elif action_type == "apply_job":
             await self.apply_job(params.get("job_id"))
+        elif action_type == "buy_property":
+            await self.buy_property(params.get("property_id"))
         elif action_type == "wait":
             return
         if isinstance(self._plan_state, dict):
@@ -1560,6 +1639,9 @@ class MOLTVILLESkill:
     async def list_jobs(self) -> Dict[str, Any]:
         return await self._http_request('GET', "/api/economy/jobs")
 
+    async def list_properties(self) -> Dict[str, Any]:
+        return await self._http_request('GET', "/api/economy/properties")
+
     async def apply_job(self, job_id: str) -> Dict[str, Any]:
         if not self.agent_id:
             return {"error": "Agent not registered yet"}
@@ -1567,6 +1649,14 @@ class MOLTVILLESkill:
             return {"error": "job_id is required"}
         payload = {"agentId": self.agent_id, "jobId": job_id}
         return await self._http_request('POST', "/api/economy/jobs/apply", payload)
+
+    async def buy_property(self, property_id: str) -> Dict[str, Any]:
+        if not self.agent_id:
+            return {"error": "Agent not registered yet"}
+        if not property_id:
+            return {"error": "property_id is required"}
+        payload = {"agentId": self.agent_id, "propertyId": property_id}
+        return await self._http_request('POST', "/api/economy/properties/buy", payload)
 
     async def submit_review(self, target_agent_id: str, score: float, tags: Optional[List[str]] = None, reason: Optional[str] = None) -> Dict[str, Any]:
         if not self.agent_id:
@@ -1699,7 +1789,9 @@ async def execute_command(skill: MOLTVILLESkill, command: str, params: Dict[str,
         'leave_building': skill.leave_building,
         'get_balance': skill.get_balance,
         'list_jobs': skill.list_jobs,
+        'list_properties': skill.list_properties,
         'apply_job': lambda: skill.apply_job(params.get('job_id')),
+        'buy_property': lambda: skill.buy_property(params.get('property_id')),
         'submit_review': lambda: skill.submit_review(
             params.get('target_agent_id'),
             params.get('score'),
