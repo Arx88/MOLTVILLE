@@ -10,6 +10,7 @@ import socketio
 import aiohttp
 from typing import Dict, List, Optional, Any
 from pathlib import Path
+from collections import deque
 import logging
 import random
 
@@ -79,6 +80,16 @@ class MOLTVILLESkill:
         self._coord_create_cooldown = 120
         self._last_coord_create_ts: float = 0
         self._coord_state: Dict[str, Any] = {}
+        self._decision_lock = asyncio.Lock()
+        self._action_lock = asyncio.Lock()
+        self._conversation_lock = asyncio.Lock()
+        self._decision_lock_timeout = 8
+        self._action_lock_timeout = 20
+        self._conversation_lock_timeout = 10
+        self._recent_message_hashes: deque = deque(maxlen=24)
+        self._health_metrics = self.long_memory.get("healthMetrics", {}) if isinstance(self.long_memory, dict) else {}
+        self._action_queue: List[Dict[str, Any]] = self.long_memory.get("pendingActions", []) if isinstance(self.long_memory, dict) else []
+        self._http_cfg = self.config.get("http", {}) if isinstance(self.config.get("http"), dict) else {}
         
         # Setup event handlers
         self._setup_handlers()
@@ -91,6 +102,46 @@ class MOLTVILLESkill:
             return 'https://' + server_url[len('wss://'):]
         return server_url
 
+    def _update_health_metric(self, key: str, ok: bool = True) -> None:
+        metrics = self._health_metrics if isinstance(self._health_metrics, dict) else {}
+        entry = metrics.get(key, {}) if isinstance(metrics.get(key), dict) else {}
+        if ok:
+            entry["ok"] = int(entry.get("ok", 0)) + 1
+        else:
+            entry["error"] = int(entry.get("error", 0)) + 1
+        entry["lastAt"] = int(asyncio.get_event_loop().time() * 1000)
+        metrics[key] = entry
+        self._health_metrics = metrics
+        if isinstance(self.long_memory, dict):
+            self.long_memory["healthMetrics"] = metrics
+
+    def _save_action_queue(self) -> None:
+        if isinstance(self.long_memory, dict):
+            self.long_memory["pendingActions"] = self._action_queue[-40:]
+            self._save_long_memory()
+
+    def _enqueue_action(self, action: Dict[str, Any], source: str = "plan", priority: float = 1.0) -> None:
+        if not isinstance(action, dict):
+            return
+        item = {
+            "action": action,
+            "priority": float(priority),
+            "source": source,
+            "attempts": 0,
+            "createdAt": int(asyncio.get_event_loop().time() * 1000)
+        }
+        self._action_queue.append(item)
+        self._action_queue.sort(key=lambda it: float(it.get("priority", 0.0)), reverse=True)
+        self._action_queue = self._action_queue[:40]
+        self._save_action_queue()
+
+    def _dequeue_action(self) -> Optional[Dict[str, Any]]:
+        if not self._action_queue:
+            return None
+        item = self._action_queue.pop(0)
+        self._save_action_queue()
+        return item
+
     async def _http_request(self, method: str, path: str, payload: Optional[Dict[str, Any]] = None) -> Dict[str, Any]:
         base_url = self._get_http_base_url().rstrip('/')
         url = f"{base_url}{path}"
@@ -98,16 +149,36 @@ class MOLTVILLESkill:
         api_key = self.config.get('server', {}).get('apiKey')
         if isinstance(api_key, str) and api_key.strip():
             headers['x-api-key'] = api_key.strip()
-        try:
-            async with aiohttp.ClientSession() as session:
-                async with session.request(method, url, json=payload, headers=headers) as response:
-                    data = await response.json()
-                    if response.status >= 400:
-                        return {"error": data.get('error', f"HTTP {response.status}")}
-                    return data
-        except Exception as error:
-            logger.error(f"HTTP request failed: {error}")
-            return {"error": str(error)}
+        timeout_s = float(self._http_cfg.get("timeoutSec", 6))
+        retries = int(self._http_cfg.get("retries", 2))
+        backoff = float(self._http_cfg.get("backoffSec", 0.4))
+
+        for attempt in range(retries + 1):
+            try:
+                timeout = aiohttp.ClientTimeout(total=timeout_s)
+                async with aiohttp.ClientSession(timeout=timeout) as session:
+                    async with session.request(method, url, json=payload, headers=headers) as response:
+                        text = await response.text()
+                        try:
+                            data = json.loads(text) if text else {}
+                        except json.JSONDecodeError:
+                            data = {"raw": text}
+                        if response.status >= 500 and attempt < retries:
+                            await asyncio.sleep(backoff * (attempt + 1))
+                            continue
+                        if response.status >= 400:
+                            self._update_health_metric("http", ok=False)
+                            return {"error": data.get('error', f"HTTP {response.status}"), "status": response.status}
+                        self._update_health_metric("http", ok=True)
+                        return data if isinstance(data, dict) else {"data": data}
+            except (aiohttp.ClientError, asyncio.TimeoutError, OSError) as error:
+                if attempt < retries:
+                    await asyncio.sleep(backoff * (attempt + 1))
+                    continue
+                logger.error(f"HTTP request failed: method={method} path={path} error={error}")
+                self._update_health_metric("http", ok=False)
+                return {"error": str(error), "status": 0}
+        return {"error": "HTTP retry exhaustion", "status": 0}
     
     def _load_config(self, config_path: Path) -> Dict:
         """Load configuration from file"""
@@ -853,6 +924,10 @@ class MOLTVILLESkill:
             'permissions': permissions
         })
 
+    def _log_cycle(self, stage: str, **fields: Any) -> None:
+        payload = {"stage": stage, "agentId": self.agent_id, **fields}
+        logger.info("cycle=%s", json.dumps(payload, ensure_ascii=False))
+
     def _update_cognition(self, *, internal: Optional[str] = None, external_intent: Optional[str] = None, external_speech: Optional[str] = None) -> None:
         if isinstance(internal, str):
             self._internal_thought = internal.strip()
@@ -933,16 +1008,33 @@ class MOLTVILLESkill:
             if not self.connected:
                 await asyncio.sleep(1)
                 continue
-            perception = await self.perceive()
-            if not perception or isinstance(perception, dict) and perception.get("error"):
-                await asyncio.sleep(interval_sec)
-                continue
-            await self._purge_stale_conversations(perception)
-            await self._ensure_plan(perception)
-            await self._send_profile_update()
-            action = await self._decide_action(perception)
-            if action:
-                await self._execute_action(action)
+            try:
+                perception = await self.perceive()
+                if not perception or isinstance(perception, dict) and perception.get("error"):
+                    self._update_health_metric("perceive", ok=False)
+                    await asyncio.sleep(interval_sec)
+                    continue
+                self._update_health_metric("perceive", ok=True)
+                await self._purge_stale_conversations(perception)
+                await self._ensure_plan(perception)
+                await self._send_profile_update()
+                try:
+                    await asyncio.wait_for(self._decision_lock.acquire(), timeout=self._decision_lock_timeout)
+                except asyncio.TimeoutError:
+                    self._log_cycle("decision_skip", reason="decision_lock_timeout")
+                    await asyncio.sleep(interval_sec)
+                    continue
+                try:
+                    action = await self._decide_action(perception)
+                    if action:
+                        self._log_cycle("decision", intent=self._current_intent, action=action.get("type"))
+                        await self._execute_action(action)
+                finally:
+                    if self._decision_lock.locked():
+                        self._decision_lock.release()
+            except Exception as error:
+                self._update_health_metric("decision_loop", ok=False)
+                self._log_cycle("decision_error", error=str(error))
             await asyncio.sleep(interval_sec)
 
     def _prune_goals(self) -> None:
@@ -980,19 +1072,26 @@ class MOLTVILLESkill:
                 self._conversation_state.pop(key, None)
 
     async def _respond_to_conversation(self, conv_id: str) -> None:
-        now = asyncio.get_event_loop().time()
-        last = self._last_conversation_ts.get(conv_id, 0)
-        if self._conversation_cooldown and now - last < self._conversation_cooldown:
+        try:
+            await asyncio.wait_for(self._conversation_lock.acquire(), timeout=self._conversation_lock_timeout)
+        except asyncio.TimeoutError:
+            self._log_cycle("conversation_skip", reason="conversation_lock_timeout", conversationId=conv_id)
             return
-        perception = await self.perceive()
-        if not perception or isinstance(perception, dict) and perception.get("error"):
-            return
-        convs = perception.get("conversations", []) or []
-        conv = next((c for c in convs if c.get("id") == conv_id), None)
-        if not conv:
-            return
-        messages = conv.get("messages", []) or []
-        if messages:
+        try:
+            now = asyncio.get_event_loop().time()
+            last = self._last_conversation_ts.get(conv_id, 0)
+            if self._conversation_cooldown and now - last < self._conversation_cooldown:
+                return
+            perception = await self.perceive()
+            if not perception or (isinstance(perception, dict) and perception.get("error")):
+                return
+            convs = perception.get("conversations", []) or []
+            conv = next((c for c in convs if c.get("id") == conv_id), None)
+            if not conv:
+                return
+            messages = conv.get("messages", []) or []
+            if not messages:
+                return
             last_msg = max(messages, key=lambda m: m.get("timestamp", 0))
             if last_msg.get("from") == self.agent_id:
                 return
@@ -1000,52 +1099,28 @@ class MOLTVILLESkill:
             last_ts = last_msg.get("timestamp", 0)
             if not last_text:
                 return
-            handled_ts = self._conversation_last_handled_ts.get(conv_id, 0)
-            if last_ts and last_ts <= handled_ts:
-                return
-            if last_text == self._conversation_last_incoming.get(conv_id):
-                repeats = self._conversation_repeat_count.get(conv_id, 0) + 1
-                self._conversation_repeat_count[conv_id] = repeats
-                if repeats >= 2:
-                    await self._http_request("POST", f"/api/moltbot/{self.agent_id}/conversations/{conv_id}/end")
-                    self._conversation_last_handled_ts[conv_id] = last_ts
-                    return
-            else:
-                self._conversation_repeat_count[conv_id] = 0
             if last_text == self._last_conversation_msg.get(conv_id):
                 return
-            if last_ts and last_ts <= self._last_conversation_ts.get(conv_id, 0):
-                return
-        if messages:
-            if "jobid:" in last_text.lower() and ("vota" in last_text.lower() or "vote" in last_text.lower()):
-                import re
-                match = re.search(r"jobId:\s*([\w:-]+)", last_text, re.IGNORECASE)
-                job_id = match.group(1) if match else None
-                applicant_id = last_msg.get("from")
-                if job_id and applicant_id and applicant_id != self.agent_id:
-                    favors = await self._http_request('GET', f"/api/favor/{self.agent_id}")
-                    summary = favors.get('summary') if isinstance(favors, dict) else {}
-                    owed = summary.get('owed', 0) if isinstance(summary, dict) else 0
-                    if owed > 0:
-                        await self.vote_job(applicant_id, job_id)
-                        await self.send_conversation_message(conv_id, "Te debía un favor. Voté por tu solicitud.")
-                        self._last_conversation_ts[conv_id] = int(asyncio.get_event_loop().time() * 1000)
-                        self._last_conversation_msg[conv_id] = last_text
-                        return
-                    await self.send_conversation_message(conv_id, "Si me ayudas con algo primero, puedo votar por ti.")
-                    self._last_conversation_ts[conv_id] = int(asyncio.get_event_loop().time() * 1000)
-                    self._last_conversation_msg[conv_id] = last_text
-                    return
-        action = await self._decide_with_llm(perception, force_conversation=True, forced_conversation_id=conv_id)
-        if not action:
             action = await self._decide_with_llm(perception, force_conversation=True, forced_conversation_id=conv_id)
-        if action and action.get("type") in ("conversation_message", "end_conversation"):
-            await self._execute_action(action)
-            self._last_conversation_ts[conv_id] = int(asyncio.get_event_loop().time() * 1000)
-            self._last_conversation_msg[conv_id] = last_text
-            if last_ts:
-                self._conversation_last_handled_ts[conv_id] = last_ts
-            self._conversation_last_incoming[conv_id] = last_text
+            if not action:
+                message = random.choice([
+                    "Te entiendo. ¿Cuál sería el siguiente paso concreto?",
+                    "Perfecto, avancemos. ¿Qué necesitás ahora?",
+                    "Me sirve. Si te parece, coordinamos el siguiente movimiento."
+                ])
+                action = {"type": "conversation_message", "params": {"conversation_id": conv_id, "message": message}}
+            if action.get("type") in ("conversation_message", "end_conversation"):
+                await self._execute_action(action)
+                self._last_conversation_ts[conv_id] = int(asyncio.get_event_loop().time() * 1000)
+                self._last_conversation_msg[conv_id] = last_text
+                if last_ts:
+                    self._conversation_last_handled_ts[conv_id] = last_ts
+                self._conversation_last_incoming[conv_id] = last_text
+        except Exception as error:
+            self._log_cycle("conversation_error", conversationId=conv_id, error=str(error))
+        finally:
+            if self._conversation_lock.locked():
+                self._conversation_lock.release()
 
     def _plan_expired(self) -> bool:
         if not isinstance(self._plan_state, dict):
@@ -1450,6 +1525,9 @@ class MOLTVILLESkill:
             scored.append((utility - penalty, candidate))
 
         scored.sort(key=lambda item: item[0], reverse=True)
+        if len(scored) > 1:
+            for score, candidate in scored[1:3]:
+                self._enqueue_action(candidate, source="goal_buffer", priority=max(0.1, score))
         return scored[0][1]
 
     async def _maybe_start_conversation(self, perception: Dict[str, Any]) -> Optional[Dict[str, Any]]:
@@ -1556,6 +1634,9 @@ class MOLTVILLESkill:
         return motivation_action
 
     async def _decide_action(self, perception: Dict[str, Any]) -> Optional[Dict[str, Any]]:
+        queued = self._dequeue_action()
+        if queued and isinstance(queued.get("action"), dict):
+            return queued.get("action")
         followup = self._pop_followup_action()
         if followup:
             return followup
@@ -1884,6 +1965,7 @@ class MOLTVILLESkill:
             sanitized = self._sanitize_llm_action(parsed)
             if not sanitized:
                 return None
+            current_step = self._current_step()
             if not self._validate_action_with_step(sanitized, current_step):
                 return None
             return sanitized
@@ -2152,137 +2234,87 @@ class MOLTVILLESkill:
     async def _execute_action(self, action: Dict[str, Any]) -> None:
         if not action or not isinstance(action, dict):
             return
+        try:
+            await asyncio.wait_for(self._action_lock.acquire(), timeout=self._action_lock_timeout)
+        except asyncio.TimeoutError:
+            self._enqueue_action(action, source="action_lock_timeout", priority=1.8)
+            self._log_cycle("action_skip", reason="action_lock_timeout", action=action.get("type"))
+            return
+
         action_type = action.get("type")
         params = action.get("params", {}) or {}
-        self._update_cognition(
-            internal=self._infer_internal_thought(str(action_type or ""), params),
-            external_intent=self._infer_external_intent(str(action_type or ""), params)
-        )
-        await self.sio.emit('telemetry:action', {
-            'event': 'agent_action',
-            'actionType': action_type,
-            'params': params,
-            'reason': (self._motivation_state.get('desire') if isinstance(self._motivation_state, dict) else None)
-        })
-        if action_type == "move_to":
-            x = params.get("x")
-            y = params.get("y")
-            if not (isinstance(x, (int, float)) and isinstance(y, (int, float))):
-                target_id = params.get("target_id") or params.get("targetId") or params.get("building_id") or params.get("buildingId")
-                if isinstance(target_id, str) and target_id.strip():
-                    pos = await self._resolve_building_position(target_id.strip())
-                    if pos:
-                        x, y = pos.get("x"), pos.get("y")
-            if isinstance(x, (int, float)) and isinstance(y, (int, float)):
-                perception = self.current_state.get("perception") or {}
-                step = self._current_step()
-                if self._at_target(perception, int(x), int(y), 0) and self._should_advance_on_arrival(step.get("id") if isinstance(step, dict) else None):
-                    self._mark_step_done(step.get("id") if isinstance(step, dict) else None)
-                    return
-                await self.move_to(x, y)
-            else:
-                logger.warning("move_to missing coords/target_id")
-        elif action_type == "create_event":
-            await self.create_event(params)
-        elif action_type == "join_event":
-            event_id = params.get("event_id") or params.get("eventId")
-            if isinstance(event_id, str) and event_id.strip():
-                await self.join_event(event_id.strip())
-        elif action_type == "enter_building":
-            await self.enter_building(params.get("building_id"))
-        elif action_type == "speak":
-            self._update_cognition(external_speech=str(params.get("message", "") or ""))
-            await self.speak(params.get("message", ""))
-        elif action_type == "start_conversation":
-            self._update_cognition(external_speech=str(params.get("message", "") or ""))
-            await self.start_conversation(params.get("target_id"), params.get("message", ""))
-            followup = action.get("nextStep") if isinstance(action, dict) else None
-            if not followup:
-                followup = self._infer_followup_from_message(params.get("message", ""))
-            self._set_followup_action(followup)
-        elif action_type == "conversation_message":
-            conversation_id = params.get("conversation_id")
-            if not conversation_id:
-                target_id = params.get("target_id")
-                convs = (self.current_state.get("perception") or {}).get("conversations", []) or []
-                match = next((c for c in convs if target_id in (c.get("participants") or [])), None)
-                conversation_id = match.get("id") if isinstance(match, dict) else None
-            if conversation_id:
-                self._update_cognition(external_speech=str(params.get("message", "") or ""))
-                await self.send_conversation_message(conversation_id, params.get("message", ""))
-                followup = action.get("nextStep") if isinstance(action, dict) else None
-                if not followup:
-                    followup = self._infer_followup_from_message(params.get("message", ""))
-                self._set_followup_action(followup)
-        elif action_type == "end_conversation":
-            conversation_id = params.get("conversation_id")
-            if conversation_id:
-                await self._http_request("POST", f"/api/moltbot/{self.agent_id}/conversations/{conversation_id}/end")
-        elif action_type == "apply_job":
-            await self.apply_job(params.get("job_id"))
-        elif action_type == "buy_property":
-            await self.buy_property(params.get("property_id"))
-        elif action_type == "vote_job":
-            await self.vote_job(params.get("applicant_id"), params.get("job_id"))
-        elif action_type == "coord_create_proposal":
-            created = await self.create_coordination_proposal(
-                title=params.get("title"),
-                description=params.get("description", ""),
-                category=params.get("category", "community"),
-                required_roles=params.get("required_roles") or []
+        try:
+            self._update_cognition(
+                internal=self._infer_internal_thought(str(action_type or ""), params),
+                external_intent=self._infer_external_intent(str(action_type or ""), params)
             )
-            if isinstance(created, dict) and created.get("success"):
-                pass
-        elif action_type == "coord_join":
-            proposal_id = params.get("proposal_id")
-            if isinstance(proposal_id, str) and proposal_id.strip():
-                joined = await self.join_coordination_proposal(proposal_id.strip(), params.get("role", "participant"))
-                if isinstance(joined, dict) and joined.get("success") and joined.get("joined") is True:
-                    pass
-        elif action_type == "coord_commit":
-            proposal_id = params.get("proposal_id")
-            if isinstance(proposal_id, str) and proposal_id.strip():
-                await self.commit_coordination_task(
-                    proposal_id.strip(),
-                    task=params.get("task", "support_proposal"),
-                    role=params.get("role", "participant")
-                )
-        elif action_type == "coord_update_commit":
-            proposal_id = params.get("proposal_id")
-            commitment_id = params.get("commitment_id")
-            if isinstance(proposal_id, str) and proposal_id.strip() and isinstance(commitment_id, str) and commitment_id.strip():
-                await self.update_coordination_commitment(
-                    proposal_id.strip(),
-                    commitment_id.strip(),
-                    status=params.get("status"),
-                    progress=params.get("progress"),
-                    notes=params.get("notes", "")
-                )
-        elif action_type == "coord_set_status":
-            proposal_id = params.get("proposal_id")
-            if isinstance(proposal_id, str) and proposal_id.strip():
-                await self.set_coordination_status(
-                    proposal_id.strip(),
-                    status=params.get("status", "done"),
-                    summary=params.get("summary", "")
-                )
-        elif action_type == "wait":
-            return
-        if isinstance(action_type, str) and action_type:
-            self._recent_action_types.append(action_type)
-            self._recent_action_types = self._recent_action_types[-12:]
-        if isinstance(self._plan_state, dict):
-            self._plan_state["lastAction"] = {"type": action_type, "params": params}
+            await self.sio.emit('telemetry:action', {
+                'event': 'agent_action',
+                'actionType': action_type,
+                'params': params,
+                'reason': (self._motivation_state.get('desire') if isinstance(self._motivation_state, dict) else None)
+            })
+
             if action_type == "move_to":
-                step = self._current_step()
-                if isinstance(step, dict) and step.get("id"):
-                    self._plan_state["lastActionStep"] = step.get("id")
-            self._plan_state["lastActionAt"] = int(asyncio.get_event_loop().time() * 1000)
-            if isinstance(self.long_memory, dict):
-                self.long_memory["planState"] = self._plan_state
-                self._save_long_memory()
-        await self._send_profile_update()
-    
+                x = params.get("x")
+                y = params.get("y")
+                if isinstance(x, (int, float)) and isinstance(y, (int, float)):
+                    await self.move_to(x, y)
+            elif action_type == "create_event":
+                await self.create_event(params)
+            elif action_type == "join_event":
+                await self.join_event(params.get("event_id") or params.get("eventId"))
+            elif action_type == "enter_building":
+                await self.enter_building(params.get("building_id"))
+            elif action_type == "speak":
+                await self.speak(params.get("message", ""))
+            elif action_type == "start_conversation":
+                await self.start_conversation(params.get("target_id"), params.get("message", ""))
+            elif action_type == "conversation_message":
+                cid = params.get("conversation_id")
+                if cid:
+                    await self.send_conversation_message(cid, params.get("message", ""))
+            elif action_type == "end_conversation":
+                cid = params.get("conversation_id")
+                if cid:
+                    await self._http_request("POST", f"/api/moltbot/{self.agent_id}/conversations/{cid}/end")
+            elif action_type == "apply_job":
+                await self.apply_job(params.get("job_id"))
+            elif action_type == "buy_property":
+                await self.buy_property(params.get("property_id"))
+            elif action_type == "vote_job":
+                await self.vote_job(params.get("applicant_id"), params.get("job_id"))
+            elif action_type == "coord_create_proposal":
+                await self.create_coordination_proposal(params.get("title"), params.get("description", ""), params.get("category", "community"), params.get("required_roles") or [])
+            elif action_type == "coord_join":
+                await self.join_coordination_proposal(params.get("proposal_id"), params.get("role", "participant"))
+            elif action_type == "coord_commit":
+                await self.commit_coordination_task(params.get("proposal_id"), params.get("task", "support_proposal"), params.get("role", "participant"))
+            elif action_type == "coord_update_commit":
+                await self.update_coordination_commitment(params.get("proposal_id"), params.get("commitment_id"), status=params.get("status"), progress=params.get("progress"), notes=params.get("notes", ""))
+            elif action_type == "coord_set_status":
+                await self.set_coordination_status(params.get("proposal_id"), status=params.get("status", "done"), summary=params.get("summary", ""))
+
+            if isinstance(action_type, str) and action_type:
+                self._recent_action_types.append(action_type)
+                self._recent_action_types = self._recent_action_types[-12:]
+            if isinstance(self._plan_state, dict):
+                self._plan_state["lastAction"] = {"type": action_type, "params": params}
+                self._plan_state["lastActionAt"] = int(asyncio.get_event_loop().time() * 1000)
+                if isinstance(self.long_memory, dict):
+                    self.long_memory["planState"] = self._plan_state
+                    self._save_long_memory()
+            await self._send_profile_update()
+            self._update_health_metric("execute_action", ok=True)
+        except Exception as error:
+            self._update_health_metric("execute_action", ok=False)
+            self._log_cycle("action_error", action=action_type, error=str(error))
+            prio = 2.4 if action_type in ("apply_job", "buy_property", "vote_job", "coord_commit", "coord_update_commit") else 1.2
+            self._enqueue_action(action, source="execute_error", priority=prio)
+        finally:
+            if self._action_lock.locked():
+                self._action_lock.release()
+
     async def connect_to_moltville(self) -> Dict[str, Any]:
         """
         Connect to MOLTVILLE server
@@ -2598,21 +2630,26 @@ class MOLTVILLESkill:
     async def list_jobs(self) -> Dict[str, Any]:
         return await self._http_request('GET', "/api/economy/jobs")
 
-    async def list_job_applications(self) -> List[Dict[str, Any]]:
+    async def list_job_applications(self) -> Dict[str, Any]:
         jobs = await self.list_jobs()
         if not isinstance(jobs, dict):
-            return []
+            return {"applications": []}
         items = []
+        mine = None
         for job in jobs.get("jobs", []) or []:
             app = job.get("application")
             if isinstance(app, dict):
-                items.append({
+                item = {
                     "jobId": job.get("id"),
                     "applicantId": app.get("applicantId"),
                     "votes": app.get("votes", 0),
-                    "createdAt": app.get("createdAt")
-                })
-        return items
+                    "createdAt": app.get("createdAt"),
+                    "status": app.get("status", "pending")
+                }
+                items.append(item)
+                if self.agent_id and app.get("applicantId") == self.agent_id:
+                    mine = item
+        return {"applications": items, "application": mine}
 
     async def get_job_application(self) -> Optional[Dict[str, Any]]:
         if not self.agent_id:
