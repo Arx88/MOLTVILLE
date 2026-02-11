@@ -74,6 +74,11 @@ class MOLTVILLESkill:
         self._internal_thought: str = ""
         self._external_intent: str = ""
         self._external_speech: str = ""
+        self._coord_commit_update_cooldown = 45
+        self._last_coord_commit_update: Dict[str, float] = {}
+        self._coord_create_cooldown = 120
+        self._last_coord_create_ts: float = 0
+        self._coord_state: Dict[str, Any] = {}
         
         # Setup event handlers
         self._setup_handlers()
@@ -1208,13 +1213,28 @@ class MOLTVILLESkill:
             proposals = []
 
         active = [p for p in proposals if isinstance(p, dict) and p.get("status") in ("pending", "in_progress")]
+        my_open_commitments = 0
+        for proposal in active:
+            for commitment in (proposal.get("commitments") or []):
+                if isinstance(commitment, dict) and commitment.get("agentId") == self.agent_id and commitment.get("status") in ("pending", "in_progress"):
+                    my_open_commitments += 1
+
+        self._coord_state = {
+            "activeCount": len(active),
+            "myOpenCommitments": my_open_commitments
+        }
+
         if active:
             active.sort(key=lambda p: p.get("updatedAt", 0), reverse=True)
 
             def _score(proposal: Dict[str, Any]) -> int:
                 members = proposal.get("members") or []
                 joined = any(isinstance(m, dict) and m.get("agentId") == self.agent_id for m in members)
-                return 1000 if joined else len(members)
+                commitments = proposal.get("commitments") or []
+                open_count = sum(1 for c in commitments if isinstance(c, dict) and c.get("status") in ("pending", "in_progress"))
+                done_count = sum(1 for c in commitments if isinstance(c, dict) and c.get("status") == "done")
+                # Prefer proposals where agent is already engaged and there is still meaningful pending work.
+                return (1000 if joined else 0) + max(0, 10 - open_count) + done_count
 
             target = sorted(active, key=_score, reverse=True)[0]
             proposal_id = target.get("id")
@@ -1222,33 +1242,50 @@ class MOLTVILLESkill:
                 return None
 
             members = target.get("members") or []
+            required_roles = target.get("requiredRoles") or []
+            role_capacity = sum(int(r.get("min", 1)) for r in required_roles if isinstance(r, dict)) or 3
             joined = any(isinstance(m, dict) and m.get("agentId") == self.agent_id for m in members)
-            if not joined:
+            if not joined and len(members) < role_capacity:
                 return {"type": "coord_join", "params": {"proposal_id": proposal_id, "role": "participant"}}
 
-            commitments = [c for c in (target.get("commitments") or []) if isinstance(c, dict) and c.get("agentId") == self.agent_id]
-            if not commitments:
-                task = f"support_{(target.get('category') or 'community')}"
-                return {"type": "coord_commit", "params": {"proposal_id": proposal_id, "task": task, "role": "participant"}}
+            commitments = [c for c in (target.get("commitments") or []) if isinstance(c, dict)]
+            own_open = [c for c in commitments if c.get("agentId") == self.agent_id and c.get("status") in ("pending", "in_progress")]
+            own_done = [c for c in commitments if c.get("agentId") == self.agent_id and c.get("status") == "done"]
 
-            own = commitments[0]
-            status = own.get("status")
-            progress = own.get("progress", 0)
-            if status in ("pending", "in_progress") and (not isinstance(progress, (int, float)) or progress < 100):
-                next_progress = 100 if (not isinstance(progress, (int, float)) or progress >= 60) else int(progress) + 40
-                return {
-                    "type": "coord_update_commit",
-                    "params": {
-                        "proposal_id": proposal_id,
-                        "commitment_id": own.get("id"),
-                        "status": "done" if next_progress >= 100 else "in_progress",
-                        "progress": min(100, next_progress),
-                        "notes": "avance_autonomo"
+            if not own_open and not own_done:
+                open_total = sum(1 for c in commitments if c.get("status") in ("pending", "in_progress"))
+                if open_total < max(2, role_capacity):
+                    task = f"support_{(target.get('category') or 'community')}"
+                    return {"type": "coord_commit", "params": {"proposal_id": proposal_id, "task": task, "role": "participant"}}
+                return None
+
+            if own_open:
+                own = own_open[0]
+                commitment_id = own.get("id")
+                if not isinstance(commitment_id, str) or not commitment_id:
+                    return None
+                now_s = asyncio.get_event_loop().time()
+                last_update = float(self._last_coord_commit_update.get(commitment_id, 0))
+                if now_s - last_update < self._coord_commit_update_cooldown:
+                    return None
+                status = own.get("status")
+                progress = own.get("progress", 0)
+                if status in ("pending", "in_progress") and (not isinstance(progress, (int, float)) or progress < 100):
+                    next_progress = 100 if (not isinstance(progress, (int, float)) or progress >= 70) else int(progress) + 30
+                    self._last_coord_commit_update[commitment_id] = now_s
+                    return {
+                        "type": "coord_update_commit",
+                        "params": {
+                            "proposal_id": proposal_id,
+                            "commitment_id": commitment_id,
+                            "status": "done" if next_progress >= 100 else "in_progress",
+                            "progress": min(100, next_progress),
+                            "notes": "avance_autonomo"
+                        }
                     }
-                }
 
-            all_commitments = target.get("commitments") or []
-            if all_commitments and all(isinstance(c, dict) and c.get("status") == "done" for c in all_commitments):
+            all_commitments = commitments
+            if all_commitments and all(c.get("status") == "done" for c in all_commitments):
                 return {
                     "type": "coord_set_status",
                     "params": {
@@ -1261,7 +1298,9 @@ class MOLTVILLESkill:
             return None
 
         nearby = perception.get("nearbyAgents", []) or []
-        if len(nearby) >= 2:
+        now_s = asyncio.get_event_loop().time()
+        if len(nearby) >= 3 and (now_s - self._last_coord_create_ts) >= self._coord_create_cooldown:
+            self._last_coord_create_ts = now_s
             leader_name = self.config.get("agent", {}).get("name", "Ciudadano")
             title = f"Asamblea vecinal liderada por {leader_name}"
             description = "Coordinar tareas comunitarias y repartir responsabilidades"
@@ -1299,15 +1338,33 @@ class MOLTVILLESkill:
         social_need = float(needs.get("social", 100) or 100)
         hunger = float(needs.get("hunger", 0) or 0)
         energy = float(needs.get("energy", 100) or 100)
+        context = (perception.get("context") or {}) if isinstance(perception, dict) else {}
+        econ = (context.get("economy") or {}) if isinstance(context, dict) else {}
+        balance = float(econ.get("balance", 0) or 0)
+        has_job = bool((econ.get("job") or {}).get("id") if isinstance(econ.get("job"), dict) else econ.get("job"))
+        has_property = len(econ.get("properties") or []) > 0 if isinstance(econ.get("properties"), list) else False
+        active_events = [e for e in (perception.get("events") or []) if isinstance(e, dict) and e.get("status") == "active"]
+        coord_active = int(self._coord_state.get("activeCount", 0)) if isinstance(self._coord_state, dict) else 0
+        my_coord_open = int(self._coord_state.get("myOpenCommitments", 0)) if isinstance(self._coord_state, dict) else 0
 
-        if action_type in ("coord_commit", "coord_update_commit", "coord_set_status"):
-            return 2.6
-        if action_type in ("coord_join", "coord_create_proposal"):
-            return 2.2
-        if action_type in ("apply_job", "buy_property", "vote_job"):
-            return 1.9
+        if action_type == "coord_update_commit":
+            return 1.35 - (0.25 * max(0, my_coord_open - 1))
+        if action_type == "coord_commit":
+            return 1.2 - (0.2 * my_coord_open)
+        if action_type == "coord_join":
+            return 1.05 - (0.15 * max(0, coord_active - 1))
+        if action_type == "coord_create_proposal":
+            return 0.9 if coord_active == 0 else 0.35
+        if action_type == "apply_job":
+            return 2.35 if not has_job else 0.45
+        if action_type == "buy_property":
+            return 2.15 if (has_job and not has_property and balance >= 200) else 0.55
+        if action_type == "vote_job":
+            return 1.35
+        if action_type in ("join_event", "create_event"):
+            return 1.25 + (0.3 if active_events else 0.0)
         if action_type in ("start_conversation", "conversation_message"):
-            return 1.1 + ((100.0 - social_need) / 120.0)
+            return 1.05 + ((100.0 - social_need) / 110.0)
         if action_type == "move_to":
             base = 1.0
             if hunger > 65:
@@ -1319,11 +1376,46 @@ class MOLTVILLESkill:
             return 0.25 if energy < 30 else 0.05
         return 0.8
 
+    def _economy_action(self, perception: Dict[str, Any]) -> Optional[Dict[str, Any]]:
+        context = (perception.get("context") or {}) if isinstance(perception, dict) else {}
+        econ = (context.get("economy") or {}) if isinstance(context, dict) else {}
+        has_job = bool((econ.get("job") or {}).get("id") if isinstance(econ.get("job"), dict) else econ.get("job"))
+        balance = float(econ.get("balance", 0) or 0)
+        properties = econ.get("properties") if isinstance(econ.get("properties"), list) else []
+
+        if not has_job:
+            jobs = self.current_state.get("jobs", []) or []
+            available = [j for j in jobs if isinstance(j, dict) and not j.get("assignedTo") and not j.get("application")]
+            if available:
+                return {"type": "apply_job", "params": {"job_id": available[0].get("id")}}
+
+        if has_job and not properties and balance >= 200:
+            props = self.current_state.get("properties", []) or []
+            for_sale = [p for p in props if isinstance(p, dict) and p.get("forSale")]
+            if for_sale:
+                cheapest = sorted(for_sale, key=lambda p: float(p.get("price", 999999)))[0]
+                return {"type": "buy_property", "params": {"property_id": cheapest.get("id")}}
+
+        return None
+
+    def _event_action(self, perception: Dict[str, Any]) -> Optional[Dict[str, Any]]:
+        events = [e for e in (perception.get("events") or []) if isinstance(e, dict)]
+        active = [e for e in events if e.get("status") == "active"]
+        if not active:
+            return None
+        target = active[0]
+        event_id = target.get("id")
+        if isinstance(event_id, str) and event_id:
+            return {"type": "join_event", "params": {"event_id": event_id}}
+        return None
+
     async def _goal_action(self, perception: Dict[str, Any]) -> Optional[Dict[str, Any]]:
         coordination = await self._coordination_action(perception)
         motivation = await self._next_motivation_action(perception)
+        economy = self._economy_action(perception)
+        event_action = self._event_action(perception)
 
-        candidates = [c for c in (coordination, motivation) if isinstance(c, dict)]
+        candidates = [c for c in (coordination, motivation, economy, event_action) if isinstance(c, dict)]
         if not candidates:
             return None
 
