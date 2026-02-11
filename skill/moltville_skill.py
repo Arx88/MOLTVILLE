@@ -1353,6 +1353,9 @@ class MOLTVILLESkill:
         decision_config = self.config.get("behavior", {}).get("decisionLoop", {})
         mode = decision_config.get("mode", "heuristic")
         if mode == "llm":
+            goal_action = await self._goal_action(perception)
+            if goal_action:
+                return goal_action
             has_conversation = bool(self._conversation_state) or bool(perception.get("conversations"))
             if has_conversation:
                 action = await self._decide_with_llm(perception, force_conversation=True)
@@ -1370,9 +1373,6 @@ class MOLTVILLESkill:
             action = await self._decide_with_llm(perception)
             if action:
                 return action
-            goal_action = await self._goal_action(perception)
-            if goal_action:
-                return goal_action
             plan_action = await self._next_plan_action(perception)
             if plan_action:
                 return plan_action
