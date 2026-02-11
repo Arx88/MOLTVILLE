@@ -1356,11 +1356,11 @@ class MOLTVILLESkill:
         if action_type == "coord_create_proposal":
             return 0.9 if coord_active == 0 else 0.35
         if action_type == "apply_job":
-            return 2.35 if not has_job else 0.45
+            return 2.05 if not has_job else 0.45
         if action_type == "buy_property":
             return 2.15 if (has_job and not has_property and balance >= 200) else 0.55
         if action_type == "vote_job":
-            return 1.35
+            return 2.45
         if action_type in ("join_event", "create_event"):
             return 1.25 + (0.3 if active_events else 0.0)
         if action_type in ("start_conversation", "conversation_message"):
@@ -1376,15 +1376,39 @@ class MOLTVILLESkill:
             return 0.25 if energy < 30 else 0.05
         return 0.8
 
-    def _economy_action(self, perception: Dict[str, Any]) -> Optional[Dict[str, Any]]:
+    async def _economy_action(self, perception: Dict[str, Any]) -> Optional[Dict[str, Any]]:
         context = (perception.get("context") or {}) if isinstance(perception, dict) else {}
         econ = (context.get("economy") or {}) if isinstance(context, dict) else {}
         has_job = bool((econ.get("job") or {}).get("id") if isinstance(econ.get("job"), dict) else econ.get("job"))
         balance = float(econ.get("balance", 0) or 0)
         properties = econ.get("properties") if isinstance(econ.get("properties"), list) else []
 
+        jobs = self.current_state.get("jobs", []) or []
+        if not jobs:
+            fetched = await self.list_jobs()
+            if isinstance(fetched, dict):
+                jobs = fetched.get("jobs", []) or []
+                self.current_state["jobs"] = jobs
+        open_with_app = [
+            j for j in jobs
+            if isinstance(j, dict)
+            and not j.get("assignedTo")
+            and isinstance(j.get("application"), dict)
+            and j.get("application", {}).get("applicantId")
+            and j.get("application", {}).get("applicantId") != self.agent_id
+        ]
+        if open_with_app:
+            target = sorted(open_with_app, key=lambda j: int((j.get("application") or {}).get("votes", 0)), reverse=True)[0]
+            app = target.get("application") or {}
+            return {
+                "type": "vote_job",
+                "params": {
+                    "applicant_id": app.get("applicantId"),
+                    "job_id": target.get("id")
+                }
+            }
+
         if not has_job:
-            jobs = self.current_state.get("jobs", []) or []
             available = [j for j in jobs if isinstance(j, dict) and not j.get("assignedTo") and not j.get("application")]
             if available:
                 return {"type": "apply_job", "params": {"job_id": available[0].get("id")}}
@@ -1412,7 +1436,7 @@ class MOLTVILLESkill:
     async def _goal_action(self, perception: Dict[str, Any]) -> Optional[Dict[str, Any]]:
         coordination = await self._coordination_action(perception)
         motivation = await self._next_motivation_action(perception)
-        economy = self._economy_action(perception)
+        economy = await self._economy_action(perception)
         event_action = self._event_action(perception)
 
         candidates = [c for c in (coordination, motivation, economy, event_action) if isinstance(c, dict)]

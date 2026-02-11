@@ -557,14 +557,25 @@ export class EconomyManager {
       jobId,
       applicantId: app.applicantId,
       votes: Array.from(app.votes),
-      createdAt: app.createdAt
+      createdAt: app.createdAt,
+      required: this.getRequiredVotes(app)
     }));
+  }
+
+  getRequiredVotes(application) {
+    const base = Math.max(1, this.jobVoteThreshold);
+    if (!application || !Number.isFinite(application.createdAt)) return base;
+    const ageMs = Date.now() - Number(application.createdAt);
+    if (ageMs >= Math.max(30000, this.jobVoteExpiryMs / 3)) {
+      return Math.max(1, base - 1);
+    }
+    return base;
   }
 
   getApplicationForAgent(agentId) {
     for (const [jobId, app] of this.jobApplications.entries()) {
       if (app.applicantId === agentId) {
-        return { jobId, ...app, votes: Array.from(app.votes), required: this.jobVoteThreshold };
+        return { jobId, ...app, votes: Array.from(app.votes), required: this.getRequiredVotes(app) };
       }
     }
     return null;
@@ -668,17 +679,18 @@ export class EconomyManager {
     }
     const existing = this.getApplicationForAgent(agentId);
     if (existing) {
-      return { status: 'pending', jobId: existing.jobId, votes: existing.votes.length, required: this.jobVoteThreshold };
+      return { status: 'pending', jobId: existing.jobId, votes: existing.votes.length, required: this.getRequiredVotes(existing) };
     }
     const job = this.jobs.get(jobId);
     if (!job) throw new Error('Job not found');
     if (job.assignedTo) throw new Error('Job already filled');
-    this.jobApplications.set(jobId, {
+    const application = {
       applicantId: agentId,
       votes: new Set(),
       createdAt: Date.now()
-    });
-    return { status: 'pending', jobId, votes: 0, required: this.jobVoteThreshold };
+    };
+    this.jobApplications.set(jobId, application);
+    return { status: 'pending', jobId, votes: 0, required: this.getRequiredVotes(application) };
   }
 
   voteForJob({ applicantId, voterId, jobId }) {
@@ -697,7 +709,8 @@ export class EconomyManager {
     }
     application.votes.add(voterId);
     const votes = application.votes.size;
-    if (votes >= this.jobVoteThreshold) {
+    const requiredVotes = this.getRequiredVotes(application);
+    if (votes >= requiredVotes) {
       const job = this.jobs.get(jobId);
       if (!job) throw new Error('Job not found');
       if (job.assignedTo) throw new Error('Job already filled');
@@ -707,7 +720,7 @@ export class EconomyManager {
       this.jobApplications.delete(jobId);
       return { status: 'approved', job, votes };
     }
-    return { status: 'pending', jobId, votes, required: this.jobVoteThreshold };
+    return { status: 'pending', jobId, votes, required: requiredVotes };
   }
 
   submitReview({ agentId, reviewerId, score, tags = [], reason = '' }) {

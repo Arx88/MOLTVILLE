@@ -280,6 +280,43 @@ const emitViewerEvent = (event, payload) => {
   io.to('viewers').emit(event, payload);
 };
 
+const eventIncentiveLedger = new Map(); // eventId -> { attendance:Set, completion:Set }
+
+const applyEventIncentives = (eventTransitions = []) => {
+  const activeEvents = eventManager.getSummary().filter(event => event.status === 'active');
+
+  activeEvents.forEach((event) => {
+    if (!event?.id) return;
+    if (!eventIncentiveLedger.has(event.id)) {
+      eventIncentiveLedger.set(event.id, { attendance: new Set(), completion: new Set() });
+    }
+    const ledger = eventIncentiveLedger.get(event.id);
+    const participants = Array.isArray(event.participants) ? event.participants : [];
+    participants.forEach((agentId) => {
+      if (!agentId || ledger.attendance.has(agentId)) return;
+      ledger.attendance.add(agentId);
+      economyManager.applySystemPayout(agentId, 1, `event_attendance:${event.id}`);
+      reputationManager.adjust(agentId, 0.5, { role: 'participant' });
+    });
+  });
+
+  (eventTransitions || [])
+    .filter((entry) => entry?.status === 'ended' && entry?.event?.id)
+    .forEach(({ event }) => {
+      if (!eventIncentiveLedger.has(event.id)) {
+        eventIncentiveLedger.set(event.id, { attendance: new Set(), completion: new Set() });
+      }
+      const ledger = eventIncentiveLedger.get(event.id);
+      const participants = Array.isArray(event.participants) ? event.participants : [];
+      participants.forEach((agentId) => {
+        if (!agentId || ledger.completion.has(agentId)) return;
+        ledger.completion.add(agentId);
+        economyManager.applySystemPayout(agentId, 3, `event_completion:${event.id}`);
+        reputationManager.adjust(agentId, 1, { role: 'participant' });
+      });
+    });
+};
+
 let lastAnalyticsRecord = 0;
 const analyticsIntervalMs = parseInt(process.env.ANALYTICS_RECORD_INTERVAL_MS || '10000', 10);
 
@@ -1179,6 +1216,7 @@ setInterval(() => {
   if (eventTransitions?.length) {
     emitEventGoals(eventTransitions);
   }
+  applyEventIncentives(eventTransitions);
 
   const now = Date.now();
   if (now - lastAnalyticsRecord >= analyticsIntervalMs) {
