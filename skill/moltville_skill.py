@@ -1164,21 +1164,35 @@ class MOLTVILLESkill:
     async def _coordination_action(self, perception: Dict[str, Any]) -> Optional[Dict[str, Any]]:
         if not self.agent_id:
             return None
-        proposals_resp = await self.list_coordination_proposals(mine=True, limit=10)
+        proposals_resp = await self.list_coordination_proposals(mine=False, limit=20)
         proposals = proposals_resp.get("proposals", []) if isinstance(proposals_resp, dict) else []
         if not isinstance(proposals, list):
             proposals = []
 
         active = [p for p in proposals if isinstance(p, dict) and p.get("status") in ("pending", "in_progress")]
         if active:
-            target = sorted(active, key=lambda p: p.get("updatedAt", 0), reverse=True)[0]
+            active.sort(key=lambda p: p.get("updatedAt", 0), reverse=True)
+
+            def _score(proposal: Dict[str, Any]) -> int:
+                members = proposal.get("members") or []
+                joined = any(isinstance(m, dict) and m.get("agentId") == self.agent_id for m in members)
+                return 1000 if joined else len(members)
+
+            target = sorted(active, key=_score, reverse=True)[0]
             proposal_id = target.get("id")
             if not isinstance(proposal_id, str) or not proposal_id:
                 return None
+
+            members = target.get("members") or []
+            joined = any(isinstance(m, dict) and m.get("agentId") == self.agent_id for m in members)
+            if not joined:
+                return {"type": "coord_join", "params": {"proposal_id": proposal_id, "role": "participant"}}
+
             commitments = [c for c in (target.get("commitments") or []) if isinstance(c, dict) and c.get("agentId") == self.agent_id]
             if not commitments:
                 task = f"support_{(target.get('category') or 'community')}"
                 return {"type": "coord_commit", "params": {"proposal_id": proposal_id, "task": task, "role": "participant"}}
+
             own = commitments[0]
             status = own.get("status")
             progress = own.get("progress", 0)
@@ -1194,7 +1208,9 @@ class MOLTVILLESkill:
                         "notes": "avance_autonomo"
                     }
                 }
-            if commitments and all((c.get("status") == "done") for c in commitments):
+
+            all_commitments = target.get("commitments") or []
+            if all_commitments and all(isinstance(c, dict) and c.get("status") == "done" for c in all_commitments):
                 return {
                     "type": "coord_set_status",
                     "params": {
