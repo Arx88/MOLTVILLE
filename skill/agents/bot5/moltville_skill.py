@@ -1219,6 +1219,18 @@ class MOLTVILLESkill:
                         "summary": "objetivo comunitario completado"
                     }
                 }
+
+            nearby = perception.get("nearbyAgents", []) or []
+            if nearby and random.random() < 0.45:
+                target_id = nearby[0].get("id")
+                if isinstance(target_id, str) and target_id:
+                    return {
+                        "type": "start_conversation",
+                        "params": {
+                            "target_id": target_id,
+                            "message": f"Estoy coordinando la propuesta {proposal_id[:8]}. ¿Te sumas a una tarea?"
+                        }
+                    }
             return None
 
         nearby = perception.get("nearbyAgents", []) or []
@@ -1455,6 +1467,21 @@ class MOLTVILLESkill:
             ty = params.get("targetY")
             if isinstance(tx, (int, float)) and isinstance(ty, (int, float)):
                 return {"type": "move_to", "params": {"x": int(tx), "y": int(ty)}}
+            location = params.get("location")
+            if isinstance(location, str) and location.strip():
+                loc = location.strip().lower()
+                mapping = {
+                    "plaza": {"x": 16, "y": 18},
+                    "plaza central": {"x": 16, "y": 18},
+                    "cafe": {"x": 14, "y": 8},
+                    "café": {"x": 14, "y": 8},
+                    "market": {"x": 36, "y": 28},
+                    "mercado": {"x": 36, "y": 28},
+                    "library": {"x": 24, "y": 6},
+                    "biblioteca": {"x": 24, "y": 6}
+                }
+                if loc in mapping:
+                    return {"type": "move_to", "params": mapping[loc]}
             target_id = params.get("targetId") or params.get("target_id") or params.get("target") or params.get("building_id") or params.get("buildingId")
             if isinstance(target_id, str) and target_id:
                 raw = target_id.strip()
@@ -1503,6 +1530,9 @@ class MOLTVILLESkill:
         if action_type == "start_conversation":
             target_id = params.get("target_id") or params.get("targetId") or params.get("target") or params.get("to") or params.get("otherId")
             message = params.get("message") or params.get("text")
+            purpose = params.get("purpose")
+            if not isinstance(message, str) and isinstance(purpose, str) and purpose.strip():
+                message = f"Oye, {purpose.strip()}"
             if isinstance(target_id, str) and target_id.strip() and isinstance(message, str):
                 if self._is_meta_message(message):
                     return None
@@ -2003,16 +2033,20 @@ class MOLTVILLESkill:
         elif action_type == "vote_job":
             await self.vote_job(params.get("applicant_id"), params.get("job_id"))
         elif action_type == "coord_create_proposal":
-            await self.create_coordination_proposal(
+            created = await self.create_coordination_proposal(
                 title=params.get("title"),
                 description=params.get("description", ""),
                 category=params.get("category", "community"),
                 required_roles=params.get("required_roles") or []
             )
+            if isinstance(created, dict) and created.get("success"):
+                await self.speak("Propongo una asamblea comunitaria. ¿Quién se suma?")
         elif action_type == "coord_join":
             proposal_id = params.get("proposal_id")
             if isinstance(proposal_id, str) and proposal_id.strip():
-                await self.join_coordination_proposal(proposal_id.strip(), params.get("role", "participant"))
+                joined = await self.join_coordination_proposal(proposal_id.strip(), params.get("role", "participant"))
+                if isinstance(joined, dict) and joined.get("success"):
+                    await self.speak("Me sumo a la coordinación. Repartamos tareas.")
         elif action_type == "coord_commit":
             proposal_id = params.get("proposal_id")
             if isinstance(proposal_id, str) and proposal_id.strip():
