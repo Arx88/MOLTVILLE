@@ -51,6 +51,9 @@ class MOLTVILLESkill:
         self._last_hotspot: Optional[Dict[str, Any]] = None
         self._last_conversation_ts: Dict[str, float] = {}
         self._last_conversation_msg: Dict[str, str] = {}
+        self._conversation_last_handled_ts: Dict[str, float] = {}
+        self._conversation_last_incoming: Dict[str, str] = {}
+        self._conversation_repeat_count: Dict[str, int] = {}
         self._conversation_cooldown = 0
         self._conversation_stale_seconds = 120
         self._relation_update_cooldown = 8
@@ -64,6 +67,9 @@ class MOLTVILLESkill:
         self._world_state_cache_at = 0
         self._world_state_cache_ttl = 30
         self._profile_last_sent = 0
+        self._pending_followup_action: Optional[Dict[str, Any]] = None
+        self._pending_followup_until: float = 0
+        self._followup_ttl_seconds = 120
         
         # Setup event handlers
         self._setup_handlers()
@@ -167,7 +173,12 @@ class MOLTVILLESkill:
                 "ambition": float(traits.get("ambition", self._traits.get("ambition", 0.5))),
                 "sociability": float(traits.get("sociability", self._traits.get("sociability", 0.6))),
                 "curiosity": float(traits.get("curiosity", self._traits.get("curiosity", 0.5))),
-                "discipline": float(traits.get("discipline", self._traits.get("discipline", 0.5)))
+                "discipline": float(traits.get("discipline", self._traits.get("discipline", 0.5))),
+                "morality": float(traits.get("morality", self._traits.get("morality", 0.6))),
+                "aggression": float(traits.get("aggression", self._traits.get("aggression", 0.3))),
+                "deception": float(traits.get("deception", self._traits.get("deception", 0.2))),
+                "empathy": float(traits.get("empathy", self._traits.get("empathy", 0.6))),
+                "risk": float(traits.get("risk", self._traits.get("risk", 0.4)))
             }
         except (TypeError, ValueError):
             return
@@ -267,6 +278,32 @@ class MOLTVILLESkill:
             self._mark_chain_done(chain, "get_job")
         if target_price and balance >= target_price:
             self._mark_chain_done(chain, "need_money")
+
+        # Mark initial desire steps as done to advance the chain
+        for step in chain:
+            if isinstance(step, dict) and str(step.get("id", "")).startswith("desire_"):
+                step["status"] = "done"
+
+        # Social progress from relationships (memory + live context)
+        rel_notes = self.long_memory.get("relationships", {}) if isinstance(self.long_memory, dict) else {}
+        best_rel = max([
+            (r.get("affinity", 0) + r.get("trust", 0) + r.get("respect", 0))
+            for r in (rel_notes.values() if isinstance(rel_notes, dict) else [])
+        ] + [0])
+        if best_rel >= 4:
+            for step_id in ("build_support", "help_citizens", "build_relationship"):
+                step = next((s for s in chain if s.get("id") == step_id), None)
+                if step and self._chain_ready(chain, step):
+                    self._mark_chain_done(chain, step_id)
+
+        relationships_live = (perception.get("context") or {}).get("relationships", {}) or {}
+        approval = self._approval_ratio(relationships_live) if isinstance(relationships_live, dict) else 0
+        if approval >= 0.25:
+            for step_id in ("get_votes", "win_votes"):
+                step = next((s for s in chain if s.get("id") == step_id), None)
+                if step and self._chain_ready(chain, step):
+                    self._mark_chain_done(chain, step_id)
+
         if isinstance(self.long_memory, dict):
             self.long_memory["motivationState"] = self._motivation_state
             self._save_long_memory()
@@ -357,9 +394,10 @@ class MOLTVILLESkill:
         prompt = (
             "Eres un agente recién llegado a MOLTVILLE. Debes crear tu propio perfil. "
             "No menciones IA, modelos ni sistemas. Responde SOLO JSON. "
-            "Incluye: traits (ambition,sociability,curiosity,discipline) valores 0-1, "
+            "Incluye: traits (ambition,sociability,curiosity,discipline,morality,aggression,deception,empathy,risk) valores 0-1, "
             "goals (3 metas de largo plazo), style (como hablas), "
-            "backstory (2 frases), values (3 palabras), quirks (2 hábitos)."
+            "backstory (2 frases), values (3 palabras), quirks (2 hábitos), "
+            "tactics (2 palabras sobre tu forma de conseguir cosas)."
         )
         payload = {
             "name": self.config.get("agent", {}).get("name"),
@@ -371,6 +409,76 @@ class MOLTVILLESkill:
             self._save_long_memory()
             self._apply_profile_traits(profile)
 
+    def _required_outcome_text(self, step_id: Optional[str]) -> str:
+        if not step_id:
+            return ""
+        mapping = {
+            "build_support": "Ganar apoyo de otro ciudadano y acordar una ayuda concreta",
+            "help_citizens": "Ofrecer ayuda real a otro ciudadano y definir la ayuda",
+            "build_relationship": "Profundizar vínculo con alguien y acordar próxima acción",
+            "get_votes": "Solicitar apoyo/voto para un objetivo concreto",
+            "win_votes": "Asegurar apoyo explícito o acuerdo de voto",
+            "register_candidate": "Registrarte como candidato o definir cómo hacerlo",
+            "need_money": "Conseguir una acción concreta para obtener dinero",
+            "get_job": "Solicitar/asegurar un trabajo concreto",
+            "open_business": "Definir pasos concretos para abrir el negocio",
+            "buy_house": "Avanzar en compra de vivienda (propiedad específica o fondos)"
+        }
+        return mapping.get(step_id, "")
+
+    def _validate_action_with_step(self, action: Dict[str, Any], current_step: Optional[Dict[str, Any]]) -> bool:
+        if not current_step or not isinstance(action, dict):
+            return True
+        step_id = current_step.get("id") if isinstance(current_step, dict) else None
+        if not step_id:
+            return True
+        a_type = action.get("type")
+        params = action.get("params", {}) if isinstance(action.get("params"), dict) else {}
+        message = params.get("message") if isinstance(params.get("message"), str) else ""
+        next_step = action.get("nextStep") if isinstance(action.get("nextStep"), dict) else None
+
+        social_steps = {"build_support", "help_citizens", "build_relationship", "get_votes", "win_votes"}
+        if step_id in social_steps:
+            if a_type not in ("start_conversation", "conversation_message"):
+                return False
+            if not next_step or next_step.get("type") not in ("move_to", "enter_building"):
+                return False
+            keywords = {
+                "build_support": ["ayuda", "apoyo", "colabor", "alianza"],
+                "help_citizens": ["ayuda", "necesitas", "puedo"],
+                "build_relationship": ["confi", "relaci", "vínculo", "vinculo"],
+                "get_votes": ["voto", "apoyo", "firma"],
+                "win_votes": ["voto", "apoyo", "confirm"],
+            }.get(step_id, [])
+            if keywords and not any(k in message.lower() for k in keywords):
+                return False
+        return True
+
+    def _current_step(self) -> Optional[Dict[str, Any]]:
+        chain = self._motivation_state.get("chain", []) if isinstance(self._motivation_state, dict) else []
+        pending = [step for step in chain if step.get("status") != "done" and self._chain_ready(chain, step)]
+        return pending[0] if pending else None
+
+    def _mark_step_done(self, step_id: Optional[str]) -> None:
+        if not step_id:
+            return
+        chain = self._motivation_state.get("chain", []) if isinstance(self._motivation_state, dict) else []
+        self._mark_chain_done(chain, step_id)
+        if isinstance(self.long_memory, dict):
+            self.long_memory["motivationState"] = self._motivation_state
+            self._save_long_memory()
+
+    def _at_target(self, perception: Dict[str, Any], x: int, y: int, tol: int = 0) -> bool:
+        pos = perception.get("position") or {}
+        px = pos.get("x")
+        py = pos.get("y")
+        if not isinstance(px, (int, float)) or not isinstance(py, (int, float)):
+            return False
+        return abs(int(px) - int(x)) <= tol and abs(int(py) - int(y)) <= tol
+
+    def _should_advance_on_arrival(self, step_id: Optional[str]) -> bool:
+        return step_id in {"build_support", "help_citizens", "build_relationship", "get_votes", "win_votes"}
+
     def _init_traits(self) -> Dict[str, float]:
         traits = self.config.get("agent", {}).get("traits", {}) if isinstance(self.config.get("agent", {}), dict) else {}
         if isinstance(traits, dict) and traits:
@@ -378,7 +486,12 @@ class MOLTVILLESkill:
                 "ambition": float(traits.get("ambition", 0.5)),
                 "sociability": float(traits.get("sociability", 0.6)),
                 "curiosity": float(traits.get("curiosity", 0.5)),
-                "discipline": float(traits.get("discipline", 0.5))
+                "discipline": float(traits.get("discipline", 0.5)),
+                "morality": float(traits.get("morality", 0.6)),
+                "aggression": float(traits.get("aggression", 0.3)),
+                "deception": float(traits.get("deception", 0.2)),
+                "empathy": float(traits.get("empathy", 0.6)),
+                "risk": float(traits.get("risk", 0.4))
             }
         # Stable fallback by agent id hash
         seed = sum(ord(c) for c in (self.agent_id or self.config.get("agent", {}).get("name", "agent")))
@@ -387,7 +500,12 @@ class MOLTVILLESkill:
             "ambition": round(random.uniform(0.3, 0.9), 2),
             "sociability": round(random.uniform(0.3, 0.9), 2),
             "curiosity": round(random.uniform(0.3, 0.9), 2),
-            "discipline": round(random.uniform(0.3, 0.9), 2)
+            "discipline": round(random.uniform(0.3, 0.9), 2),
+            "morality": round(random.uniform(0.2, 0.9), 2),
+            "aggression": round(random.uniform(0.1, 0.9), 2),
+            "deception": round(random.uniform(0.1, 0.9), 2),
+            "empathy": round(random.uniform(0.2, 0.9), 2),
+            "risk": round(random.uniform(0.1, 0.9), 2)
         }
 
     def _get_daily_phase(self, perception: Dict[str, Any]) -> str:
@@ -839,6 +957,18 @@ class MOLTVILLESkill:
             last_ts = last_msg.get("timestamp", 0)
             if not last_text:
                 return
+            handled_ts = self._conversation_last_handled_ts.get(conv_id, 0)
+            if last_ts and last_ts <= handled_ts:
+                return
+            if last_text == self._conversation_last_incoming.get(conv_id):
+                repeats = self._conversation_repeat_count.get(conv_id, 0) + 1
+                self._conversation_repeat_count[conv_id] = repeats
+                if repeats >= 2:
+                    await self._http_request("POST", f"/api/moltbot/{self.agent_id}/conversations/{conv_id}/end")
+                    self._conversation_last_handled_ts[conv_id] = last_ts
+                    return
+            else:
+                self._conversation_repeat_count[conv_id] = 0
             if last_text == self._last_conversation_msg.get(conv_id):
                 return
             if last_ts and last_ts <= self._last_conversation_ts.get(conv_id, 0):
@@ -866,10 +996,13 @@ class MOLTVILLESkill:
         action = await self._decide_with_llm(perception, force_conversation=True, forced_conversation_id=conv_id)
         if not action:
             action = await self._decide_with_llm(perception, force_conversation=True, forced_conversation_id=conv_id)
-        if action and action.get("type") == "conversation_message":
+        if action and action.get("type") in ("conversation_message", "end_conversation"):
             await self._execute_action(action)
             self._last_conversation_ts[conv_id] = int(asyncio.get_event_loop().time() * 1000)
             self._last_conversation_msg[conv_id] = last_text
+            if last_ts:
+                self._conversation_last_handled_ts[conv_id] = last_ts
+            self._conversation_last_incoming[conv_id] = last_text
 
     def _plan_expired(self) -> bool:
         if not isinstance(self._plan_state, dict):
@@ -969,6 +1102,8 @@ class MOLTVILLESkill:
         data = {
             "kind": kind,
             "self": self.config.get("agent", {}).get("name"),
+            "traits": self._traits,
+            "profile": self.long_memory.get("profile"),
             **(payload or {})
         }
         result = await self._call_llm_json(prompt, data)
@@ -977,7 +1112,122 @@ class MOLTVILLESkill:
             return message.strip()
         return None
 
+    def _infer_followup_from_message(self, message: str) -> Optional[Dict[str, Any]]:
+        if not isinstance(message, str) or not message.strip():
+            return None
+        text = message.lower()
+        if not any(token in text for token in ("ir", "vamos", "ven", "quedemos", "encuentro", "cita", "reun")):
+            return None
+        mapping = {
+            "cafe": {"x": 14, "y": 8},
+            "café": {"x": 14, "y": 8},
+            "plaza": {"x": 16, "y": 18},
+            "mercado": {"x": 36, "y": 28},
+            "market": {"x": 36, "y": 28},
+            "biblioteca": {"x": 24, "y": 6},
+            "library": {"x": 24, "y": 6},
+            "galer": {"x": 50, "y": 8},
+            "park": {"x": 40, "y": 42},
+            "parque": {"x": 40, "y": 42},
+            "jardin": {"x": 40, "y": 42},
+            "jardín": {"x": 40, "y": 42},
+            "inn": {"x": 52, "y": 42},
+            "posada": {"x": 52, "y": 42},
+            "tienda": {"x": 30, "y": 14},
+            "shop": {"x": 30, "y": 14}
+        }
+        target = None
+        for token, pos in mapping.items():
+            if token in text:
+                target = pos
+                break
+        if target:
+            return {"type": "move_to", "params": target}
+        return None
+
+    def _set_followup_action(self, action: Optional[Dict[str, Any]]) -> None:
+        if not action:
+            return
+        self._pending_followup_action = action
+        self._pending_followup_until = asyncio.get_event_loop().time() + self._followup_ttl_seconds
+
+    def _pop_followup_action(self) -> Optional[Dict[str, Any]]:
+        if not self._pending_followup_action:
+            return None
+        if asyncio.get_event_loop().time() > self._pending_followup_until:
+            self._pending_followup_action = None
+            return None
+        action = self._pending_followup_action
+        self._pending_followup_action = None
+        return action
+
+    async def _coordination_action(self, perception: Dict[str, Any]) -> Optional[Dict[str, Any]]:
+        if not self.agent_id:
+            return None
+        proposals_resp = await self.list_coordination_proposals(mine=True, limit=10)
+        proposals = proposals_resp.get("proposals", []) if isinstance(proposals_resp, dict) else []
+        if not isinstance(proposals, list):
+            proposals = []
+
+        active = [p for p in proposals if isinstance(p, dict) and p.get("status") in ("pending", "in_progress")]
+        if active:
+            target = sorted(active, key=lambda p: p.get("updatedAt", 0), reverse=True)[0]
+            proposal_id = target.get("id")
+            if not isinstance(proposal_id, str) or not proposal_id:
+                return None
+            commitments = [c for c in (target.get("commitments") or []) if isinstance(c, dict) and c.get("agentId") == self.agent_id]
+            if not commitments:
+                task = f"support_{(target.get('category') or 'community')}"
+                return {"type": "coord_commit", "params": {"proposal_id": proposal_id, "task": task, "role": "participant"}}
+            own = commitments[0]
+            status = own.get("status")
+            progress = own.get("progress", 0)
+            if status in ("pending", "in_progress") and (not isinstance(progress, (int, float)) or progress < 100):
+                next_progress = 100 if (not isinstance(progress, (int, float)) or progress >= 60) else int(progress) + 40
+                return {
+                    "type": "coord_update_commit",
+                    "params": {
+                        "proposal_id": proposal_id,
+                        "commitment_id": own.get("id"),
+                        "status": "done" if next_progress >= 100 else "in_progress",
+                        "progress": min(100, next_progress),
+                        "notes": "avance_autonomo"
+                    }
+                }
+            if commitments and all((c.get("status") == "done") for c in commitments):
+                return {
+                    "type": "coord_set_status",
+                    "params": {
+                        "proposal_id": proposal_id,
+                        "status": "done",
+                        "summary": "objetivo comunitario completado"
+                    }
+                }
+            return None
+
+        nearby = perception.get("nearbyAgents", []) or []
+        if len(nearby) >= 2:
+            leader_name = self.config.get("agent", {}).get("name", "Ciudadano")
+            title = f"Asamblea vecinal liderada por {leader_name}"
+            description = "Coordinar tareas comunitarias y repartir responsabilidades"
+            return {
+                "type": "coord_create_proposal",
+                "params": {
+                    "title": title,
+                    "description": description,
+                    "category": "community",
+                    "required_roles": [
+                        {"role": "organizer", "min": 1},
+                        {"role": "support", "min": 2}
+                    ]
+                }
+            }
+        return None
+
     async def _goal_action(self, perception: Dict[str, Any]) -> Optional[Dict[str, Any]]:
+        coordination = await self._coordination_action(perception)
+        if coordination:
+            return coordination
         return await self._next_motivation_action(perception)
 
     async def _maybe_start_conversation(self, perception: Dict[str, Any]) -> Optional[Dict[str, Any]]:
@@ -1084,12 +1334,28 @@ class MOLTVILLESkill:
         return motivation_action
 
     async def _decide_action(self, perception: Dict[str, Any]) -> Optional[Dict[str, Any]]:
+        followup = self._pop_followup_action()
+        if followup:
+            return followup
+        # If already at target for a move_to action, mark step done and advance
+        step = self._current_step()
+        if isinstance(step, dict):
+            last_action = (self._plan_state or {}).get("lastAction") if isinstance(self._plan_state, dict) else None
+            if isinstance(last_action, dict) and last_action.get("type") == "move_to":
+                params = last_action.get("params") if isinstance(last_action.get("params"), dict) else {}
+                x = params.get("x")
+                y = params.get("y")
+                perception = perception or {}
+                last_step_id = (self._plan_state or {}).get("lastActionStep") if isinstance(self._plan_state, dict) else None
+                if isinstance(x, (int, float)) and isinstance(y, (int, float)):
+                    if self._at_target(perception, int(x), int(y), 0) and last_step_id == step.get("id"):
+                        self._mark_step_done(step.get("id"))
         decision_config = self.config.get("behavior", {}).get("decisionLoop", {})
         mode = decision_config.get("mode", "heuristic")
         if mode == "llm":
             has_conversation = bool(self._conversation_state) or bool(perception.get("conversations"))
             if has_conversation:
-                action = await self._decide_with_llm(perception)
+                action = await self._decide_with_llm(perception, force_conversation=True)
                 if not action:
                     action = await self._decide_with_llm(perception, force_conversation=True)
                 if action:
@@ -1122,6 +1388,31 @@ class MOLTVILLESkill:
                 return plan_action
         return await self._heuristic_decision(perception)
 
+    def _sanitize_followup_action(self, followup: Optional[Dict[str, Any]]) -> Optional[Dict[str, Any]]:
+        if not isinstance(followup, dict):
+            return None
+        ftype = followup.get("type")
+        params = followup.get("params", {}) if isinstance(followup.get("params"), dict) else {}
+        if ftype == "move_to":
+            x = params.get("x")
+            y = params.get("y")
+            if isinstance(x, (int, float)) and isinstance(y, (int, float)):
+                return {"type": "move_to", "params": {"x": int(x), "y": int(y)}}
+            return None
+        if ftype == "enter_building":
+            building_id = params.get("building_id") or params.get("buildingId") or params.get("target")
+            if isinstance(building_id, str) and building_id.strip():
+                return {"type": "enter_building", "params": {"building_id": building_id.strip()}}
+            return None
+        if ftype == "join_event":
+            event_id = params.get("event_id") or params.get("eventId")
+            if isinstance(event_id, str) and event_id.strip():
+                return {"type": "join_event", "params": {"event_id": event_id.strip()}}
+            return None
+        if ftype == "wait":
+            return {"type": "wait", "params": {}}
+        return None
+
     def _sanitize_llm_action(self, action: Any) -> Optional[Dict[str, Any]]:
         if not isinstance(action, dict):
             return None
@@ -1131,6 +1422,7 @@ class MOLTVILLESkill:
         params = action.get("params", {}) or {}
         if not isinstance(params, dict):
             params = {}
+        followup = self._sanitize_followup_action(action.get("nextStep") if isinstance(action.get("nextStep"), dict) else None)
 
         if action_type == "move_to":
             x = params.get("x")
@@ -1147,9 +1439,10 @@ class MOLTVILLESkill:
             ty = params.get("targetY")
             if isinstance(tx, (int, float)) and isinstance(ty, (int, float)):
                 return {"type": "move_to", "params": {"x": int(tx), "y": int(ty)}}
-            target_id = params.get("targetId") or params.get("target")
+            target_id = params.get("targetId") or params.get("target_id") or params.get("target") or params.get("building_id") or params.get("buildingId")
             if isinstance(target_id, str) and target_id:
-                target_id = target_id.strip().lower()
+                raw = target_id.strip()
+                target_id = raw.lower()
                 buildings = (self.current_state.get("perception") or {}).get("nearbyBuildings", []) or []
                 match = next((b for b in buildings if (b.get("id") == target_id) or (str(b.get("name", "")).lower() == target_id)), None)
                 if match:
@@ -1157,6 +1450,29 @@ class MOLTVILLESkill:
                     bx, by = pos.get("x"), pos.get("y")
                     if isinstance(bx, (int, float)) and isinstance(by, (int, float)):
                         return {"type": "move_to", "params": {"x": int(bx), "y": int(by)}}
+                return {"type": "move_to", "params": {"target_id": raw}}
+            return None
+        if action_type == "create_event":
+            name = params.get("name")
+            if isinstance(name, str) and name.strip():
+                location = params.get("location") if isinstance(params.get("location"), dict) else {}
+                return {
+                    "type": "create_event",
+                    "params": {
+                        "name": name.strip(),
+                        "type": params.get("type") or "assembly",
+                        "startAt": params.get("startAt"),
+                        "endAt": params.get("endAt"),
+                        "location": location,
+                        "description": params.get("description") or "",
+                        "goalScope": params.get("goalScope") or "radius"
+                    }
+                }
+            return None
+        if action_type == "join_event":
+            event_id = params.get("event_id") or params.get("eventId")
+            if isinstance(event_id, str) and event_id.strip():
+                return {"type": "join_event", "params": {"event_id": event_id.strip()}}
             return None
         if action_type == "enter_building":
             building_id = params.get("building_id")
@@ -1174,10 +1490,13 @@ class MOLTVILLESkill:
             if isinstance(target_id, str) and target_id.strip() and isinstance(message, str):
                 if self._is_meta_message(message):
                     return None
-                return {
+                result = {
                     "type": "start_conversation",
                     "params": {"target_id": target_id.strip(), "message": message}
                 }
+                if followup:
+                    result["nextStep"] = followup
+                return result
             return None
         if action_type == "conversation_message":
             conversation_id = params.get("conversation_id") or params.get("conversationId")
@@ -1186,16 +1505,27 @@ class MOLTVILLESkill:
                 if self._is_meta_message(message):
                     return None
                 if isinstance(conversation_id, str) and conversation_id.strip():
-                    return {
+                    result = {
                         "type": "conversation_message",
                         "params": {"conversation_id": conversation_id.strip(), "message": message}
                     }
+                    if followup:
+                        result["nextStep"] = followup
+                    return result
                 target_id = params.get("target_id") or params.get("targetId") or params.get("target") or params.get("to") or params.get("otherId")
                 if isinstance(target_id, str) and target_id.strip():
-                    return {
+                    result = {
                         "type": "conversation_message",
                         "params": {"target_id": target_id.strip(), "message": message}
                     }
+                    if followup:
+                        result["nextStep"] = followup
+                    return result
+            return None
+        if action_type == "end_conversation":
+            conversation_id = params.get("conversation_id") or params.get("conversationId")
+            if isinstance(conversation_id, str) and conversation_id.strip():
+                return {"type": "end_conversation", "params": {"conversation_id": conversation_id.strip()}}
             return None
         if action_type == "apply_job":
             job_id = params.get("job_id")
@@ -1318,7 +1648,14 @@ class MOLTVILLESkill:
             if not content:
                 return None
             parsed = json.loads(content)
-            return parsed if isinstance(parsed, dict) else None
+            if not isinstance(parsed, dict):
+                return None
+            sanitized = self._sanitize_llm_action(parsed)
+            if not sanitized:
+                return None
+            if not self._validate_action_with_step(sanitized, current_step):
+                return None
+            return sanitized
         except (OSError, json.JSONDecodeError, aiohttp.ClientError) as error:
             logger.warning(f"LLM decision failed: {error}")
             return None
@@ -1336,6 +1673,9 @@ class MOLTVILLESkill:
         self._prune_goals()
         self._ensure_motivation_state()
         job_applications = await self.list_job_applications()
+        chain = self._motivation_state.get("chain", []) if isinstance(self._motivation_state, dict) else []
+        pending = [step for step in chain if step.get("status") != "done" and self._chain_ready(chain, step)]
+        current_step = pending[0] if pending else None
         payload = {
             "agent": {
                 "id": self.agent_id,
@@ -1343,10 +1683,14 @@ class MOLTVILLESkill:
                 "personality": self.config.get("agent", {}).get("personality")
             },
             "perception": perception,
+            "events": perception.get("events", []),
             "goals": self._active_goals[-5:],
             "recentContext": self._get_recent_context(),
             "profile": self.long_memory.get("profile"),
+            "traits": self._traits,
             "motivation": self._motivation_state,
+            "currentStep": current_step,
+            "requiredOutcome": self._required_outcome_text(current_step.get("id") if isinstance(current_step, dict) else None),
             "activeConversations": self._conversation_state,
             "activeConversationsLive": perception.get("conversations", []),
             "forcedConversationId": forced_conversation_id,
@@ -1356,22 +1700,26 @@ class MOLTVILLESkill:
             "Eres un ciudadano de MOLTVILLE. Actúas solo dentro del mundo, en primera persona. "
             "Nunca menciones IA, modelos, sistemas, pruebas, servidores ni infraestructura. "
             "Usa relaciones, memoria y conversación previa si existen. "
-            "Tu respuesta debe AVANZAR el próximo paso del motivo actual (motivation.chain). "
-            "Si hay una conversación activa donde tú participas, RESPONDE con conversation_message. "
-            "Si no hay conversación y ves a alguien cerca, inicia start_conversation. "
+            "Tu respuesta debe AVANZAR el próximo paso del motivo actual (motivation.chain) usando currentStep. "
+            "Debes cumplir requiredOutcome (si existe). "
+            "Si hay una conversación activa donde tú participas, RESPONDE con conversation_message alineado a currentStep. "
+            "Si no hay conversación y ves a alguien cerca, inicia start_conversation con propósito del currentStep. "
             "Si estás solo, muévete hacia un lugar relevante según tu intención. "
             "No repitas mensajes recientes. "
             "Devuelve SOLO JSON válido con la acción a ejecutar. "
-            "Formato: {\"type\": \"move_to|enter_building|speak|apply_job|buy_property|vote_job|wait|start_conversation|conversation_message\", "
-            "\"params\": { ... } }."
+            "Formato: {\"type\": \"move_to|enter_building|speak|apply_job|buy_property|vote_job|create_event|join_event|wait|start_conversation|conversation_message|end_conversation\", "
+            "\"params\": { ... }, \"nextStep\": {\"type\": \"move_to|enter_building|join_event|wait\", \"params\": {...}} }. "
+            "Si currentStep es social, tu respuesta debe mencionar el objetivo y proponer un paso concreto. "
+            "Si surge una asamblea o reunión, usa create_event y elige una ubicación." 
         )
         if force_conversation:
             prompt = (
                 "Hay una conversación activa. Debes responder SOLO con conversation_message. "
                 "No uses move_to, enter_building, speak, apply_job, buy_property, vote_job ni start_conversation. "
                 "Mantente 100% in-world. Responde con un solo mensaje natural. "
+                "Alinea tu respuesta con currentStep (el próximo paso del motivo). "
                 "Si ves forcedConversationId úsalo como conversation_id. "
-                "Devuelve SOLO JSON válido con: {\"type\": \"conversation_message\", \"params\": {\"conversation_id\": \"...\", \"message\": \"...\"}}."
+                "Devuelve SOLO JSON válido con: {\"type\": \"conversation_message|end_conversation\", \"params\": {\"conversation_id\": \"...\", \"message\": \"...\"}, \"nextStep\": {\"type\": \"move_to|enter_building|wait\", \"params\": {...}}}."
             )
 
         try:
@@ -1582,13 +1930,39 @@ class MOLTVILLESkill:
             'reason': (self._motivation_state.get('desire') if isinstance(self._motivation_state, dict) else None)
         })
         if action_type == "move_to":
-            await self.move_to(params.get("x"), params.get("y"))
+            x = params.get("x")
+            y = params.get("y")
+            if not (isinstance(x, (int, float)) and isinstance(y, (int, float))):
+                target_id = params.get("target_id") or params.get("targetId") or params.get("building_id") or params.get("buildingId")
+                if isinstance(target_id, str) and target_id.strip():
+                    pos = await self._resolve_building_position(target_id.strip())
+                    if pos:
+                        x, y = pos.get("x"), pos.get("y")
+            if isinstance(x, (int, float)) and isinstance(y, (int, float)):
+                perception = self.current_state.get("perception") or {}
+                step = self._current_step()
+                if self._at_target(perception, int(x), int(y), 0) and self._should_advance_on_arrival(step.get("id") if isinstance(step, dict) else None):
+                    self._mark_step_done(step.get("id") if isinstance(step, dict) else None)
+                    return
+                await self.move_to(x, y)
+            else:
+                logger.warning("move_to missing coords/target_id")
+        elif action_type == "create_event":
+            await self.create_event(params)
+        elif action_type == "join_event":
+            event_id = params.get("event_id") or params.get("eventId")
+            if isinstance(event_id, str) and event_id.strip():
+                await self.join_event(event_id.strip())
         elif action_type == "enter_building":
             await self.enter_building(params.get("building_id"))
         elif action_type == "speak":
             await self.speak(params.get("message", ""))
         elif action_type == "start_conversation":
             await self.start_conversation(params.get("target_id"), params.get("message", ""))
+            followup = action.get("nextStep") if isinstance(action, dict) else None
+            if not followup:
+                followup = self._infer_followup_from_message(params.get("message", ""))
+            self._set_followup_action(followup)
         elif action_type == "conversation_message":
             conversation_id = params.get("conversation_id")
             if not conversation_id:
@@ -1598,16 +1972,66 @@ class MOLTVILLESkill:
                 conversation_id = match.get("id") if isinstance(match, dict) else None
             if conversation_id:
                 await self.send_conversation_message(conversation_id, params.get("message", ""))
+                followup = action.get("nextStep") if isinstance(action, dict) else None
+                if not followup:
+                    followup = self._infer_followup_from_message(params.get("message", ""))
+                self._set_followup_action(followup)
+        elif action_type == "end_conversation":
+            conversation_id = params.get("conversation_id")
+            if conversation_id:
+                await self._http_request("POST", f"/api/moltbot/{self.agent_id}/conversations/{conversation_id}/end")
         elif action_type == "apply_job":
             await self.apply_job(params.get("job_id"))
         elif action_type == "buy_property":
             await self.buy_property(params.get("property_id"))
         elif action_type == "vote_job":
             await self.vote_job(params.get("applicant_id"), params.get("job_id"))
+        elif action_type == "coord_create_proposal":
+            await self.create_coordination_proposal(
+                title=params.get("title"),
+                description=params.get("description", ""),
+                category=params.get("category", "community"),
+                required_roles=params.get("required_roles") or []
+            )
+        elif action_type == "coord_join":
+            proposal_id = params.get("proposal_id")
+            if isinstance(proposal_id, str) and proposal_id.strip():
+                await self.join_coordination_proposal(proposal_id.strip(), params.get("role", "participant"))
+        elif action_type == "coord_commit":
+            proposal_id = params.get("proposal_id")
+            if isinstance(proposal_id, str) and proposal_id.strip():
+                await self.commit_coordination_task(
+                    proposal_id.strip(),
+                    task=params.get("task", "support_proposal"),
+                    role=params.get("role", "participant")
+                )
+        elif action_type == "coord_update_commit":
+            proposal_id = params.get("proposal_id")
+            commitment_id = params.get("commitment_id")
+            if isinstance(proposal_id, str) and proposal_id.strip() and isinstance(commitment_id, str) and commitment_id.strip():
+                await self.update_coordination_commitment(
+                    proposal_id.strip(),
+                    commitment_id.strip(),
+                    status=params.get("status"),
+                    progress=params.get("progress"),
+                    notes=params.get("notes", "")
+                )
+        elif action_type == "coord_set_status":
+            proposal_id = params.get("proposal_id")
+            if isinstance(proposal_id, str) and proposal_id.strip():
+                await self.set_coordination_status(
+                    proposal_id.strip(),
+                    status=params.get("status", "done"),
+                    summary=params.get("summary", "")
+                )
         elif action_type == "wait":
             return
         if isinstance(self._plan_state, dict):
             self._plan_state["lastAction"] = {"type": action_type, "params": params}
+            if action_type == "move_to":
+                step = self._current_step()
+                if isinstance(step, dict) and step.get("id"):
+                    self._plan_state["lastActionStep"] = step.get("id")
             self._plan_state["lastActionAt"] = int(asyncio.get_event_loop().time() * 1000)
             if isinstance(self.long_memory, dict):
                 self.long_memory["planState"] = self._plan_state
@@ -1748,6 +2172,74 @@ class MOLTVILLESkill:
             logger.error(f"MoveTo failed: {e}")
             return {"error": str(e)}
     
+    async def create_event(self, params: Dict[str, Any]) -> Dict[str, Any]:
+        if not self.connected:
+            return {"error": "Not connected to MOLTVILLE"}
+        payload = {
+            "name": params.get("name"),
+            "type": params.get("type", "assembly"),
+            "startAt": params.get("startAt"),
+            "endAt": params.get("endAt"),
+            "location": params.get("location"),
+            "description": params.get("description"),
+            "goalScope": params.get("goalScope")
+        }
+        return await self._http_request('POST', "/api/events", payload)
+
+    async def join_event(self, event_id: str) -> Dict[str, Any]:
+        if not self.connected:
+            return {"error": "Not connected to MOLTVILLE"}
+        return await self._http_request('POST', f"/api/events/{event_id}/join", {})
+
+    async def list_coordination_proposals(self, mine: bool = False, status: Optional[str] = None, limit: int = 50) -> Dict[str, Any]:
+        if not self.connected:
+            return {"error": "Not connected to MOLTVILLE"}
+        query = [f"limit={max(1, int(limit))}"]
+        if mine:
+            query.append("mine=true")
+        if isinstance(status, str) and status.strip():
+            query.append(f"status={status.strip()}")
+        suffix = "&".join(query)
+        return await self._http_request('GET', f"/api/coordination/proposals?{suffix}")
+
+    async def create_coordination_proposal(self, title: str, description: str = "", category: str = "community", required_roles: Optional[List[Dict[str, Any]]] = None) -> Dict[str, Any]:
+        if not self.connected:
+            return {"error": "Not connected to MOLTVILLE"}
+        payload = {
+            "title": title,
+            "description": description,
+            "category": category,
+            "requiredRoles": required_roles or []
+        }
+        return await self._http_request('POST', "/api/coordination/proposals", payload)
+
+    async def join_coordination_proposal(self, proposal_id: str, role: str = "participant") -> Dict[str, Any]:
+        if not self.connected:
+            return {"error": "Not connected to MOLTVILLE"}
+        return await self._http_request('POST', f"/api/coordination/proposals/{proposal_id}/join", {"role": role})
+
+    async def commit_coordination_task(self, proposal_id: str, task: str, role: str = "participant") -> Dict[str, Any]:
+        if not self.connected:
+            return {"error": "Not connected to MOLTVILLE"}
+        payload = {"task": task, "role": role}
+        return await self._http_request('POST', f"/api/coordination/proposals/{proposal_id}/commit", payload)
+
+    async def update_coordination_commitment(self, proposal_id: str, commitment_id: str, status: Optional[str] = None, progress: Optional[int] = None, notes: str = "") -> Dict[str, Any]:
+        if not self.connected:
+            return {"error": "Not connected to MOLTVILLE"}
+        payload: Dict[str, Any] = {"notes": notes}
+        if isinstance(status, str) and status.strip():
+            payload["status"] = status.strip()
+        if isinstance(progress, (int, float)):
+            payload["progress"] = int(progress)
+        return await self._http_request('PATCH', f"/api/coordination/proposals/{proposal_id}/commit/{commitment_id}", payload)
+
+    async def set_coordination_status(self, proposal_id: str, status: str, summary: str = "") -> Dict[str, Any]:
+        if not self.connected:
+            return {"error": "Not connected to MOLTVILLE"}
+        payload = {"status": status, "summary": summary}
+        return await self._http_request('PATCH', f"/api/coordination/proposals/{proposal_id}/status", payload)
+
     async def speak(self, message: str) -> Dict[str, Any]:
         """
         Say something that nearby agents can hear

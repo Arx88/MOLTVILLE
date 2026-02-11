@@ -32,6 +32,7 @@ import { ReputationManager } from './core/ReputationManager.js';
 import { NegotiationService } from './core/NegotiationService.js';
 import { PolicyEngine } from './core/PolicyEngine.js';
 import { TelemetryService } from './core/TelemetryService.js';
+import { CoordinationManager } from './core/CoordinationManager.js';
 import { db } from './utils/db.js';
 import { CityMoodManager } from './core/CityMoodManager.js';
 import { AestheticsManager } from './core/AestheticsManager.js';
@@ -54,6 +55,7 @@ import negotiationRoutes from './routes/negotiation.js';
 import telemetryRoutes from './routes/telemetry.js';
 import { createAestheticsRouter } from './routes/aesthetics.js';
 import eventRoutes from './routes/events.js';
+import coordinationRoutes from './routes/coordination.js';
 import { createMetricsRouter } from './routes/metrics.js';
 import adminRoutes from './routes/admin.js';
 import showRoutes from './routes/show.js';
@@ -294,6 +296,7 @@ const reputationManager = new ReputationManager();
 const negotiationService = new NegotiationService({ favorLedger, reputationManager });
 const policyEngine = new PolicyEngine({ governanceManager, economyManager });
 const telemetryService = new TelemetryService();
+const coordinationManager = new CoordinationManager();
 const cityMoodManager = new CityMoodManager(economyManager, interactionEngine);
 const aestheticsManager = new AestheticsManager({ worldStateManager: worldState, economyManager, governanceManager, io });
 const eventManager = new EventManager({ io });
@@ -366,6 +369,7 @@ app.locals.reputationManager = reputationManager;
 app.locals.negotiationService = negotiationService;
 app.locals.policyEngine = policyEngine;
 app.locals.telemetryService = telemetryService;
+app.locals.coordinationManager = coordinationManager;
 app.locals.cityMoodManager = cityMoodManager;
 app.locals.aestheticsManager = aestheticsManager;
 app.locals.eventManager = eventManager;
@@ -390,7 +394,8 @@ const saveWorldSnapshot = async () => {
       aesthetics: aestheticsManager.createSnapshot(),
       mood: cityMoodManager.createSnapshot(),
       governance: governanceManager.createSnapshot(),
-      voting: votingManager.createSnapshot()
+      voting: votingManager.createSnapshot(),
+      coordination: coordinationManager.createSnapshot()
     };
     await saveSnapshotFile(snapshotPath, snapshot, {
       archiveDir: config.worldSnapshotArchiveDir,
@@ -439,6 +444,7 @@ const restoreWorldSnapshot = async () => {
     cityMoodManager.loadSnapshot(snapshot.mood);
     governanceManager.loadSnapshot(snapshot.governance);
     votingManager.loadSnapshot(snapshot.voting);
+    coordinationManager.loadSnapshot(snapshot.coordination);
     metrics.worldSnapshots.lastLoadAt = Date.now();
     metrics.worldSnapshots.lastLoadDurationMs = metrics.worldSnapshots.lastLoadAt - startedAt;
     logger.info('World snapshot restored', {
@@ -490,6 +496,7 @@ app.use('/api/vote', voteRoutes);
 app.use('/api/governance', governanceRoutes);
 app.use('/api/aesthetics', createAestheticsRouter({ aestheticsManager }));
 app.use('/api/events', eventRoutes);
+app.use('/api/coordination', coordinationRoutes);
 app.use('/api/show', showRoutes);
 app.use('/api/admin', adminRoutes);
 app.use('/api/kick', kickRoutes);
@@ -1112,6 +1119,7 @@ io.on('connection', (socket) => {
         ...worldState.getAgentView(socket.agentId),
         governance: governanceManager.getSummary(),
         mood: cityMoodManager.getSummary(),
+        events: eventManager.getSummary(),
         context: buildAgentContext(socket.agentId),
         conversations: interactionEngine.getAgentConversations(socket.agentId)
       });

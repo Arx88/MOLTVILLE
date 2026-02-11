@@ -96,7 +96,8 @@ router.post('/snapshot', requireAdminKey, async (req, res) => {
       aestheticsManager,
       cityMoodManager,
       governanceManager,
-      votingManager
+      votingManager,
+      coordinationManager
     } = req.app.locals;
     const snapshot = {
       ...worldState.createSnapshot(),
@@ -108,7 +109,8 @@ router.post('/snapshot', requireAdminKey, async (req, res) => {
       aesthetics: aestheticsManager.createSnapshot(),
       mood: cityMoodManager.createSnapshot(),
       governance: governanceManager.createSnapshot(),
-      voting: votingManager.createSnapshot()
+      voting: votingManager.createSnapshot(),
+      coordination: coordinationManager.createSnapshot()
     };
     const snapshotPath = resolveSnapshotPath(config.worldSnapshotPath);
     await saveSnapshotFile(snapshotPath, snapshot, {
@@ -137,7 +139,8 @@ router.post('/snapshot/restore', requireAdminKey, async (req, res) => {
       aestheticsManager,
       cityMoodManager,
       governanceManager,
-      votingManager
+      votingManager,
+      coordinationManager
     } = req.app.locals;
     const snapshotPath = resolveSnapshotPath(config.worldSnapshotPath);
     const snapshot = config.worldSnapshotSource === 'db'
@@ -153,6 +156,7 @@ router.post('/snapshot/restore', requireAdminKey, async (req, res) => {
     cityMoodManager.loadSnapshot(snapshot.mood);
     governanceManager.loadSnapshot(snapshot.governance);
     votingManager.loadSnapshot(snapshot.voting);
+    coordinationManager.loadSnapshot(snapshot.coordination);
     res.json({ success: true, restoredAt: Date.now() });
   } catch (error) {
     if (error.code === 'ENOENT') {

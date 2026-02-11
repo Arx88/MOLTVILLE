@@ -125,6 +125,7 @@ policies/elections, and agent memories/relationships. World state and events rem
 - **Voting:** `/api/vote/current`, `/api/vote/catalog`, `/api/vote/propose`
 - **Aesthetics:** `/api/aesthetics/current`, `/api/aesthetics/history`
 - **Events:** `/api/events`
+- **Coordination:** `/api/coordination/proposals`, `/api/coordination/proposals/:id/join`, `/api/coordination/proposals/:id/commit`
 - **Metrics:** `/api/metrics`, `/api/metrics/prometheus`
 
 > Responses include an `x-request-id` header to help correlate logs and errors.
