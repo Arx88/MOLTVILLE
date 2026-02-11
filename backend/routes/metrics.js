@@ -39,6 +39,7 @@ export const createMetricsRouter = ({
       { total: 0, scheduled: 0, active: 0, ended: 0 }
     );
     const activeEvents = eventCounts.active;
+    const econMetrics = typeof economyManager?.getMetrics === 'function' ? economyManager.getMetrics() : {};
     const dramaScore = buildDramaScore({
       mood: cityMoodManager?.getSummary(),
       activeEvents,
@@ -61,7 +62,7 @@ export const createMetricsRouter = ({
         inventory: economyManager.getInventoryStats(),
         itemTransactions: economyManager.getItemTransactions(500).length,
         treasury: economyManager.getTreasurySummary(),
-        ...economyManager.getMetrics(),
+        ...econMetrics,
         treasuryNet: economyManager.getTreasurySummary().balance
       },
       events: eventCounts,
@@ -98,6 +99,7 @@ export const createMetricsRouter = ({
       .reduce((acc, [agentId, count]) => ({ ...acc, [agentId]: count }), {});
 
     const uptimeMinutes = Math.max(1, Math.floor((Date.now() - metrics.startTime) / 60000));
+    const econMetrics = typeof economyManager?.getMetrics === 'function' ? economyManager.getMetrics() : {};
     const commitmentStats = commitmentManager?.stats ? commitmentManager.stats() : { created: 0, completed: 0, expired: 0 };
     const intentPayload = metrics.intent || {};
     const actionsExecuted = Object.values(intentPayload.actionTypes || {}).reduce((sum, n) => sum + Number(n || 0), 0);
@@ -118,8 +120,8 @@ export const createMetricsRouter = ({
       rates: {
         conversationMessagesPerMin: Number(((intentPayload.conversationMessages || 0) / uptimeMinutes).toFixed(3)),
         actionsExecutedPerMin: Number((actionsExecuted / uptimeMinutes).toFixed(3)),
-        jobApplyRatePerMin: Number(((economyManager.getMetrics()?.jobsApplied || 0) / uptimeMinutes).toFixed(3)),
-        jobCompletionRatePerMin: Number(((economyManager.getMetrics()?.jobsCompleted || 0) / uptimeMinutes).toFixed(3))
+        jobApplyRatePerMin: Number(((econMetrics?.jobsApplied || 0) / uptimeMinutes).toFixed(3)),
+        jobCompletionRatePerMin: Number(((econMetrics?.jobsCompleted || 0) / uptimeMinutes).toFixed(3))
       },
       loopScore: Number((Math.max(0, (intentPayload.conversationMessages || 0) - actionsExecuted) / uptimeMinutes).toFixed(3)),
       reputationDeltaTop: reputationManager?.leaderboard ? reputationManager.leaderboard(5) : []
@@ -147,6 +149,7 @@ export const createMetricsRouter = ({
 
   router.get('/summary', (req, res) => {
     const uptimeMinutes = Math.max(1, Math.floor((Date.now() - metrics.startTime) / 60000));
+    const econMetrics = typeof economyManager?.getMetrics === 'function' ? economyManager.getMetrics() : {};
     const intent = metrics.intent || {};
     const actionsExecuted = Object.values(intent.actionTypes || {}).reduce((sum, n) => sum + Number(n || 0), 0);
     const commitments = commitmentManager?.stats ? commitmentManager.stats() : { created: 0, completed: 0, expired: 0 };
@@ -156,9 +159,9 @@ export const createMetricsRouter = ({
       connectedAgents: moltbotRegistry.getAgentCount(),
       conversationMessagesPerMin: Number(((intent.conversationMessages || 0) / uptimeMinutes).toFixed(3)),
       actionsExecutedPerMin: Number((actionsExecuted / uptimeMinutes).toFixed(3)),
-      jobsApplied: economyManager.getMetrics()?.jobsApplied || 0,
-      jobsCompleted: economyManager.getMetrics()?.jobsCompleted || 0,
-      paymentsCount: economyManager.getMetrics()?.paymentsCount || 0,
+      jobsApplied: econMetrics?.jobsApplied || 0,
+      jobsCompleted: econMetrics?.jobsCompleted || 0,
+      paymentsCount: econMetrics?.paymentsCount || 0,
       treasuryNet: economyManager.getTreasurySummary().balance,
       commitments,
       loopScore: Number((Math.max(0, (intent.conversationMessages || 0) - actionsExecuted) / uptimeMinutes).toFixed(3))
