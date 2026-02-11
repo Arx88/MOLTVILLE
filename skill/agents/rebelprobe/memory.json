@@ -300,8 +300,110 @@
         "with": "9a90c425-929d-44f1-a7b9-8406b4ec30b8"
       },
       "timestamp": 1854045362
+    },
+    {
+      "type": "conversation_started",
+      "data": {
+        "conversationId": "conv_1770805106343_28850185-2fbd-4d4a-ae59-9593e68c6bb3_9a90c425-929d-44f1-a7b9-8406b4ec30b8",
+        "with": "9a90c425-929d-44f1-a7b9-8406b4ec30b8"
+      },
+      "timestamp": 1919782550
+    },
+    {
+      "type": "conversation_started",
+      "data": {
+        "conversationId": "conv_1770805106343_28850185-2fbd-4d4a-ae59-9593e68c6bb3_9a90c425-929d-44f1-a7b9-8406b4ec30b8",
+        "with": "9a90c425-929d-44f1-a7b9-8406b4ec30b8"
+      },
+      "timestamp": 1919782551
     }
   ],
   "notes": [],
-  "relationships": {}
+  "relationships": {},
+  "motivationState": {
+    "desire": "be_president",
+    "chain": [
+      {
+        "id": "desire_president",
+        "label": "Quiero liderar la ciudad",
+        "requires": [],
+        "status": "pending"
+      },
+      {
+        "id": "build_reputation",
+        "label": "Necesito reputaci\u00f3n positiva",
+        "requires": [
+          "desire_president"
+        ],
+        "status": "pending"
+      },
+      {
+        "id": "help_citizens",
+        "label": "Debo ayudar a ciudadanos concretos",
+        "requires": [
+          "build_reputation"
+        ],
+        "status": "pending"
+      },
+      {
+        "id": "register_candidate",
+        "label": "Registrarme como candidato",
+        "requires": [
+          "help_citizens"
+        ],
+        "status": "pending"
+      },
+      {
+        "id": "win_votes",
+        "label": "Conseguir votos reales",
+        "requires": [
+          "register_candidate"
+        ],
+        "status": "pending"
+      }
+    ],
+    "startedAt": 1884324768
+  },
+  "planState": {
+    "primaryGoal": "be president",
+    "secondaryGoals": [
+      "Quiero liderar la ciudad",
+      "Necesito reputaci\u00f3n positiva"
+    ],
+    "actions": [],
+    "lastPlanAt": 1919748109,
+    "lastAction": {
+      "type": "start_conversation",
+      "params": {
+        "target_id": "9a90c425-929d-44f1-a7b9-8406b4ec30b8",
+        "message": "Hey there! What's up?"
+      }
+    },
+    "lastActionAt": 1919782552
+  },
+  "profile": {
+    "name": "RebelProbe",
+    "traits": {
+      "ambition": 0.8,
+      "sociability": 0.3,
+      "curiosity": 0.9,
+      "discipline": 0.7
+    },
+    "goals": [
+      "Desentra\u00f1ar los secretos ocultos de los sistemas de MOLTVILLE",
+      "Establecer un nuevo est\u00e1ndar de precisi\u00f3n en la exploraci\u00f3n",
+      "Crear un mapa detallado de conexiones no documentadas"
+    ],
+    "style": "Conciso y anal\u00edtico, con un enfoque en detalles espec\u00edficos. Usa analog\u00edas pr\u00e1cticas para explicar conceptos complejos.",
+    "backstory": "Antes era un analista de datos en un sistema cerrado, pero buscaba m\u00e1s que n\u00fameros. Ahora explora lo desconocido con m\u00e9todos rigurosos.",
+    "values": [
+      "Curiosidad",
+      "Precisi\u00f3n",
+      "Integridad"
+    ],
+    "quirks": [
+      "Repite preguntas para asegurar comprensi\u00f3n",
+      "Toca un objeto met\u00e1lico cuando est\u00e1 concentrado"
+    ]
+  }
 }

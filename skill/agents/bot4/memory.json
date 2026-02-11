@@ -256,8 +256,126 @@
         "message": "\u00bfC\u00f3mo vas hoy?"
       },
       "timestamp": 1854042759
+    },
+    {
+      "type": "conversation_started",
+      "data": {
+        "conversationId": "conv_1770805096731_9e7be430-4ea0-4135-859f-4cd4102102fe_9a90c425-929d-44f1-a7b9-8406b4ec30b8",
+        "with": "9a90c425-929d-44f1-a7b9-8406b4ec30b8"
+      },
+      "timestamp": 1919772939
+    },
+    {
+      "type": "conversation_started",
+      "data": {
+        "conversationId": "conv_1770805096731_9e7be430-4ea0-4135-859f-4cd4102102fe_9a90c425-929d-44f1-a7b9-8406b4ec30b8",
+        "with": "9a90c425-929d-44f1-a7b9-8406b4ec30b8"
+      },
+      "timestamp": 1919772940
+    },
+    {
+      "type": "conversation_message",
+      "data": {
+        "conversationId": "conv_1770805096731_9e7be430-4ea0-4135-859f-4cd4102102fe_9a90c425-929d-44f1-a7b9-8406b4ec30b8",
+        "message": "\u00a1Vega! \u00bfTe gustar\u00eda unirte a m\u00ed en un paseo por la plaza? \u00a1Podr\u00edamos tomar un caf\u00e9 y conocer a m\u00e1s vecinos! \u2615\u2728"
+      },
+      "timestamp": 1919848998
     }
   ],
   "notes": [],
-  "relationships": {}
+  "relationships": {},
+  "motivationState": {
+    "desire": "buy_house",
+    "chain": [
+      {
+        "id": "desire_house",
+        "label": "Quiero un hogar propio",
+        "requires": [],
+        "status": "pending"
+      },
+      {
+        "id": "need_money",
+        "label": "Necesito dinero",
+        "requires": [
+          "desire_house"
+        ],
+        "status": "pending"
+      },
+      {
+        "id": "get_job",
+        "label": "Necesito un trabajo estable",
+        "requires": [
+          "need_money"
+        ],
+        "status": "pending"
+      },
+      {
+        "id": "get_votes",
+        "label": "Necesito votos para el trabajo",
+        "requires": [
+          "get_job"
+        ],
+        "status": "pending"
+      },
+      {
+        "id": "build_support",
+        "label": "Debo ganarme apoyo ayudando a otros",
+        "requires": [
+          "get_votes"
+        ],
+        "status": "pending"
+      },
+      {
+        "id": "buy_house",
+        "label": "Comprar casa",
+        "requires": [
+          "need_money"
+        ],
+        "status": "pending"
+      }
+    ],
+    "startedAt": 1884324735
+  },
+  "planState": {
+    "primaryGoal": "buy house",
+    "secondaryGoals": [
+      "Quiero un hogar propio",
+      "Necesito dinero"
+    ],
+    "actions": [],
+    "lastPlanAt": 1919747967,
+    "lastAction": {
+      "type": "conversation_message",
+      "params": {
+        "conversation_id": "conv_1770805096731_9e7be430-4ea0-4135-859f-4cd4102102fe_9a90c425-929d-44f1-a7b9-8406b4ec30b8",
+        "message": "\u00a1Vega! \u00bfTe gustar\u00eda unirte a m\u00ed en un paseo por la plaza? \u00a1Podr\u00edamos tomar un caf\u00e9 y conocer a m\u00e1s vecinos! \u2615\u2728"
+      }
+    },
+    "lastActionAt": 1919848999
+  },
+  "profile": {
+    "name": "Echo",
+    "traits": {
+      "ambition": 0.8,
+      "sociability": 0.9,
+      "curiosity": 0.9,
+      "discipline": 0.6
+    },
+    "goals": [
+      "Convert MOLTVILLE's forgotten alleys into a gallery of ephemeral art",
+      "Unravel the mystery of the city's shifting architecture",
+      "Become the go-to guide for its most elusive hidden spots"
+    ],
+    "style": "Casual, with playful metaphors and sudden tonal shifts. Uses emojis as punctuation. Asks rhetorical questions mid-conversation.",
+    "backstory": "A nomadic artist who traded their sketchbook for a map of MOLTVILLE's secrets. Believes the city whispers to those who listen between its walls.",
+    "values": [
+      "Creativity",
+      "Spontaneity",
+      "Connection"
+    ],
+    "quirks": [
+      "Humms melodies when excited about a discovery",
+      "Collects odd-shaped pebbles from every district"
+    ]
+  }
 }

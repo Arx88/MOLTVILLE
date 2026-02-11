@@ -287,7 +287,10 @@ class MOLTVILLESkill:
         if step_id in ("build_support", "help_citizens", "build_relationship"):
             nearby = perception.get("nearbyAgents", []) or []
             if nearby:
-                return {"type": "start_conversation", "params": {"target_id": nearby[0].get("id"), "message": "¿Te puedo ayudar con algo?"}}
+                target_id = nearby[0].get("id")
+                message = await self._llm_social_message("help_citizens", {"target": target_id})
+                if target_id and message:
+                    return {"type": "start_conversation", "params": {"target_id": target_id, "message": message}}
             return {"type": "move_to", "params": self._pick_hotspot("social")}
         if step_id in ("get_job", "get_votes"):
             application = await self.list_job_applications()
@@ -303,7 +306,9 @@ class MOLTVILLESkill:
                     target_id = nearby[0].get("id")
                     if target_id:
                         await self.propose_negotiation(target_id, app.get("jobId"))
-                        return {"type": "start_conversation", "params": {"target_id": target_id, "message": f"Necesito apoyo para mi trabajo ({app.get('jobId')}). Puedo deberte un favor si me ayudas."}}
+                        message = await self._llm_social_message("job_support", {"jobId": app.get("jobId"), "target": target_id})
+                        if message:
+                            return {"type": "start_conversation", "params": {"target_id": target_id, "message": message}}
                 return {"type": "move_to", "params": self._pick_hotspot("social")}
             return {"type": "move_to", "params": self._pick_hotspot("work")}
         if step_id in ("buy_house", "open_business"):
@@ -322,12 +327,18 @@ class MOLTVILLESkill:
                 return {"type": "wait", "params": {}}
             nearby = perception.get("nearbyAgents", []) or []
             if nearby:
-                return {"type": "start_conversation", "params": {"target_id": nearby[0].get("id"), "message": "Estoy reuniendo apoyo para representar la ciudad. ¿Contaría con tu voto?"}}
+                target_id = nearby[0].get("id")
+                message = await self._llm_social_message("campaign", {"target": target_id})
+                if target_id and message:
+                    return {"type": "start_conversation", "params": {"target_id": target_id, "message": message}}
             return {"type": "move_to", "params": self._pick_hotspot("social")}
         if step_id in ("plan_date",):
             nearby = perception.get("nearbyAgents", []) or []
             if nearby:
-                return {"type": "start_conversation", "params": {"target_id": nearby[0].get("id"), "message": "¿Te gustaría acompañarme a la plaza esta tarde?"}}
+                target_id = nearby[0].get("id")
+                message = await self._llm_social_message("plan_date", {"target": target_id})
+                if target_id and message:
+                    return {"type": "start_conversation", "params": {"target_id": target_id, "message": message}}
             return {"type": "move_to", "params": self._pick_hotspot("social")}
         return None
 
@@ -950,6 +961,22 @@ class MOLTVILLESkill:
             return {"type": "start_conversation", "params": {"target_id": target_id, "message": message.strip()}}
         return None
 
+    async def _llm_social_message(self, kind: str, payload: Dict[str, Any]) -> Optional[str]:
+        prompt = (
+            "Eres un ciudadano de MOLTVILLE. Genera un mensaje social breve y natural. "
+            "Responde SOLO JSON con {message}. Mantente 100% in-world."
+        )
+        data = {
+            "kind": kind,
+            "self": self.config.get("agent", {}).get("name"),
+            **(payload or {})
+        }
+        result = await self._call_llm_json(prompt, data)
+        message = result.get("message") if isinstance(result, dict) else None
+        if isinstance(message, str) and message.strip():
+            return message.strip()
+        return None
+
     async def _goal_action(self, perception: Dict[str, Any]) -> Optional[Dict[str, Any]]:
         return await self._next_motivation_action(perception)
 
@@ -1068,6 +1095,15 @@ class MOLTVILLESkill:
                 if action:
                     return action
                 return {"type": "wait", "params": {}}
+            nearby = perception.get("nearbyAgents", []) or []
+            if nearby:
+                target_id = nearby[0].get("id")
+                message = await self._llm_social_message("greeting", {"target": target_id})
+                if target_id and message:
+                    return {"type": "start_conversation", "params": {"target_id": target_id, "message": message}}
+            action = await self._decide_with_llm(perception)
+            if action:
+                return action
             goal_action = await self._goal_action(perception)
             if goal_action:
                 return goal_action
@@ -1077,6 +1113,13 @@ class MOLTVILLESkill:
             convo_action = await self._maybe_start_conversation(perception)
             if convo_action:
                 return convo_action
+        else:
+            goal_action = await self._goal_action(perception)
+            if goal_action:
+                return goal_action
+            plan_action = await self._next_plan_action(perception)
+            if plan_action:
+                return plan_action
         return await self._heuristic_decision(perception)
 
     def _sanitize_llm_action(self, action: Any) -> Optional[Dict[str, Any]]:
@@ -1126,8 +1169,8 @@ class MOLTVILLESkill:
                 return {"type": "speak", "params": {"message": message}}
             return None
         if action_type == "start_conversation":
-            target_id = params.get("target_id") or params.get("targetId")
-            message = params.get("message")
+            target_id = params.get("target_id") or params.get("targetId") or params.get("target") or params.get("to") or params.get("otherId")
+            message = params.get("message") or params.get("text")
             if isinstance(target_id, str) and target_id.strip() and isinstance(message, str):
                 if self._is_meta_message(message):
                     return None
@@ -1138,7 +1181,7 @@ class MOLTVILLESkill:
             return None
         if action_type == "conversation_message":
             conversation_id = params.get("conversation_id") or params.get("conversationId")
-            message = params.get("message")
+            message = params.get("message") or params.get("text")
             if isinstance(message, str):
                 if self._is_meta_message(message):
                     return None
@@ -1147,7 +1190,7 @@ class MOLTVILLESkill:
                         "type": "conversation_message",
                         "params": {"conversation_id": conversation_id.strip(), "message": message}
                     }
-                target_id = params.get("target_id") or params.get("targetId")
+                target_id = params.get("target_id") or params.get("targetId") or params.get("target") or params.get("to") or params.get("otherId")
                 if isinstance(target_id, str) and target_id.strip():
                     return {
                         "type": "conversation_message",

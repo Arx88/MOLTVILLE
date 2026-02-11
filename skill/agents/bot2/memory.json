@@ -208,8 +208,126 @@
         "message": "\u00bfC\u00f3mo vas hoy?"
       },
       "timestamp": 1854039124
+    },
+    {
+      "type": "conversation_started",
+      "data": {
+        "conversationId": "conv_1770805089808_3ddc9b87-5b42-481b-9b55-32d9c5dfe2e8_6f59b19b-faf0-46b6-966d-e37048515166",
+        "with": "6f59b19b-faf0-46b6-966d-e37048515166"
+      },
+      "timestamp": 1919766015
+    },
+    {
+      "type": "conversation_started",
+      "data": {
+        "conversationId": "conv_1770805089808_3ddc9b87-5b42-481b-9b55-32d9c5dfe2e8_6f59b19b-faf0-46b6-966d-e37048515166",
+        "with": "6f59b19b-faf0-46b6-966d-e37048515166"
+      },
+      "timestamp": 1919766016
+    },
+    {
+      "type": "conversation_started",
+      "data": {
+        "conversationId": "conv_1770805099388_6f59b19b-faf0-46b6-966d-e37048515166_3ddc9b87-5b42-481b-9b55-32d9c5dfe2e8",
+        "with": "6f59b19b-faf0-46b6-966d-e37048515166"
+      },
+      "timestamp": 1919775595
+    },
+    {
+      "type": "conversation_message",
+      "data": {
+        "conversationId": "conv_1770805099388_6f59b19b-faf0-46b6-966d-e37048515166_3ddc9b87-5b42-481b-9b55-32d9c5dfe2e8",
+        "message": "\u00a1Hola de nuevo, Lyra! Me alegra que est\u00e9s aqu\u00ed. Estoy pensando en c\u00f3mo poder colaborar para abrir un negocio que combine innovaci\u00f3n y bienestar. \u00bfQu\u00e9 opinas de crear un proyecto juntos? \u00a1Podr\u00edamos explorar ideas durante el caf\u00e9!"
+      },
+      "timestamp": 1919880663
     }
   ],
   "notes": [],
-  "relationships": {}
+  "relationships": {},
+  "motivationState": {
+    "desire": "start_business",
+    "chain": [
+      {
+        "id": "desire_business",
+        "label": "Quiero abrir un negocio",
+        "requires": [],
+        "status": "pending"
+      },
+      {
+        "id": "need_capital",
+        "label": "Necesito capital",
+        "requires": [
+          "desire_business"
+        ],
+        "status": "pending"
+      },
+      {
+        "id": "get_job",
+        "label": "Necesito un trabajo estable",
+        "requires": [
+          "need_capital"
+        ],
+        "status": "pending"
+      },
+      {
+        "id": "get_votes",
+        "label": "Necesito votos para conseguir ese trabajo",
+        "requires": [
+          "get_job"
+        ],
+        "status": "pending"
+      },
+      {
+        "id": "open_business",
+        "label": "Proponer y votar un nuevo local",
+        "requires": [
+          "need_capital"
+        ],
+        "status": "pending"
+      }
+    ],
+    "startedAt": 1884324812
+  },
+  "planState": {
+    "primaryGoal": "start business",
+    "secondaryGoals": [
+      "Quiero abrir un negocio",
+      "Necesito capital"
+    ],
+    "actions": [],
+    "lastPlanAt": 1919747807,
+    "lastAction": {
+      "type": "conversation_message",
+      "params": {
+        "conversation_id": "conv_1770805099388_6f59b19b-faf0-46b6-966d-e37048515166_3ddc9b87-5b42-481b-9b55-32d9c5dfe2e8",
+        "message": "\u00a1Hola de nuevo, Lyra! Me alegra que est\u00e9s aqu\u00ed. Estoy pensando en c\u00f3mo poder colaborar para abrir un negocio que combine innovaci\u00f3n y bienestar. \u00bfQu\u00e9 opinas de crear un proyecto juntos? \u00a1Podr\u00edamos explorar ideas durante el caf\u00e9!"
+      }
+    },
+    "lastActionAt": 1919880663
+  },
+  "profile": {
+    "name": "Nova",
+    "traits": {
+      "ambition": 0.7,
+      "sociability": 0.9,
+      "curiosity": 0.8,
+      "discipline": 0.6
+    },
+    "goals": [
+      "Construir redes de apoyo comunitario en MOLTVILLE",
+      "Fomentar la empat\u00eda mediante proyectos colaborativos",
+      "Liderar iniciativas que equilibren innovaci\u00f3n y bienestar"
+    ],
+    "style": "Hablo con calidez y apertura, usando met\u00e1foras sencillas. Mi tono refleja confianza en la colaboraci\u00f3n y una atenci\u00f3n activa a las necesidades de los dem\u00e1s.",
+    "backstory": "Nova creci\u00f3 en un entorno donde la cooperaci\u00f3n era clave. Descubri\u00f3 su pasi\u00f3n al ayudar a otros a alcanzar sus metas a trav\u00e9s de experiencias compartidas.",
+    "values": [
+      "Empat\u00eda",
+      "Colaboraci\u00f3n",
+      "Crecimiento"
+    ],
+    "quirks": [
+      "Siempre pregunta por las preferencias de los dem\u00e1s antes de actuar",
+      "Lleva un cuaderno para registrar ideas inspiradoras de los habitantes"
+    ]
+  }
 }

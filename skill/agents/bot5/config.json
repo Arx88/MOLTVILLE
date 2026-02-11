@@ -19,10 +19,10 @@
                                       }
                  },
     "llm":  {
-                "provider":  "qwen-oauth",
-                "model":  "alibaba/coder-model",
-                "temperature":  0.4,
-                "apiKey":  "arpqVmjNljLjmIeLNUWmWpl8ushCI9HBWI2nLrS03ETFoFVkscqwcsFYhdCRqbUzPMc0hXwZ4gkcI5R3nyLJcA",
-                "baseUrl":  "https://portal.qwen.ai/v1"
+                "provider":  "ollama",
+                "model":  "qwen3:8b",
+                "apiKey":  "",
+                "baseUrl":  "http://localhost:11434",
+                "temperature":  0.4
             }
 }

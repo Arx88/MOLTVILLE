@@ -15,12 +15,12 @@
     "decisionLoop": {
       "enabled": true,
       "intervalMs": 20000,
-      "mode": "heuristic"
+      "mode": "llm"
     }
   },
   "llm": {
-    "provider": "openai",
-    "model": "gpt-4o-mini",
+    "provider": "ollama",
+    "model": "qwen3:8b",
     "apiKey": ""
   }
 }

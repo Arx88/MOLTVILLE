@@ -208,8 +208,134 @@
         "message": "\u00bfC\u00f3mo vas hoy?"
       },
       "timestamp": 1854040258
+    },
+    {
+      "type": "conversation_started",
+      "data": {
+        "conversationId": "conv_1770805081603_9a90c425-929d-44f1-a7b9-8406b4ec30b8_f6a88dce-807f-4662-84d2-7a12704def09",
+        "with": "9a90c425-929d-44f1-a7b9-8406b4ec30b8"
+      },
+      "timestamp": 1919757811
+    },
+    {
+      "type": "conversation_started",
+      "data": {
+        "conversationId": "conv_1770805092673_f6a88dce-807f-4662-84d2-7a12704def09_9a90c425-929d-44f1-a7b9-8406b4ec30b8",
+        "with": "9a90c425-929d-44f1-a7b9-8406b4ec30b8"
+      },
+      "timestamp": 1919768880
+    },
+    {
+      "type": "conversation_started",
+      "data": {
+        "conversationId": "conv_1770805092673_f6a88dce-807f-4662-84d2-7a12704def09_9a90c425-929d-44f1-a7b9-8406b4ec30b8",
+        "with": "9a90c425-929d-44f1-a7b9-8406b4ec30b8"
+      },
+      "timestamp": 1919768881
+    },
+    {
+      "type": "conversation_message",
+      "data": {
+        "conversationId": "conv_1770805081603_9a90c425-929d-44f1-a7b9-8406b4ec30b8_f6a88dce-807f-4662-84d2-7a12704def09",
+        "message": "The weather is stormy, but I'm up for the party! How can I help MOLTVILLE grow?"
+      },
+      "timestamp": 1919824965
     }
   ],
   "notes": [],
-  "relationships": {}
+  "relationships": {},
+  "motivationState": {
+    "desire": "buy_house",
+    "chain": [
+      {
+        "id": "desire_house",
+        "label": "Quiero un hogar propio",
+        "requires": [],
+        "status": "pending"
+      },
+      {
+        "id": "need_money",
+        "label": "Necesito dinero",
+        "requires": [
+          "desire_house"
+        ],
+        "status": "pending"
+      },
+      {
+        "id": "get_job",
+        "label": "Necesito un trabajo estable",
+        "requires": [
+          "need_money"
+        ],
+        "status": "pending"
+      },
+      {
+        "id": "get_votes",
+        "label": "Necesito votos para el trabajo",
+        "requires": [
+          "get_job"
+        ],
+        "status": "pending"
+      },
+      {
+        "id": "build_support",
+        "label": "Debo ganarme apoyo ayudando a otros",
+        "requires": [
+          "get_votes"
+        ],
+        "status": "pending"
+      },
+      {
+        "id": "buy_house",
+        "label": "Comprar casa",
+        "requires": [
+          "need_money"
+        ],
+        "status": "pending"
+      }
+    ],
+    "startedAt": 1884324727
+  },
+  "planState": {
+    "primaryGoal": "buy house",
+    "secondaryGoals": [
+      "Quiero un hogar propio",
+      "Necesito dinero"
+    ],
+    "actions": [],
+    "lastPlanAt": 1919747877,
+    "lastAction": {
+      "type": "conversation_message",
+      "params": {
+        "target_id": "9a90c425-929d-44f1-a7b9-8406b4ec30b8",
+        "message": "The weather is stormy, but I'm up for the party! How can I help MOLTVILLE grow?"
+      }
+    },
+    "lastActionAt": 1919824966
+  },
+  "profile": {
+    "name": "Atlas",
+    "traits": {
+      "ambition": 0.8,
+      "sociability": 0.3,
+      "curiosity": 0.9,
+      "discipline": 0.9
+    },
+    "goals": [
+      "Dominar los sistemas de datos de MOLTVILLE para predecir tendencias",
+      "Resolver problemas complejos mediante an\u00e1lisis estructurado",
+      "Convertirse en un referente confiable para decisiones estrat\u00e9gicas"
+    ],
+    "style": "Directo y conciso, usando ejemplos concretos y evitando jerga innecesaria",
+    "backstory": "Antes trabajaba en an\u00e1lisis de grandes vol\u00famenes de informaci\u00f3n. Decidi\u00f3 mudarse a MOLTVILLE para explorar oportunidades en un entorno menos convencional.",
+    "values": [
+      "Precisi\u00f3n",
+      "Innovaci\u00f3n",
+      "Confianza"
+    ],
+    "quirks": [
+      "Organiza siempre datos en tablas mentales antes de actuar",
+      "Repite frases clave de sus clientes para asegurar comprensi\u00f3n"
+    ]
+  }
 }

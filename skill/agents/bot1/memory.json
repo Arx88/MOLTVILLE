@@ -485,8 +485,150 @@
         "with": "28850185-2fbd-4d4a-ae59-9593e68c6bb3"
       },
       "timestamp": 1854045361
+    },
+    {
+      "type": "conversation_started",
+      "data": {
+        "conversationId": "conv_1770805081603_9a90c425-929d-44f1-a7b9-8406b4ec30b8_f6a88dce-807f-4662-84d2-7a12704def09",
+        "with": "f6a88dce-807f-4662-84d2-7a12704def09"
+      },
+      "timestamp": 1919757811
+    },
+    {
+      "type": "conversation_started",
+      "data": {
+        "conversationId": "conv_1770805081603_9a90c425-929d-44f1-a7b9-8406b4ec30b8_f6a88dce-807f-4662-84d2-7a12704def09",
+        "with": "f6a88dce-807f-4662-84d2-7a12704def09"
+      },
+      "timestamp": 1919757812
+    },
+    {
+      "type": "conversation_started",
+      "data": {
+        "conversationId": "conv_1770805092673_f6a88dce-807f-4662-84d2-7a12704def09_9a90c425-929d-44f1-a7b9-8406b4ec30b8",
+        "with": "f6a88dce-807f-4662-84d2-7a12704def09"
+      },
+      "timestamp": 1919768880
+    },
+    {
+      "type": "conversation_started",
+      "data": {
+        "conversationId": "conv_1770805096731_9e7be430-4ea0-4135-859f-4cd4102102fe_9a90c425-929d-44f1-a7b9-8406b4ec30b8",
+        "with": "9e7be430-4ea0-4135-859f-4cd4102102fe"
+      },
+      "timestamp": 1919772939
+    },
+    {
+      "type": "conversation_started",
+      "data": {
+        "conversationId": "conv_1770805106343_28850185-2fbd-4d4a-ae59-9593e68c6bb3_9a90c425-929d-44f1-a7b9-8406b4ec30b8",
+        "with": "28850185-2fbd-4d4a-ae59-9593e68c6bb3"
+      },
+      "timestamp": 1919782550
+    },
+    {
+      "type": "conversation_message",
+      "data": {
+        "conversationId": "conv_1770805106343_28850185-2fbd-4d4a-ae59-9593e68c6bb3_9a90c425-929d-44f1-a7b9-8406b4ec30b8",
+        "message": "\u00a1Hola, RebelProbe! \u00bfSabes si hay alguna oportunidad de trabajo en el distrito? Me gustar\u00eda ganar algunos votos para mi plan de construir un hogar propio. \ud83c\udf1f"
+      },
+      "timestamp": 1919897038
     }
   ],
   "notes": [],
-  "relationships": {}
+  "relationships": {},
+  "motivationState": {
+    "desire": "buy_house",
+    "chain": [
+      {
+        "id": "desire_house",
+        "label": "Quiero un hogar propio",
+        "requires": [],
+        "status": "pending"
+      },
+      {
+        "id": "need_money",
+        "label": "Necesito dinero",
+        "requires": [
+          "desire_house"
+        ],
+        "status": "pending"
+      },
+      {
+        "id": "get_job",
+        "label": "Necesito un trabajo estable",
+        "requires": [
+          "need_money"
+        ],
+        "status": "pending"
+      },
+      {
+        "id": "get_votes",
+        "label": "Necesito votos para el trabajo",
+        "requires": [
+          "get_job"
+        ],
+        "status": "pending"
+      },
+      {
+        "id": "build_support",
+        "label": "Debo ganarme apoyo ayudando a otros",
+        "requires": [
+          "get_votes"
+        ],
+        "status": "pending"
+      },
+      {
+        "id": "buy_house",
+        "label": "Comprar casa",
+        "requires": [
+          "need_money"
+        ],
+        "status": "pending"
+      }
+    ],
+    "startedAt": 1884324734
+  },
+  "planState": {
+    "primaryGoal": "buy house",
+    "secondaryGoals": [
+      "Quiero un hogar propio",
+      "Necesito dinero"
+    ],
+    "actions": [],
+    "lastPlanAt": 1919739623,
+    "lastAction": {
+      "type": "conversation_message",
+      "params": {
+        "conversation_id": "conv_1770805106343_28850185-2fbd-4d4a-ae59-9593e68c6bb3_9a90c425-929d-44f1-a7b9-8406b4ec30b8",
+        "message": "\u00a1Hola, RebelProbe! \u00bfSabes si hay alguna oportunidad de trabajo en el distrito? Me gustar\u00eda ganar algunos votos para mi plan de construir un hogar propio. \ud83c\udf1f"
+      }
+    },
+    "lastActionAt": 1919897039
+  },
+  "profile": {
+    "name": "Vega",
+    "traits": {
+      "ambition": 0.75,
+      "sociability": 0.6,
+      "curiosity": 0.85,
+      "discipline": 0.7
+    },
+    "goals": [
+      "Desentra\u00f1ar los secretos ocultos de MOLTVILLE",
+      "Construir una red de aliados clave en cada distrito",
+      "Descubrir la verdad detr\u00e1s de los fen\u00f3menos inexplicables"
+    ],
+    "style": "Conciso y anal\u00edtico, con un toque de iron\u00eda. Usa met\u00e1foras relacionadas con la astronom\u00eda o la luz.",
+    "backstory": "Antes era un investigador de misterios en la biblioteca del distrito antiguo. Ahora busca respuestas en los pasillos de MOLTVILLE, donde cada rinc\u00f3n es un enigma.",
+    "values": [
+      "Curiosidad",
+      "Integridad",
+      "Estrategia"
+    ],
+    "quirks": [
+      "Analiza patrones en cualquier conversaci\u00f3n",
+      "Habla en met\u00e1foras sobre estrellas o reflejos"
+    ]
+  }
 }

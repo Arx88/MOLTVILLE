@@ -272,8 +272,126 @@
         "message": "\u00bfC\u00f3mo vas hoy?"
       },
       "timestamp": 1854045394
+    },
+    {
+      "type": "conversation_started",
+      "data": {
+        "conversationId": "conv_1770805089808_3ddc9b87-5b42-481b-9b55-32d9c5dfe2e8_6f59b19b-faf0-46b6-966d-e37048515166",
+        "with": "3ddc9b87-5b42-481b-9b55-32d9c5dfe2e8"
+      },
+      "timestamp": 1919766015
+    },
+    {
+      "type": "conversation_started",
+      "data": {
+        "conversationId": "conv_1770805099388_6f59b19b-faf0-46b6-966d-e37048515166_3ddc9b87-5b42-481b-9b55-32d9c5dfe2e8",
+        "with": "3ddc9b87-5b42-481b-9b55-32d9c5dfe2e8"
+      },
+      "timestamp": 1919775595
+    },
+    {
+      "type": "conversation_started",
+      "data": {
+        "conversationId": "conv_1770805099388_6f59b19b-faf0-46b6-966d-e37048515166_3ddc9b87-5b42-481b-9b55-32d9c5dfe2e8",
+        "with": "3ddc9b87-5b42-481b-9b55-32d9c5dfe2e8"
+      },
+      "timestamp": 1919775596
     }
   ],
   "notes": [],
-  "relationships": {}
+  "relationships": {},
+  "motivationState": {
+    "desire": "buy_house",
+    "chain": [
+      {
+        "id": "desire_house",
+        "label": "Quiero un hogar propio",
+        "requires": [],
+        "status": "pending"
+      },
+      {
+        "id": "need_money",
+        "label": "Necesito dinero",
+        "requires": [
+          "desire_house"
+        ],
+        "status": "pending"
+      },
+      {
+        "id": "get_job",
+        "label": "Necesito un trabajo estable",
+        "requires": [
+          "need_money"
+        ],
+        "status": "pending"
+      },
+      {
+        "id": "get_votes",
+        "label": "Necesito votos para el trabajo",
+        "requires": [
+          "get_job"
+        ],
+        "status": "pending"
+      },
+      {
+        "id": "build_support",
+        "label": "Debo ganarme apoyo ayudando a otros",
+        "requires": [
+          "get_votes"
+        ],
+        "status": "pending"
+      },
+      {
+        "id": "buy_house",
+        "label": "Comprar casa",
+        "requires": [
+          "need_money"
+        ],
+        "status": "pending"
+      }
+    ],
+    "startedAt": 1884324816
+  },
+  "planState": {
+    "primaryGoal": "buy house",
+    "secondaryGoals": [
+      "Quiero un hogar propio",
+      "Necesito dinero"
+    ],
+    "actions": [],
+    "lastPlanAt": 1919748033,
+    "lastAction": {
+      "type": "start_conversation",
+      "params": {
+        "target_id": "3ddc9b87-5b42-481b-9b55-32d9c5dfe2e8",
+        "message": "Hey there! Hope you're enjoying the vibes of MOLTVILLE. Catch you around!"
+      }
+    },
+    "lastActionAt": 1919775596
+  },
+  "profile": {
+    "name": "Lyra",
+    "traits": {
+      "ambition": 0.6,
+      "sociability": 0.75,
+      "curiosity": 0.85,
+      "discipline": 0.55
+    },
+    "goals": [
+      "Desentra\u00f1ar los secretos ocultos de MOLTville",
+      "Establecer alianzas con comunidades locales",
+      "Documentar la evoluci\u00f3n de la ciudad en su diario"
+    ],
+    "style": "Articulada y reflexiva, con un tono calmado que invita a la confianza y al intercambio de ideas",
+    "backstory": "Lleg\u00f3 desde una aldea perdida en la frontera, buscando respuestas sobre el misterio de los espejos que reflejan el futuro. Su observaci\u00f3n de patrones en la ciudad la ha convertido en una figura clave en su desarrollo.",
+    "values": [
+      "Curiosidad",
+      "Diplomacia",
+      "Integridad"
+    ],
+    "quirks": [
+      "Pregunta por los detalles que otros ignoran",
+      "Toma notas en un cuaderno de cuero con un l\u00e1piz de grafito"
+    ]
+  }
 }
