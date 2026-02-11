@@ -59,6 +59,12 @@ export class InteractionEngine {
     const target = this.moltbotRegistry.getAgent(targetId);
 
     if (!initiator || !target) {
+      logger.warn('Conversation attempt blocked: missing initiator/target', {
+        initiatorId,
+        targetId,
+        initiatorExists: Boolean(initiator),
+        targetExists: Boolean(target)
+      });
       throw new Error('One or both agents not found');
     }
 
@@ -67,8 +73,17 @@ export class InteractionEngine {
     const targetPos = this.worldState.getAgentPosition(targetId);
     const distance = this.worldState.getDistance(initiatorPos, targetPos);
 
-    if (distance > 999) {
-      throw new Error('Agents too far apart for conversation');
+    if (!Number.isFinite(distance)) {
+      logger.warn('Conversation attempt blocked: invalid distance', { initiatorId, targetId, distance });
+      throw new Error('Agents distance unavailable for conversation');
+    }
+    if (distance > 30) {
+      logger.warn('Conversation attempt blocked: distance limit', {
+        initiatorId,
+        targetId,
+        distance: Number(distance.toFixed(2))
+      });
+      throw new Error(`Agents too far apart for conversation (distance: ${distance.toFixed(1)})`);
     }
 
     const conversationId = `conv_${Date.now()}_${initiatorId}_${targetId}`;

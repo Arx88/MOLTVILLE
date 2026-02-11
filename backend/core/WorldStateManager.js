@@ -710,8 +710,13 @@ export class WorldStateManager {
       nearbyAgents: nearbyAgents.map(id => {
         const a = this.agents.get(id);
         return {
-          id, distance: this.getDistance({ x: agent.x, y: agent.y }, { x: a.x, y: a.y }),
-          position: { x: a.x, y: a.y }, state: a.state
+          id,
+          name: a?.name || id,
+          distance: this.getDistance({ x: agent.x, y: agent.y }, { x: a.x, y: a.y }),
+          position: { x: a.x, y: a.y },
+          state: a.state,
+          occupation: a?.occupation || null,
+          reputationScore: Number.isFinite(a?.reputationScore) ? a.reputationScore : 0
         };
       }),
       nearbyBuildings: this.buildings.filter(b => {

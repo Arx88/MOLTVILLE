@@ -3,6 +3,7 @@ import { v4 as uuidv4 } from 'uuid';
 import { requireAdminKey } from '../utils/adminAuth.js';
 import { requireAgentKey } from '../utils/agentAuth.js';
 import { JoiHelpers, validateBody } from '../utils/validation.js';
+import { metrics, recordIntentSignal } from '../utils/metrics.js';
 
 const router = express.Router();
 const { Joi } = JoiHelpers;
@@ -278,6 +279,9 @@ router.post('/:agentId/conversations/start', requireAgentKey({
   const { interactionEngine, moltbotRegistry, io } = req.app.locals;
   try {
     const conversation = await interactionEngine.initiateConversation(agentId, targetId, message);
+    metrics.intent.conversationStarts = (metrics.intent.conversationStarts || 0) + 1;
+    metrics.intent.lastAt = Date.now();
+    recordIntentSignal('conversation_start', { agentId });
     if (io) {
       conversation.participants.forEach(participantId => {
         const socketId = moltbotRegistry.getAgentSocket(participantId);
@@ -302,6 +306,9 @@ router.post('/:agentId/conversations/:conversationId/message', requireAgentKey({
   const { interactionEngine, moltbotRegistry, io } = req.app.locals;
   try {
     const conversation = await interactionEngine.addMessageToConversation(conversationId, agentId, message);
+    metrics.intent.conversationMessages = (metrics.intent.conversationMessages || 0) + 1;
+    metrics.intent.lastAt = Date.now();
+    recordIntentSignal('conversation_message', { agentId });
     const lastMessage = conversation.messages[conversation.messages.length - 1];
     if (io) {
       conversation.participants.forEach(participantId => {

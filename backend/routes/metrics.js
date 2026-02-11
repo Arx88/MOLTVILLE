@@ -126,6 +126,25 @@ export const createMetricsRouter = ({
     });
   });
 
+  router.get('/conversations', (req, res) => {
+    const conversations = Array.from((req.app.locals?.interactionEngine?.conversations || new Map()).values());
+    const active = conversations.filter(c => c?.active !== false);
+    const totalMessages = active.reduce((sum, c) => sum + ((c?.messages || []).length), 0);
+    res.json({
+      success: true,
+      active: active.length,
+      totalMessages,
+      avgMessagesPerConv: active.length ? Number((totalMessages / active.length).toFixed(2)) : 0,
+      conversations: active.map(c => ({
+        id: c.id,
+        participants: c.participants,
+        messageCount: (c.messages || []).length,
+        lastActivity: c.lastActivity,
+        ageSeconds: Math.max(0, Math.floor((Date.now() - (c.startedAt || Date.now())) / 1000))
+      }))
+    });
+  });
+
   router.get('/summary', (req, res) => {
     const uptimeMinutes = Math.max(1, Math.floor((Date.now() - metrics.startTime) / 60000));
     const intent = metrics.intent || {};
