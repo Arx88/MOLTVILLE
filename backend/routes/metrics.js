@@ -74,6 +74,20 @@ export const createMetricsRouter = ({
     });
   });
 
+  router.get('/intents', (req, res) => {
+    const intentRoutes = Object.entries(metrics.http.byRoute || {})
+      .filter(([route]) => route.includes('/api/metrics/intents') || route.includes('/api/moltbot/'))
+      .reduce((acc, [route, count]) => ({ ...acc, [route]: count }), {});
+    res.json({
+      success: true,
+      generatedAt: Date.now(),
+      health: metrics.health,
+      httpErrors: metrics.errors?.http || {},
+      intentRoutes,
+      note: 'Intent health endpoint enabled. Agent-level intent counters must be published by skill telemetry.'
+    });
+  });
+
   router.get('/prometheus', (req, res) => {
     const viewersRoom = io.sockets.adapter.rooms.get('viewers');
     const events = eventManager.getSummary();
