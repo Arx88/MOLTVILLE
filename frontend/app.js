@@ -78,6 +78,7 @@ const WORLD_CONTEXT = {
   lastModalAutoOpenAt: null,
   useLiveData: false,
   activeConversations: [],
+  telemetryFeed: [],
   economy: {
     jobs: [],
     balance: null,
@@ -275,6 +276,10 @@ function setupViewerSocket(scene) {
       summary: message,
       dialogue: message
     });
+  });
+  viewerSocket.on('telemetry:action', (entry) => {
+    if (!entry) return;
+    WORLD_CONTEXT.telemetryFeed = [...(WORLD_CONTEXT.telemetryFeed || []), entry].slice(-6);
   });
   viewerSocket.on('conversation:started', (payload) => {
     if (!payload) return;
@@ -4033,6 +4038,23 @@ class MoltivilleScene extends Phaser.Scene {
       const pending = chain.find(step => step.status !== 'done');
       const label = pending?.label || agent?.plan?.primaryGoal || '-';
       reasonEl.textContent = `Razón: ${label}`;
+    }
+
+    const feedEl = document.getElementById('telemetry-feed-body');
+    if (feedEl) {
+      const events = WORLD_CONTEXT.telemetryFeed || [];
+      if (!events.length) {
+        feedEl.textContent = 'Sin eventos';
+      } else {
+        feedEl.innerHTML = events.map(item => {
+          const payload = item.payload || {};
+          const agentId = payload.agentId;
+          const name = AGENT_DIRECTORY.get(agentId)?.name || agentId?.slice(0, 4) || 'Agente';
+          const reason = payload.reason ? String(payload.reason).replace(/_/g, ' ') : 'motivo';
+          const action = payload.actionType || item.event;
+          return `<div class="feed-item">${name}: ${action} · ${reason}</div>`;
+        }).join('');
+      }
     }
 
     if (this.selectedAgentId) {

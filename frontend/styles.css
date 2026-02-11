@@ -19,6 +19,21 @@
 
   /* HUD */
   #hud { position: fixed; top: 0; left: 0; width: 100%; height: 100%; pointer-events: none; z-index: 10; }
+  #reason-bar {
+    position: absolute;
+    top: 12px;
+    left: 16px;
+    right: 16px;
+    z-index: 11;
+    margin: 0;
+    padding: 8px 12px;
+    background: rgba(12, 16, 26, 0.9);
+    border: 1px solid rgba(90, 140, 200, 0.35);
+    border-radius: 10px;
+    font-size: 12px;
+    color: #cfe3ff;
+    text-align: left;
+  }
   #top-bar {
     position: absolute;
     top: 16px;
@@ -574,11 +589,26 @@
   }
 
   #agents-panel {
-    position: absolute; top: 60px; right: 20px; width: 180px;
+    position: absolute; top: 150px; right: 20px; width: 180px;
     background: rgba(8, 10, 20, 0.9); border: 1px solid rgba(100,140,255,0.28);
     border-radius: 14px; padding: 12px; backdrop-filter: blur(8px);
     box-shadow: 0 12px 24px rgba(5, 8, 18, 0.35);
   }
+
+  #telemetry-feed {
+    position: absolute; top: 110px; left: 20px; width: 300px;
+    background: rgba(8, 10, 20, 0.9); border: 1px solid rgba(100,140,255,0.28);
+    border-radius: 14px; padding: 10px 12px; backdrop-filter: blur(8px);
+    font-size: 11px; color: #cfe3ff; pointer-events: none;
+    box-shadow: 0 12px 24px rgba(5, 8, 18, 0.35);
+  }
+  #telemetry-feed .feed-title {
+    font-weight: 700; color: #7faaee; font-size: 11px; margin-bottom: 6px;
+  }
+  #telemetry-feed .feed-item {
+    margin-bottom: 6px; line-height: 1.3;
+  }
+  #telemetry-feed .feed-item:last-child { margin-bottom: 0; }
   .agent-item { display: flex; align-items: center; gap: 8px; padding: 4px 0; }
   .agent-dot { width: 8px; height: 8px; border-radius: 50%; box-shadow: 0 0 6px rgba(255,255,255,0.2); }
   .agent-name-hud { color: #d7e2ff; font-size: 12px; }
@@ -641,16 +671,6 @@
     border: 1px solid rgba(120, 150, 255, 0.2);
     padding: 8px;
     border-radius: 10px;
-  }
-
-  .reason-bar {
-    margin: 6px 8px 0;
-    padding: 6px 10px;
-    background: rgba(12, 16, 26, 0.85);
-    border: 1px solid rgba(90, 140, 200, 0.35);
-    border-radius: 8px;
-    font-size: 11px;
-    color: #cfe3ff;
   }
 
   #vote-panel, #governance-panel, #relationships-panel, #districts-panel, #economy-panel {
