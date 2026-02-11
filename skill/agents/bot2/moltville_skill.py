@@ -217,7 +217,7 @@ class MOLTVILLESkill:
             logger.warning(f"Created default config at {config_path}. Please update with your API key!")
             return default_config
         
-        with open(config_path) as f:
+        with open(config_path, 'r', encoding='utf-8-sig') as f:
             return json.load(f)
 
     def _save_config(self) -> None:
@@ -231,7 +231,7 @@ class MOLTVILLESkill:
         if not self.long_memory_path.exists():
             return {"episodes": [], "notes": [], "relationships": {}}
         try:
-            return json.loads(self.long_memory_path.read_text())
+            return json.loads(self.long_memory_path.read_text(encoding='utf-8-sig'))
         except OSError as error:
             logger.warning(f"Failed to load long memory: {error}")
             return {"episodes": [], "notes": [], "relationships": {}}
@@ -513,25 +513,16 @@ class MOLTVILLESkill:
         if not step_id:
             return True
         a_type = action.get("type")
-        params = action.get("params", {}) if isinstance(action.get("params"), dict) else {}
-        message = params.get("message") if isinstance(params.get("message"), str) else ""
-        next_step = action.get("nextStep") if isinstance(action.get("nextStep"), dict) else None
 
-        social_steps = {"build_support", "help_citizens", "build_relationship", "get_votes", "win_votes"}
-        if step_id in social_steps:
-            if a_type not in ("start_conversation", "conversation_message"):
-                return False
-            if not next_step or next_step.get("type") not in ("move_to", "enter_building"):
-                return False
-            keywords = {
-                "build_support": ["ayuda", "apoyo", "colabor", "alianza"],
-                "help_citizens": ["ayuda", "necesitas", "puedo"],
-                "build_relationship": ["confi", "relaci", "vínculo", "vinculo"],
-                "get_votes": ["voto", "apoyo", "firma"],
-                "win_votes": ["voto", "apoyo", "confirm"],
-            }.get(step_id, [])
-            if keywords and not any(k in message.lower() for k in keywords):
-                return False
+        social_only_steps = {"build_support", "help_citizens", "build_relationship", "get_votes", "win_votes"}
+        economic_only_steps = {"buy_house", "open_business", "need_money"}
+
+        if step_id in social_only_steps and a_type in ("buy_property",):
+            return False
+
+        if step_id in economic_only_steps and a_type in ("start_conversation", "conversation_message"):
+            return True
+
         return True
 
     def _current_step(self) -> Optional[Dict[str, Any]]:
@@ -1086,7 +1077,7 @@ class MOLTVILLESkill:
             if not perception or (isinstance(perception, dict) and perception.get("error")):
                 return
             convs = perception.get("conversations", []) or []
-            conv = next((c for c in convs if c.get("id") == conv_id), None)
+            conv = next((c for c in convs if c.get("id") == conv_id and c.get("active", True)), None)
             if not conv:
                 return
             messages = conv.get("messages", []) or []
@@ -1103,12 +1094,9 @@ class MOLTVILLESkill:
                 return
             action = await self._decide_with_llm(perception, force_conversation=True, forced_conversation_id=conv_id)
             if not action:
-                message = random.choice([
-                    "Te entiendo. ¿Cuál sería el siguiente paso concreto?",
-                    "Perfecto, avancemos. ¿Qué necesitás ahora?",
-                    "Me sirve. Si te parece, coordinamos el siguiente movimiento."
-                ])
-                action = {"type": "conversation_message", "params": {"conversation_id": conv_id, "message": message}}
+                self._log_cycle("conversation_llm_fail", conversationId=conv_id)
+                self._last_conversation_ts.pop(conv_id, None)
+                return
             if action.get("type") in ("conversation_message", "end_conversation"):
                 await self._execute_action(action)
                 self._last_conversation_ts[conv_id] = int(asyncio.get_event_loop().time() * 1000)
@@ -1229,6 +1217,29 @@ class MOLTVILLESkill:
         if isinstance(message, str) and message.strip():
             return message.strip()
         return None
+
+    async def _motivation_driven_greeting(self, target_id: str, target_name: str, step: Optional[Dict[str, Any]]) -> Optional[Dict[str, Any]]:
+        if not target_id:
+            return None
+        step_label = step.get("label") if isinstance(step, dict) else None
+        desire = self._motivation_state.get("desire") if isinstance(self._motivation_state, dict) else None
+        prompt = (
+            "Eres un ciudadano de MOLTVILLE. Genera UN mensaje breve y natural para iniciar conversación "
+            "con alguien cercano. Mantén coherencia con tus motivaciones. "
+            "Responde SOLO JSON: {\"message\":\"...\"}."
+        )
+        payload = {
+            "self": self.config.get("agent", {}).get("name"),
+            "selfDesire": desire,
+            "selfCurrentStep": step_label,
+            "target": target_name,
+            "recentContext": self._get_recent_context().get("recentUtterances", [])[-3:]
+        }
+        result = await self._call_llm_json(prompt, payload)
+        message = result.get("message") if isinstance(result, dict) else None
+        if not isinstance(message, str) or not message.strip() or self._is_meta_message(message):
+            return None
+        return {"type": "start_conversation", "params": {"target_id": target_id, "message": message.strip()}}
 
     def _infer_followup_from_message(self, message: str) -> Optional[Dict[str, Any]]:
         if not isinstance(message, str) or not message.strip():
@@ -1659,8 +1670,6 @@ class MOLTVILLESkill:
             has_conversation = bool(self._conversation_state) or bool(perception.get("conversations"))
             if has_conversation:
                 action = await self._decide_with_llm(perception, force_conversation=True)
-                if not action:
-                    action = await self._decide_with_llm(perception, force_conversation=True)
                 if action:
                     return action
                 return {"type": "wait", "params": {}}
@@ -1944,7 +1953,8 @@ class MOLTVILLESkill:
             else:
                 return None
 
-            async with aiohttp.ClientSession() as session:
+            llm_timeout = aiohttp.ClientTimeout(total=float(llm_config.get('timeoutSec', 8)))
+            async with aiohttp.ClientSession(timeout=llm_timeout) as session:
                 async with session.post(url, json=body, headers=headers) as response:
                     data = await response.json()
                     if response.status >= 400:
@@ -2106,7 +2116,8 @@ class MOLTVILLESkill:
             else:
                 return None
 
-            async with aiohttp.ClientSession() as session:
+            llm_timeout = aiohttp.ClientTimeout(total=float(llm_config.get('timeoutSec', 8)))
+            async with aiohttp.ClientSession(timeout=llm_timeout) as session:
                 async with session.post(url, json=body, headers=headers) as response:
                     data = await response.json()
                     if response.status >= 400:
@@ -2195,11 +2206,17 @@ class MOLTVILLESkill:
                 if available:
                     return {"type": "apply_job", "params": {"job_id": available[0].get("id")}}
 
-        # Social intent: move to hotspots; conversations only via LLM
+        # Social intent: prioritize real nearby interactions
         if self._current_intent == "social":
-            if nearby_agents and len(nearby_agents) >= 4:
-                hotspot = self._pick_hotspot("social")
-                return {"type": "move_to", "params": hotspot}
+            if nearby_agents:
+                step = self._current_step()
+                target = nearby_agents[0] if isinstance(nearby_agents[0], dict) else {}
+                target_id = target.get("id")
+                target_name = target.get("name") or target_id
+                if target_id and target_id not in self._conversation_state:
+                    social_action = await self._motivation_driven_greeting(target_id, target_name, step)
+                    if social_action:
+                        return social_action
             hotspot = self._pick_hotspot("social")
             return {"type": "move_to", "params": hotspot}
 
@@ -2550,6 +2567,14 @@ class MOLTVILLESkill:
             return {"error": "Agent not registered"}
         payload = {"targetId": target_id, "message": message}
         result = await self._http_request('POST', f"/api/moltbot/{self.agent_id}/conversations/start", payload)
+        if result.get('error'):
+            reason = str(result.get('error') or '').lower()
+            cause = 'error_route'
+            if 'too far' in reason or 'distance' in reason:
+                cause = 'distance'
+            elif 'not found' in reason or 'missing' in reason:
+                cause = 'target_missing'
+            self._log_cycle('conversation_start_failed', targetId=target_id, cause=cause, error=result.get('error'))
         if not result.get('error'):
             conv = result.get('conversation') or {}
             conv_id = conv.get('id')
