@@ -70,6 +70,7 @@ class MOLTVILLESkill:
         self._pending_followup_action: Optional[Dict[str, Any]] = None
         self._pending_followup_until: float = 0
         self._followup_ttl_seconds = 120
+        self._recent_action_types: List[str] = []
         
         # Setup event handlers
         self._setup_handlers()
@@ -1241,11 +1242,62 @@ class MOLTVILLESkill:
             }
         return None
 
+    def _action_repeat_penalty(self, action: Dict[str, Any]) -> float:
+        if not isinstance(action, dict):
+            return 0.0
+        action_type = str(action.get("type") or "")
+        if not action_type:
+            return 0.0
+        tail = self._recent_action_types[-6:]
+        repeats = sum(1 for item in tail if item == action_type)
+        if repeats <= 1:
+            return 0.0
+        return min(1.8, 0.45 * (repeats - 1))
+
+    def _action_base_utility(self, action: Dict[str, Any], perception: Dict[str, Any]) -> float:
+        if not isinstance(action, dict):
+            return -999.0
+        action_type = str(action.get("type") or "")
+        needs = (perception.get("needs") or {}) if isinstance(perception, dict) else {}
+        social_need = float(needs.get("social", 100) or 100)
+        hunger = float(needs.get("hunger", 0) or 0)
+        energy = float(needs.get("energy", 100) or 100)
+
+        if action_type in ("coord_commit", "coord_update_commit", "coord_set_status"):
+            return 2.6
+        if action_type in ("coord_join", "coord_create_proposal"):
+            return 2.2
+        if action_type in ("apply_job", "buy_property", "vote_job"):
+            return 1.9
+        if action_type in ("start_conversation", "conversation_message"):
+            return 1.1 + ((100.0 - social_need) / 120.0)
+        if action_type == "move_to":
+            base = 1.0
+            if hunger > 65:
+                base += 0.15
+            if energy < 35:
+                base -= 0.2
+            return base
+        if action_type == "wait":
+            return 0.25 if energy < 30 else 0.05
+        return 0.8
+
     async def _goal_action(self, perception: Dict[str, Any]) -> Optional[Dict[str, Any]]:
         coordination = await self._coordination_action(perception)
-        if coordination:
-            return coordination
-        return await self._next_motivation_action(perception)
+        motivation = await self._next_motivation_action(perception)
+
+        candidates = [c for c in (coordination, motivation) if isinstance(c, dict)]
+        if not candidates:
+            return None
+
+        scored = []
+        for candidate in candidates:
+            utility = self._action_base_utility(candidate, perception)
+            penalty = self._action_repeat_penalty(candidate)
+            scored.append((utility - penalty, candidate))
+
+        scored.sort(key=lambda item: item[0], reverse=True)
+        return scored[0][1]
 
     async def _maybe_start_conversation(self, perception: Dict[str, Any]) -> Optional[Dict[str, Any]]:
         plan = self.long_memory.get("planState", {}) if isinstance(self.long_memory, dict) else {}
@@ -2065,6 +2117,9 @@ class MOLTVILLESkill:
                 )
         elif action_type == "wait":
             return
+        if isinstance(action_type, str) and action_type:
+            self._recent_action_types.append(action_type)
+            self._recent_action_types = self._recent_action_types[-12:]
         if isinstance(self._plan_state, dict):
             self._plan_state["lastAction"] = {"type": action_type, "params": params}
             if action_type == "move_to":
