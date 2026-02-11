@@ -113,6 +113,7 @@ export class MoltbotRegistry {
       if (data.traits) existing.traits = data.traits;
       if (data.motivation) existing.motivation = data.motivation;
       if (data.plan) existing.plan = data.plan;
+      if (data.cognition) existing.cognition = data.cognition;
       existing.isNPC = isNPC;
       this.sockets.set(id, socketId);
       if (this.db && !existing.memory.loadedFromDb) {
@@ -143,6 +144,7 @@ export class MoltbotRegistry {
       traits: data.traits || null,
       motivation: data.motivation || null,
       plan: data.plan || null,
+      cognition: data.cognition || null,
       memory: {
         interactions: [],
         locations: [],
@@ -252,7 +254,9 @@ export class MoltbotRegistry {
       profile: agent.profile || null,
       traits: agent.traits || null,
       motivation: agent.motivation || null,
-      plan: agent.plan || null
+      plan: agent.plan || null,
+      cognition: agent.cognition || null,
+      relationshipCount: Object.keys(agent.memory?.relationships || {}).length
     }));
   }
 
@@ -267,6 +271,7 @@ export class MoltbotRegistry {
     if (payload.traits) agent.traits = payload.traits;
     if (payload.motivation) agent.motivation = payload.motivation;
     if (payload.plan) agent.plan = payload.plan;
+    if (payload.cognition) agent.cognition = payload.cognition;
     agent.lastSeen = Date.now();
     return agent;
   }
@@ -556,6 +561,11 @@ export class MoltbotRegistry {
         lastSeen: agent.lastSeen,
         isNPC: Boolean(agent.isNPC),
         stats: { ...agent.stats },
+        profile: agent.profile || null,
+        traits: agent.traits || null,
+        motivation: agent.motivation || null,
+        plan: agent.plan || null,
+        cognition: agent.cognition || null,
         memory: {
           interactions: agent.memory.interactions.map(entry => ({ ...entry })),
           locations: agent.memory.locations.map(entry => ({ ...entry })),
@@ -591,6 +601,11 @@ export class MoltbotRegistry {
         lastSeen: agent.lastSeen || null,
         isNPC: Boolean(agent.isNPC),
         stats: agent.stats ? { ...agent.stats } : { messagesSent: 0, actionsTaken: 0, interactionCount: 0 },
+        profile: agent.profile || null,
+        traits: agent.traits || null,
+        motivation: agent.motivation || null,
+        plan: agent.plan || null,
+        cognition: agent.cognition || null,
         memory: {
           interactions: Array.isArray(agent.memory?.interactions) ? agent.memory.interactions.map(entry => ({ ...entry })) : [],
           locations: Array.isArray(agent.memory?.locations) ? agent.memory.locations.map(entry => ({ ...entry })) : [],

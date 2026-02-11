@@ -71,6 +71,9 @@ class MOLTVILLESkill:
         self._pending_followup_until: float = 0
         self._followup_ttl_seconds = 120
         self._recent_action_types: List[str] = []
+        self._internal_thought: str = ""
+        self._external_intent: str = ""
+        self._external_speech: str = ""
         
         # Setup event handlers
         self._setup_handlers()
@@ -845,11 +848,39 @@ class MOLTVILLESkill:
             'permissions': permissions
         })
 
+    def _update_cognition(self, *, internal: Optional[str] = None, external_intent: Optional[str] = None, external_speech: Optional[str] = None) -> None:
+        if isinstance(internal, str):
+            self._internal_thought = internal.strip()
+        if isinstance(external_intent, str):
+            self._external_intent = external_intent.strip()
+        if isinstance(external_speech, str):
+            self._external_speech = external_speech.strip()
+
+    def _infer_internal_thought(self, action_type: str, params: Dict[str, Any]) -> str:
+        desire = self._motivation_state.get("desire") if isinstance(self._motivation_state, dict) else ""
+        step = self._current_step() if hasattr(self, "_current_step") else None
+        step_label = step.get("label") if isinstance(step, dict) else ""
+        target = params.get("target_id") or params.get("proposal_id") or params.get("building_id") or params.get("job_id")
+        parts = [f"Objetivo: {desire}" if desire else "", f"Paso: {step_label}" if step_label else "", f"Acción: {action_type}" if action_type else "", f"Target: {target}" if target else ""]
+        return " | ".join([p for p in parts if p])[:220]
+
+    def _infer_external_intent(self, action_type: str, params: Dict[str, Any]) -> str:
+        if action_type in ("start_conversation", "conversation_message", "speak"):
+            return "Comunicar y negociar con otros"
+        if action_type.startswith("coord_"):
+            return "Coordinar acción colectiva"
+        if action_type in ("apply_job", "buy_property", "vote_job"):
+            return "Mejorar situación económica"
+        if action_type in ("move_to", "enter_building"):
+            target = params.get("target_id") or params.get("building_id")
+            return f"Moverse hacia {target}" if target else "Moverse hacia un objetivo"
+        return "Actuar según plan actual"
+
     async def _send_profile_update(self) -> None:
         if not self.connected:
             return
         now_ms = int(asyncio.get_event_loop().time() * 1000)
-        if now_ms - self._profile_last_sent < 20000:
+        if now_ms - self._profile_last_sent < 5000:
             return
         self._profile_last_sent = now_ms
         payload = {
@@ -857,7 +888,13 @@ class MOLTVILLESkill:
             "profile": self.long_memory.get("profile"),
             "traits": self._traits,
             "motivation": self._motivation_state,
-            "plan": self._plan_state
+            "plan": self._plan_state,
+            "cognition": {
+                "internalThought": self._internal_thought,
+                "externalIntent": self._external_intent,
+                "externalSpeech": self._external_speech,
+                "updatedAt": now_ms
+            }
         }
         try:
             await self.sio.emit('agent:profile', payload)
@@ -2010,6 +2047,10 @@ class MOLTVILLESkill:
             return
         action_type = action.get("type")
         params = action.get("params", {}) or {}
+        self._update_cognition(
+            internal=self._infer_internal_thought(str(action_type or ""), params),
+            external_intent=self._infer_external_intent(str(action_type or ""), params)
+        )
         await self.sio.emit('telemetry:action', {
             'event': 'agent_action',
             'actionType': action_type,
@@ -2043,8 +2084,10 @@ class MOLTVILLESkill:
         elif action_type == "enter_building":
             await self.enter_building(params.get("building_id"))
         elif action_type == "speak":
+            self._update_cognition(external_speech=str(params.get("message", "") or ""))
             await self.speak(params.get("message", ""))
         elif action_type == "start_conversation":
+            self._update_cognition(external_speech=str(params.get("message", "") or ""))
             await self.start_conversation(params.get("target_id"), params.get("message", ""))
             followup = action.get("nextStep") if isinstance(action, dict) else None
             if not followup:
@@ -2058,6 +2101,7 @@ class MOLTVILLESkill:
                 match = next((c for c in convs if target_id in (c.get("participants") or [])), None)
                 conversation_id = match.get("id") if isinstance(match, dict) else None
             if conversation_id:
+                self._update_cognition(external_speech=str(params.get("message", "") or ""))
                 await self.send_conversation_message(conversation_id, params.get("message", ""))
                 followup = action.get("nextStep") if isinstance(action, dict) else None
                 if not followup:
@@ -2130,6 +2174,7 @@ class MOLTVILLESkill:
             if isinstance(self.long_memory, dict):
                 self.long_memory["planState"] = self._plan_state
                 self._save_long_memory()
+        await self._send_profile_update()
     
     async def connect_to_moltville(self) -> Dict[str, Any]:
         """

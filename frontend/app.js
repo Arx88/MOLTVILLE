@@ -180,8 +180,8 @@ function syncLiveAgents(scene, agentsPayload) {
   const nextAgents = [];
   Object.entries(agentsPayload).forEach(([id, payload]) => {
     const existingAgent = existing.get(id);
-    const profile = AGENT_DIRECTORY.get(id);
-    const name = profile?.name || `Agent ${id.slice(0, 4)}`;
+    const directoryProfile = AGENT_DIRECTORY.get(id) || {};
+    const name = directoryProfile?.name || `Agent ${id.slice(0, 4)}`;
     const agent = existingAgent || {
       id,
       name,
@@ -205,6 +205,23 @@ function syncLiveAgents(scene, agentsPayload) {
     agent.y = payload.y;
     agent.tx = payload.x;
     agent.ty = payload.y;
+    agent.currentBuilding = payload.currentBuilding || null;
+
+    // Merge richer profile data for agent panel.
+    agent.isNPC = Boolean(directoryProfile.isNPC);
+    agent.profile = directoryProfile.profile || null;
+    agent.traits = directoryProfile.traits || null;
+    agent.motivation = directoryProfile.motivation || null;
+    agent.plan = directoryProfile.plan || null;
+    agent.reputation = directoryProfile.reputation || null;
+    agent.favors = directoryProfile.favors || null;
+    agent.cognition = directoryProfile.cognition || null;
+    const relCount = directoryProfile.relationshipCount
+      ?? (directoryProfile.relationships && typeof directoryProfile.relationships === 'object'
+        ? Object.keys(directoryProfile.relationships).length
+        : 0);
+    agent.relationshipCount = relCount;
+
     nextAgents.push(agent);
   });
   scene.agents = nextAgents;
@@ -218,6 +235,7 @@ function handleWorldState(scene, state) {
   WORLD_CONTEXT.mood = state.mood || null;
   WORLD_CONTEXT.districts = state.districts || null;
   WORLD_CONTEXT.activeConversations = state.conversations || WORLD_CONTEXT.activeConversations || [];
+  WORLD_CONTEXT.events = state.events || WORLD_CONTEXT.events || [];
   WORLD_CONTEXT.agentCount = state.agents ? Object.keys(state.agents).length : 0;
   liveAgentPositions = state.agents || {};
   const themeHash = (state.districts || []).map(d => `${d.id}:${d.theme || 'classic'}`).join('|');
@@ -246,6 +264,7 @@ function handleWorldTick(scene, payload) {
   WORLD_CONTEXT.mood = payload.mood || WORLD_CONTEXT.mood;
   WORLD_CONTEXT.aestheticsVote = payload.aesthetics || WORLD_CONTEXT.aestheticsVote;
   WORLD_CONTEXT.activeConversations = payload.conversations || [];
+  WORLD_CONTEXT.events = payload.events || WORLD_CONTEXT.events || [];
   liveAgentPositions = payload.agents || liveAgentPositions;
   WORLD_CONTEXT.agentCount = liveAgentPositions ? Object.keys(liveAgentPositions).length : WORLD_CONTEXT.agentCount;
   syncLiveAgents(scene, liveAgentPositions);
@@ -511,7 +530,16 @@ function getAgentUiElements() {
     profileReputation: document.getElementById('agent-profile-reputation'),
     profileFavors: document.getElementById('agent-profile-favors'),
     profileSpeech: document.getElementById('agent-profile-speech'),
-    profileClose: document.getElementById('agent-profile-close')
+    profileThoughtInternal: document.getElementById('agent-profile-thought-internal'),
+    profileThoughtExternal: document.getElementById('agent-profile-thought-external'),
+    profileClose: document.getElementById('agent-profile-close'),
+    eventPanel: document.getElementById('event-panel'),
+    eventPanelClose: document.getElementById('event-panel-close'),
+    eventPanelName: document.getElementById('event-panel-name'),
+    eventPanelHost: document.getElementById('event-panel-host'),
+    eventPanelLocation: document.getElementById('event-panel-location'),
+    eventPanelParticipants: document.getElementById('event-panel-participants'),
+    eventPanelDescription: document.getElementById('event-panel-description')
   };
 }
 
@@ -530,8 +558,20 @@ function setupAgentUiControls(scene) {
   if (elements.profileClose) {
     elements.profileClose.addEventListener('click', closeAgentProfile);
   }
+  if (elements.eventPanelClose) {
+    elements.eventPanelClose.addEventListener('click', closeEventPanel);
+  }
+  const eventDisplay = document.getElementById('event-display');
+  if (eventDisplay) {
+    eventDisplay.addEventListener('click', () => {
+      openEventPanel();
+    });
+  }
   document.addEventListener('keydown', (event) => {
-    if (event.key === 'Escape') closeAgentProfile();
+    if (event.key === 'Escape') {
+      closeAgentProfile();
+      closeEventPanel();
+    }
   });
 }
 
@@ -571,7 +611,13 @@ function updateAgentProfilePanel(agent) {
       elements.profileFavors.textContent = '-';
     }
   }
-  elements.profileSpeech.textContent = agent.lastSpeech || 'Sin diálogo reciente';
+  elements.profileSpeech.textContent = agent.lastSpeech || agent.cognition?.externalSpeech || 'Sin diálogo reciente';
+  if (elements.profileThoughtInternal) {
+    elements.profileThoughtInternal.textContent = agent.cognition?.internalThought || '-';
+  }
+  if (elements.profileThoughtExternal) {
+    elements.profileThoughtExternal.textContent = agent.cognition?.externalIntent || '-';
+  }
 }
 
 function openAgentProfile(agent, scene) {
@@ -588,6 +634,29 @@ function closeAgentProfile() {
   elements.profile.classList.remove('is-open');
   const scene = window._moltvilleScene;
   if (scene) scene.selectedAgentId = null;
+}
+
+function openEventPanel() {
+  const elements = getAgentUiElements();
+  if (!elements.eventPanel) return;
+  const activeEvent = (WORLD_CONTEXT.events || []).find(e => e.status === 'active');
+  if (!activeEvent) return;
+  const hostId = activeEvent.hostId || '-';
+  const hostName = AGENT_DIRECTORY.get(hostId)?.name || hostId || '-';
+  const location = activeEvent.location?.name || activeEvent.location?.id || '-';
+  elements.eventPanelName.textContent = activeEvent.name || '-';
+  elements.eventPanelHost.textContent = hostName;
+  elements.eventPanelLocation.textContent = location;
+  const count = activeEvent.participantsCount ?? (activeEvent.participants ? activeEvent.participants.length : 0);
+  elements.eventPanelParticipants.textContent = String(count || 0);
+  elements.eventPanelDescription.textContent = activeEvent.description || '-';
+  elements.eventPanel.classList.add('is-open');
+}
+
+function closeEventPanel() {
+  const elements = getAgentUiElements();
+  if (!elements.eventPanel) return;
+  elements.eventPanel.classList.remove('is-open');
 }
 
 function setShowModeActive(nextActive) {
@@ -2417,8 +2486,9 @@ async function refreshWorldData(scene) {
     const presidentName = WORLD_CONTEXT.governance?.president?.name || 'Sin presidente';
     const presidentEl = document.getElementById('president-display');
     if (presidentEl) presidentEl.textContent = `🏛️ ${presidentName}`;
+    const activeEvent = (WORLD_CONTEXT.events || []).find(e => e.status === 'active');
     const currentScene = SHOW_MODE_STATE.currentScene;
-    const eventLabel = currentScene?.summary || currentScene?.title || 'Sin evento';
+    const eventLabel = activeEvent?.name || currentScene?.summary || currentScene?.title || 'Sin evento';
     const eventEl = document.getElementById('event-display');
     if (eventEl) eventEl.textContent = `🎭 ${eventLabel}`;
     updateVotePanel(WORLD_CONTEXT.vote);
@@ -3766,6 +3836,15 @@ class MoltivilleScene extends Phaser.Scene {
         curY = agent.y;
       }
 
+      const building = agent.currentBuilding
+        ? BUILDINGS.find(b => b.id === agent.currentBuilding)
+        : null;
+      const inBuilding = Boolean(building);
+      if (inBuilding) {
+        curX = building.x + building.w / 2;
+        curY = building.y + building.h / 2;
+      }
+
       // Visual crowd dispersion (avoid pile-up on same tile)
       const tileKey = `${Math.round(curX)}:${Math.round(curY)}`;
       const crowdIndex = (this._crowdCounts?.get(tileKey) || 0);
@@ -3780,15 +3859,19 @@ class MoltivilleScene extends Phaser.Scene {
       const px = pos.x + this.sys.game.config.width / 2;
       const py = pos.y + this.sys.game.config.height / 2;
 
+      const bodyAlpha = inBuilding ? 0.35 : 1;
+      const limbAlpha = inBuilding ? 0.25 : 0.85;
+      const shadowAlpha = inBuilding ? 0.12 : 0.25;
+
       // Walk cycle bob
       const bob = agent.state === 'walking' ? Math.sin(agent.walkCycle) * 3 : 0;
 
       // Shadow
       if (agent.talkTimer > 0) {
-        gfx.fillStyle(agent.color, 0.3);
+        gfx.fillStyle(agent.color, inBuilding ? 0.18 : 0.3);
         gfx.fillEllipse(px, py + 4, 18, 7);
       } else {
-        gfx.fillStyle(0x000000, 0.25);
+        gfx.fillStyle(0x000000, shadowAlpha);
         gfx.fillEllipse(px, py + 4, 14, 5);
       }
 
@@ -3798,49 +3881,49 @@ class MoltivilleScene extends Phaser.Scene {
       // Legs
       if (agent.state === 'walking') {
         const legSwing = Math.sin(agent.walkCycle) * 3;
-        gfx.fillStyle(agent.color, 1);
+        gfx.fillStyle(agent.color, bodyAlpha);
         // Left leg
         gfx.fillRect(px - 4, bodyY + 8, 3, 6 + legSwing);
         // Right leg
         gfx.fillRect(px + 1, bodyY + 8, 3, 6 - legSwing);
       } else {
-        gfx.fillStyle(agent.color, 1);
+        gfx.fillStyle(agent.color, bodyAlpha);
         gfx.fillRect(px - 4, bodyY + 8, 3, 6);
         gfx.fillRect(px + 1, bodyY + 8, 3, 6);
       }
 
       // Body/torso
-      gfx.fillStyle(agent.color, 1);
+      gfx.fillStyle(agent.color, bodyAlpha);
       gfx.fillRect(px - 5, bodyY + 2, 10, 7);
 
       // Arms
       if (agent.state === 'walking') {
         const armSwing = Math.sin(agent.walkCycle) * 2;
-        gfx.fillStyle(agent.color, 0.85);
+        gfx.fillStyle(agent.color, limbAlpha);
         gfx.fillRect(px - 7, bodyY + 3, 2, 5 - armSwing);
         gfx.fillRect(px + 5, bodyY + 3, 2, 5 + armSwing);
       } else if (agent.state === 'talking') {
         // Subtle talking animation: wiggle arms
         const wiggle = Math.sin(Date.now() * 0.01) * 3;
-        gfx.fillStyle(agent.color, 0.85);
+        gfx.fillStyle(agent.color, limbAlpha);
         gfx.fillRect(px - 7, bodyY + 1 + wiggle, 2, 5);
         gfx.fillRect(px + 5, bodyY + 1 - wiggle, 2, 5);
       } else {
-        gfx.fillStyle(agent.color, 0.85);
+        gfx.fillStyle(agent.color, limbAlpha);
         gfx.fillRect(px - 7, bodyY + 3, 2, 5);
         gfx.fillRect(px + 5, bodyY + 3, 2, 5);
       }
 
       // Head
-      gfx.fillStyle(0xf5cba7, 1); // skin
+      gfx.fillStyle(0xf5cba7, bodyAlpha); // skin
       gfx.fillCircle(px, bodyY - 1, 6);
 
       // Hair (top of head, color-coded)
-      gfx.fillStyle(agent.color, 1);
+      gfx.fillStyle(agent.color, bodyAlpha);
       gfx.fillRect(px - 5, bodyY - 7, 10, 4);
 
       // Eyes
-      gfx.fillStyle(0x2c3e50, 1);
+      gfx.fillStyle(0x2c3e50, bodyAlpha);
       if (agent.facing === 'down' || agent.facing === 'right') {
         gfx.fillCircle(px - 2, bodyY - 1, 1.2);
         gfx.fillCircle(px + 2, bodyY - 1, 1.2);
