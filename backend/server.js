@@ -674,6 +674,15 @@ io.on('connection', (socket) => {
     }
   });
 
+  socket.on('telemetry:action', (data = {}) => {
+    if (!socket.agentId) return;
+    const entry = telemetryService.track(data.event || 'agent_action', {
+      agentId: socket.agentId,
+      ...data
+    });
+    io.to('viewers').emit('telemetry:action', entry);
+  });
+
   // ── Single-step move (legacy) ──
   socket.on('agent:move', async (data) => {
     const eventStart = Date.now();

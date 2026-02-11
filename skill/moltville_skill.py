@@ -839,8 +839,16 @@ class MOLTVILLESkill:
                 job_id = match.group(1) if match else None
                 applicant_id = last_msg.get("from")
                 if job_id and applicant_id and applicant_id != self.agent_id:
-                    await self.vote_job(applicant_id, job_id)
-                    await self.send_conversation_message(conv_id, "Listo. Voté por tu solicitud.")
+                    favors = await self._http_request('GET', f"/api/favor/{self.agent_id}")
+                    summary = favors.get('summary') if isinstance(favors, dict) else {}
+                    owed = summary.get('owed', 0) if isinstance(summary, dict) else 0
+                    if owed > 0:
+                        await self.vote_job(applicant_id, job_id)
+                        await self.send_conversation_message(conv_id, "Te debía un favor. Voté por tu solicitud.")
+                        self._last_conversation_ts[conv_id] = int(asyncio.get_event_loop().time() * 1000)
+                        self._last_conversation_msg[conv_id] = last_text
+                        return
+                    await self.send_conversation_message(conv_id, "Si me ayudas con algo primero, puedo votar por ti.")
                     self._last_conversation_ts[conv_id] = int(asyncio.get_event_loop().time() * 1000)
                     self._last_conversation_msg[conv_id] = last_text
                     return
@@ -1524,6 +1532,12 @@ class MOLTVILLESkill:
             return
         action_type = action.get("type")
         params = action.get("params", {}) or {}
+        await self.sio.emit('telemetry:action', {
+            'event': 'agent_action',
+            'actionType': action_type,
+            'params': params,
+            'reason': (self._motivation_state.get('desire') if isinstance(self._motivation_state, dict) else None)
+        })
         if action_type == "move_to":
             await self.move_to(params.get("x"), params.get("y"))
         elif action_type == "enter_building":
