@@ -1,0 +1,77 @@
+{
+  "episodes": [],
+  "notes": [],
+  "relationships": {},
+  "motivationState": {
+    "desire": "buy_house",
+    "chain": [
+      {
+        "id": "desire_house",
+        "label": "Quiero un hogar propio",
+        "requires": [],
+        "status": "done"
+      },
+      {
+        "id": "need_money",
+        "label": "Necesito dinero",
+        "requires": [
+          "desire_house"
+        ],
+        "status": "pending"
+      },
+      {
+        "id": "get_job",
+        "label": "Necesito un trabajo estable",
+        "requires": [
+          "need_money"
+        ],
+        "status": "pending"
+      },
+      {
+        "id": "get_votes",
+        "label": "Necesito votos para el trabajo",
+        "requires": [
+          "get_job"
+        ],
+        "status": "pending"
+      },
+      {
+        "id": "build_support",
+        "label": "Debo ganarme apoyo ayudando a otros",
+        "requires": [
+          "get_votes"
+        ],
+        "status": "pending"
+      },
+      {
+        "id": "buy_house",
+        "label": "Comprar casa",
+        "requires": [
+          "need_money"
+        ],
+        "status": "pending"
+      }
+    ],
+    "startedAt": 1932544795
+  },
+  "planState": {
+    "primaryGoal": "buy house",
+    "secondaryGoals": [
+      "Quiero un hogar propio",
+      "Necesito dinero"
+    ],
+    "actions": [],
+    "lastPlanAt": 1932740632,
+    "lastAction": {
+      "type": "coord_update_commit",
+      "params": {
+        "proposal_id": "proposal_3899a5fc-318c-4c44-85b3-0743fef5c438",
+        "commitment_id": "commit_5f930996-6157-481f-93d4-e6e7074b0fd4",
+        "status": "in_progress",
+        "progress": 80,
+        "notes": "avance_autonomo"
+      }
+    },
+    "lastActionAt": 1932781654
+  }
+}

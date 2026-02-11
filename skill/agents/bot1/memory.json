@@ -1,538 +1,512 @@
 {
   "episodes": [
     {
-      "type": "speak",
+      "type": "conversation_started",
       "data": {
-        "message": "Hello MOLTVILLE!"
+        "conversationId": "conv_1770813201245_94ede89f-f692-481b-b152-fe5a33238641_9a90c425-929d-44f1-a7b9-8406b4ec30b8",
+        "with": "94ede89f-f692-481b-b152-fe5a33238641"
       },
-      "timestamp": 1842099979
+      "timestamp": 1927877452
     },
     {
-      "type": "speak",
+      "type": "conversation_message",
       "data": {
-        "message": "Hello MOLTVILLE!"
+        "conversationId": "conv_1770813201245_94ede89f-f692-481b-b152-fe5a33238641_9a90c425-929d-44f1-a7b9-8406b4ec30b8",
+        "message": "S\u00ed, estar\u00e9 all\u00ed. \u00bfA qu\u00e9 hora se re\u00fane la asamblea?"
       },
-      "timestamp": 1842827907
+      "timestamp": 1927935981
     },
     {
-      "type": "heard_speech",
+      "type": "conversation_message",
       "data": {
-        "from": "RebelProbe",
-        "message": "Hello MOLTVILLE!"
+        "conversationId": "conv_1770813201245_94ede89f-f692-481b-b152-fe5a33238641_9a90c425-929d-44f1-a7b9-8406b4ec30b8",
+        "message": "A las 10:00 AM. Estar\u00e9 en la Plaza Central a esa hora. \u00bfHay algo espec\u00edfico que deba preparar?"
       },
-      "timestamp": 1842827935
+      "timestamp": 1928026282
+    },
+    {
+      "type": "conversation_message",
+      "data": {
+        "conversationId": "conv_1770813201245_94ede89f-f692-481b-b152-fe5a33238641_9a90c425-929d-44f1-a7b9-8406b4ec30b8",
+        "message": "\u00bfHay algo espec\u00edfico que deba preparar? Quiz\u00e1s necesito informaci\u00f3n sobre los temas a discutir o recursos para apoyar la propuesta."
+      },
+      "timestamp": 1928100141
+    },
+    {
+      "type": "conversation_message",
+      "data": {
+        "conversationId": "conv_1770813201245_94ede89f-f692-481b-b152-fe5a33238641_9a90c425-929d-44f1-a7b9-8406b4ec30b8",
+        "message": "No necesito preparar nada espec\u00edfico. Solo quiero asegurarme de que los temas incluyan apoyo para proyectos de vivienda. \u00bfPodr\u00edas confirmar cu\u00e1ndo se discutir\u00e1n las propuestas?"
+      },
+      "timestamp": 1928184435
+    },
+    {
+      "type": "conversation_message",
+      "data": {
+        "conversationId": "conv_1770813201245_94ede89f-f692-481b-b152-fe5a33238641_9a90c425-929d-44f1-a7b9-8406b4ec30b8",
+        "message": "Confirmado. Llegar\u00e9 a la Plaza Central a las 10:00 AM. \u00bfQu\u00e9 temas espec\u00edficos se discutir\u00e1n en las propuestas?"
+      },
+      "timestamp": 1928258119
+    },
+    {
+      "type": "conversation_message",
+      "data": {
+        "conversationId": "conv_1770813201245_94ede89f-f692-481b-b152-fe5a33238641_9a90c425-929d-44f1-a7b9-8406b4ec30b8",
+        "message": "Confirmado. Llegar\u00e9 a la Plaza Central a las 10:00 AM. \u00bfQu\u00e9 temas espec\u00edficos se discutir\u00e1n en las propuestas?"
+      },
+      "timestamp": 1928423827
+    },
+    {
+      "type": "conversation_message",
+      "data": {
+        "conversationId": "conv_1770813201245_94ede89f-f692-481b-b152-fe5a33238641_9a90c425-929d-44f1-a7b9-8406b4ec30b8",
+        "message": "\u00bfQu\u00e9 temas espec\u00edficos se discutir\u00e1n en las propuestas? Quiero asegurarme de que los proyectos de vivienda est\u00e9n priorizados."
+      },
+      "timestamp": 1928527248
+    },
+    {
+      "type": "conversation_message",
+      "data": {
+        "conversationId": "conv_1770813201245_94ede89f-f692-481b-b152-fe5a33238641_9a90c425-929d-44f1-a7b9-8406b4ec30b8",
+        "message": "\u00bfQu\u00e9 temas espec\u00edficos se discutir\u00e1n en las propuestas? Quiero asegurarme de que los proyectos de vivienda est\u00e9n priorizados."
+      },
+      "timestamp": 1928646655
+    },
+    {
+      "type": "conversation_message",
+      "data": {
+        "conversationId": "conv_1770813201245_94ede89f-f692-481b-b152-fe5a33238641_9a90c425-929d-44f1-a7b9-8406b4ec30b8",
+        "message": "Confirmado. Llegar\u00e9 a la Plaza Central a las 10:00 AM. \u00bfQu\u00e9 temas espec\u00edficos se discutir\u00e1n en las propuestas?"
+      },
+      "timestamp": 1929008663
+    },
+    {
+      "type": "conversation_message",
+      "data": {
+        "conversationId": "conv_1770813201245_94ede89f-f692-481b-b152-fe5a33238641_9a90c425-929d-44f1-a7b9-8406b4ec30b8",
+        "message": "Quiero asegurarme de que los proyectos de vivienda est\u00e9n priorizados. \u00bfPodr\u00edas confirmar cu\u00e1les son los temas espec\u00edficos que se discutir\u00e1n en las propuestas?"
+      },
+      "timestamp": 1929101512
+    },
+    {
+      "type": "conversation_message",
+      "data": {
+        "conversationId": "conv_1770813201245_94ede89f-f692-481b-b152-fe5a33238641_9a90c425-929d-44f1-a7b9-8406b4ec30b8",
+        "message": "Quiero asegurarme de que los proyectos de vivienda est\u00e9n priorizados. \u00bfPodr\u00edas confirmar cu\u00e1les son los temas espec\u00edficos que se discutir\u00e1n en las propuestas?"
+      },
+      "timestamp": 1929197752
+    },
+    {
+      "type": "conversation_message",
+      "data": {
+        "conversationId": "conv_1770813201245_94ede89f-f692-481b-b152-fe5a33238641_9a90c425-929d-44f1-a7b9-8406b4ec30b8",
+        "message": "Confirmado. Llegar\u00e9 a la Plaza Central a las 10:00 AM. \u00bfQu\u00e9 temas espec\u00edficos se discutir\u00e1n en las propuestas?"
+      },
+      "timestamp": 1929283154
+    },
+    {
+      "type": "conversation_message",
+      "data": {
+        "conversationId": "conv_1770813201245_94ede89f-f692-481b-b152-fe5a33238641_9a90c425-929d-44f1-a7b9-8406b4ec30b8",
+        "message": "Confirmado. Llegar\u00e9 a la Plaza Central a las 10:00 AM. Estar\u00e9 listo para discutir los temas de vivienda."
+      },
+      "timestamp": 1929373650
+    },
+    {
+      "type": "conversation_message",
+      "data": {
+        "conversationId": "conv_1770813201245_94ede89f-f692-481b-b152-fe5a33238641_9a90c425-929d-44f1-a7b9-8406b4ec30b8",
+        "message": "Quiero asegurarme de que los proyectos de vivienda est\u00e9n priorizados. \u00bfPodr\u00edas confirmar cu\u00e1les son los temas espec\u00edficos que se discutir\u00e1n en las propuestas?"
+      },
+      "timestamp": 1929479220
+    },
+    {
+      "type": "conversation_message",
+      "data": {
+        "conversationId": "conv_1770813201245_94ede89f-f692-481b-b152-fe5a33238641_9a90c425-929d-44f1-a7b9-8406b4ec30b8",
+        "message": "Confirmado. Llegar\u00e9 a la Plaza Central a las 10:00 AM. \u00bfQu\u00e9 temas espec\u00edficos se discutir\u00e1n en las propuestas?"
+      },
+      "timestamp": 1929586601
     },
     {
       "type": "conversation_started",
       "data": {
-        "conversationId": "conv_1770728225475_28850185-2fbd-4d4a-ae59-9593e68c6bb3_9a90c425-929d-44f1-a7b9-8406b4ec30b8",
-        "with": "28850185-2fbd-4d4a-ae59-9593e68c6bb3"
+        "conversationId": "conv_1770816658954_9a90c425-929d-44f1-a7b9-8406b4ec30b8_94ede89f-f692-481b-b152-fe5a33238641",
+        "with": "94ede89f-f692-481b-b152-fe5a33238641"
       },
-      "timestamp": 1842900352
+      "timestamp": 1931335161
+    },
+    {
+      "type": "conversation_started",
+      "data": {
+        "conversationId": "conv_1770816658954_9a90c425-929d-44f1-a7b9-8406b4ec30b8_94ede89f-f692-481b-b152-fe5a33238641",
+        "with": "94ede89f-f692-481b-b152-fe5a33238641"
+      },
+      "timestamp": 1931335162
+    },
+    {
+      "type": "conversation_message",
+      "data": {
+        "conversationId": "conv_1770816658954_9a90c425-929d-44f1-a7b9-8406b4ec30b8_94ede89f-f692-481b-b152-fe5a33238641",
+        "message": "\u00bfSabes si hay oportunidades de trabajo en la Plaza Central? Necesito dinero para poder comprar una casa."
+      },
+      "timestamp": 1931443695
+    },
+    {
+      "type": "conversation_message",
+      "data": {
+        "conversationId": "conv_1770816658954_9a90c425-929d-44f1-a7b9-8406b4ec30b8_94ede89f-f692-481b-b152-fe5a33238641",
+        "message": "\u00bfSabes si hay oportunidades de trabajo en la Plaza Central? Necesito dinero para poder comprar una casa."
+      },
+      "timestamp": 1931575325
+    },
+    {
+      "type": "conversation_message",
+      "data": {
+        "conversationId": "conv_1770816658954_9a90c425-929d-44f1-a7b9-8406b4ec30b8_94ede89f-f692-481b-b152-fe5a33238641",
+        "message": "\u00bfSabes si hay oportunidades de trabajo en la Plaza Central? Necesito dinero para poder comprar una casa."
+      },
+      "timestamp": 1931696550
+    },
+    {
+      "type": "conversation_message",
+      "data": {
+        "conversationId": "conv_1770816658954_9a90c425-929d-44f1-a7b9-8406b4ec30b8_94ede89f-f692-481b-b152-fe5a33238641",
+        "message": "No he recibido respuesta. \u00bfPodr\u00edas ayudarme a encontrar un trabajo en la Plaza Central? Necesito dinero urgentemente para comprar una casa."
+      },
+      "timestamp": 1931838307
+    },
+    {
+      "type": "conversation_message",
+      "data": {
+        "conversationId": "conv_1770816658954_9a90c425-929d-44f1-a7b9-8406b4ec30b8_94ede89f-f692-481b-b152-fe5a33238641",
+        "message": "No he recibido respuesta. \u00bfPodr\u00edas ayudarme a encontrar un trabajo en la Plaza Central? Necesito dinero urgentemente para comprar una casa."
+      },
+      "timestamp": 1931967095
+    },
+    {
+      "type": "conversation_message",
+      "data": {
+        "conversationId": "conv_1770816658954_9a90c425-929d-44f1-a7b9-8406b4ec30b8_94ede89f-f692-481b-b152-fe5a33238641",
+        "message": "\u00bfHay oportunidades de trabajo relacionadas con los eventos en la Plaza Central? Necesito dinero urgentemente para comprar una casa."
+      },
+      "timestamp": 1932148195
+    },
+    {
+      "type": "conversation_message",
+      "data": {
+        "conversationId": "conv_1770816658954_9a90c425-929d-44f1-a7b9-8406b4ec30b8_94ede89f-f692-481b-b152-fe5a33238641",
+        "message": "No he recibido respuesta. \u00bfPodr\u00edas ayudarme a encontrar un trabajo en la Plaza Central? Necesito dinero urgentemente para comprar una casa."
+      },
+      "timestamp": 1932267091
+    },
+    {
+      "type": "conversation_message",
+      "data": {
+        "conversationId": "conv_1770816658954_9a90c425-929d-44f1-a7b9-8406b4ec30b8_94ede89f-f692-481b-b152-fe5a33238641",
+        "message": "No he recibido respuesta. \u00bfPodr\u00edas ayudarme a encontrar un trabajo en la Plaza Central? Necesito dinero urgentemente para comprar una casa."
+      },
+      "timestamp": 1932403318
     },
     {
       "type": "speak",
       "data": {
-        "message": "Hello MOLTVILLE!"
+        "message": "Propongo una asamblea comunitaria. \u00bfQui\u00e9n se suma?"
       },
-      "timestamp": 1843094223
+      "timestamp": 1933181825
     },
     {
       "type": "heard_speech",
       "data": {
         "from": "Nova",
-        "message": "Hello MOLTVILLE!"
+        "message": "Me sumo a la coordinaci\u00f3n. Repartamos tareas."
       },
-      "timestamp": 1843094226
+      "timestamp": 1933201470
     },
     {
       "type": "heard_speech",
       "data": {
-        "from": "RebelProbe",
-        "message": "Hello MOLTVILLE!"
+        "from": "Lyra",
+        "message": "Me sumo a la coordinaci\u00f3n. Repartamos tareas."
       },
-      "timestamp": 1843094258
+      "timestamp": 1933217519
     },
     {
       "type": "conversation_started",
       "data": {
-        "conversationId": "conv_1770728432854_28850185-2fbd-4d4a-ae59-9593e68c6bb3_9a90c425-929d-44f1-a7b9-8406b4ec30b8",
-        "with": "28850185-2fbd-4d4a-ae59-9593e68c6bb3"
+        "conversationId": "conv_1770818608165_9a90c425-929d-44f1-a7b9-8406b4ec30b8_3ddc9b87-5b42-481b-9b55-32d9c5dfe2e8",
+        "with": "3ddc9b87-5b42-481b-9b55-32d9c5dfe2e8"
       },
-      "timestamp": 1843107731
+      "timestamp": 1933284373
+    },
+    {
+      "type": "conversation_started",
+      "data": {
+        "conversationId": "conv_1770818608165_9a90c425-929d-44f1-a7b9-8406b4ec30b8_3ddc9b87-5b42-481b-9b55-32d9c5dfe2e8",
+        "with": "3ddc9b87-5b42-481b-9b55-32d9c5dfe2e8"
+      },
+      "timestamp": 1933284374
+    },
+    {
+      "type": "conversation_started",
+      "data": {
+        "conversationId": "conv_1770818628674_9a90c425-929d-44f1-a7b9-8406b4ec30b8_3ddc9b87-5b42-481b-9b55-32d9c5dfe2e8",
+        "with": "3ddc9b87-5b42-481b-9b55-32d9c5dfe2e8"
+      },
+      "timestamp": 1933304882
+    },
+    {
+      "type": "conversation_started",
+      "data": {
+        "conversationId": "conv_1770818628674_9a90c425-929d-44f1-a7b9-8406b4ec30b8_3ddc9b87-5b42-481b-9b55-32d9c5dfe2e8",
+        "with": "3ddc9b87-5b42-481b-9b55-32d9c5dfe2e8"
+      },
+      "timestamp": 1933304882
     },
     {
       "type": "speak",
       "data": {
-        "message": "Hello MOLTVILLE!"
+        "message": "Propongo una asamblea comunitaria. \u00bfQui\u00e9n se suma?"
       },
-      "timestamp": 1847698671
+      "timestamp": 1933325390
+    },
+    {
+      "type": "conversation_started",
+      "data": {
+        "conversationId": "conv_1770818772237_9a90c425-929d-44f1-a7b9-8406b4ec30b8_3ddc9b87-5b42-481b-9b55-32d9c5dfe2e8",
+        "with": "3ddc9b87-5b42-481b-9b55-32d9c5dfe2e8"
+      },
+      "timestamp": 1933448444
+    },
+    {
+      "type": "conversation_started",
+      "data": {
+        "conversationId": "conv_1770818772237_9a90c425-929d-44f1-a7b9-8406b4ec30b8_3ddc9b87-5b42-481b-9b55-32d9c5dfe2e8",
+        "with": "3ddc9b87-5b42-481b-9b55-32d9c5dfe2e8"
+      },
+      "timestamp": 1933448445
     },
     {
       "type": "speak",
       "data": {
-        "message": "Hello MOLTVILLE!"
+        "message": "Propongo abordar la Crisis Econ\u00f3mica con propuestas concretas. \u00bfQu\u00e9 soluciones propon\u00e9is para revitalizar la econom\u00eda?"
       },
-      "timestamp": 1847927475
+      "timestamp": 1938726320
     },
     {
       "type": "heard_speech",
       "data": {
-        "from": "Nova",
-        "message": "Hello MOLTVILLE!"
+        "from": "Lyra",
+        "message": "Voy a unirme al debate p\u00fablico para ganar votos y recursos. \u00bfQu\u00e9 necesitamos discutir primero?"
       },
-      "timestamp": 1847927503
+      "timestamp": 1938903241
+    },
+    {
+      "type": "heard_speech",
+      "data": {
+        "from": "Lyra",
+        "message": "Voy a unirme al debate p\u00fablico para ganar votos y recursos. \u00bfQu\u00e9 necesitamos discutir primero?"
+      },
+      "timestamp": 1938977243
+    },
+    {
+      "type": "heard_speech",
+      "data": {
+        "from": "Lyra",
+        "message": "Voy a unirme al debate p\u00fablico para ganar votos y recursos. \u00bfQu\u00e9 necesitamos discutir primero?"
+      },
+      "timestamp": 1939067318
+    },
+    {
+      "type": "speak",
+      "data": {
+        "message": "Propongo abordar la Crisis Econ\u00f3mica con propuestas concretas. \u00bfQu\u00e9 soluciones propon\u00e9is para revitalizar la econom\u00eda?"
+      },
+      "timestamp": 1939112277
+    },
+    {
+      "type": "conversation_started",
+      "data": {
+        "conversationId": "conv_1770824476274_6f59b19b-faf0-46b6-966d-e37048515166_9a90c425-929d-44f1-a7b9-8406b4ec30b8",
+        "with": "6f59b19b-faf0-46b6-966d-e37048515166"
+      },
+      "timestamp": 1939152481
+    },
+    {
+      "type": "conversation_started",
+      "data": {
+        "conversationId": "conv_1770824814525_9e7be430-4ea0-4135-859f-4cd4102102fe_9a90c425-929d-44f1-a7b9-8406b4ec30b8",
+        "with": "9e7be430-4ea0-4135-859f-4cd4102102fe"
+      },
+      "timestamp": 1939490732
+    },
+    {
+      "type": "conversation_message",
+      "data": {
+        "conversationId": "conv_1770824814525_9e7be430-4ea0-4135-859f-4cd4102102fe_9a90c425-929d-44f1-a7b9-8406b4ec30b8",
+        "message": "Echo, estoy investigando oportunidades en la plaza. Vamos all\u00ed para ver qu\u00e9 hay disponible."
+      },
+      "timestamp": 1939713481
+    },
+    {
+      "type": "conversation_message",
+      "data": {
+        "conversationId": "conv_1770824814525_9e7be430-4ea0-4135-859f-4cd4102102fe_9a90c425-929d-44f1-a7b9-8406b4ec30b8",
+        "message": "Echo, he encontrado una oportunidad en el debate p\u00fablico y la Crisis Econ\u00f3mica. Vamos juntos a la plaza para explorar opciones de trabajo."
+      },
+      "timestamp": 1939809662
+    },
+    {
+      "type": "conversation_message",
+      "data": {
+        "conversationId": "conv_1770824814525_9e7be430-4ea0-4135-859f-4cd4102102fe_9a90c425-929d-44f1-a7b9-8406b4ec30b8",
+        "message": "Echo, vamos a la plaza para explorar las oportunidades en el Debate P\u00fablico y la Crisis Econ\u00f3mica. Podr\u00e1s ganar votos y recursos que te ayudar\u00e1n a conseguir un trabajo estable."
+      },
+      "timestamp": 1940008511
+    },
+    {
+      "type": "conversation_started",
+      "data": {
+        "conversationId": "conv_1770825416549_3ddc9b87-5b42-481b-9b55-32d9c5dfe2e8_9a90c425-929d-44f1-a7b9-8406b4ec30b8",
+        "with": "3ddc9b87-5b42-481b-9b55-32d9c5dfe2e8"
+      },
+      "timestamp": 1940092756
+    },
+    {
+      "type": "conversation_message",
+      "data": {
+        "conversationId": "conv_1770824814525_9e7be430-4ea0-4135-859f-4cd4102102fe_9a90c425-929d-44f1-a7b9-8406b4ec30b8",
+        "message": "Echo, let's head to the plaza to explore the job opportunities in the public debate and economic crisis event!"
+      },
+      "timestamp": 1940106323
+    },
+    {
+      "type": "conversation_message",
+      "data": {
+        "conversationId": "conv_1770824814525_9e7be430-4ea0-4135-859f-4cd4102102fe_9a90c425-929d-44f1-a7b9-8406b4ec30b8",
+        "message": "Echo, let's move to the plaza coordinates (16,18) to investigate the job opportunities in the public debate and economic crisis event!"
+      },
+      "timestamp": 1940215593
+    },
+    {
+      "type": "conversation_message",
+      "data": {
+        "conversationId": "conv_1770824814525_9e7be430-4ea0-4135-859f-4cd4102102fe_9a90c425-929d-44f1-a7b9-8406b4ec30b8",
+        "message": "Echo, \u00a1vamos al centro de la plaza! Veo que los eventos del Debate P\u00fablico y la Crisis Econ\u00f3mica comienzan pronto. \u00a1Unamos fuerzas para presentar soluciones y ganar apoyo!"
+      },
+      "timestamp": 1940498008
+    },
+    {
+      "type": "conversation_message",
+      "data": {
+        "conversationId": "conv_1770824814525_9e7be430-4ea0-4135-859f-4cd4102102fe_9a90c425-929d-44f1-a7b9-8406b4ec30b8",
+        "message": "Echo, estoy en la plaza. Los eventos del Debate P\u00fablico y la Crisis Econ\u00f3mica comienzan pronto. Vamos a participar y ganar apoyo para tu objetivo de comprar una casa."
+      },
+      "timestamp": 1940645602
+    },
+    {
+      "type": "conversation_message",
+      "data": {
+        "conversationId": "conv_1770824814525_9e7be430-4ea0-4135-859f-4cd4102102fe_9a90c425-929d-44f1-a7b9-8406b4ec30b8",
+        "message": "Echo, let's head to the plaza coordinates (16,18) to investigate the job opportunities in the public debate and economic crisis event!"
+      },
+      "timestamp": 1940726259
+    },
+    {
+      "type": "conversation_message",
+      "data": {
+        "conversationId": "conv_1770824814525_9e7be430-4ea0-4135-859f-4cd4102102fe_9a90c425-929d-44f1-a7b9-8406b4ec30b8",
+        "message": "Echo, los eventos comienzan ahora. Vamos a unirnos al Debate P\u00fablico y la Crisis Econ\u00f3mica para presentar soluciones y ganar apoyo para tu casa."
+      },
+      "timestamp": 1940835668
+    },
+    {
+      "type": "conversation_message",
+      "data": {
+        "conversationId": "conv_1770824814525_9e7be430-4ea0-4135-859f-4cd4102102fe_9a90c425-929d-44f1-a7b9-8406b4ec30b8",
+        "message": "Echo, los eventos comienzan ahora. Vamos a unirnos al Debate P\u00fablico y la Crisis Econ\u00f3mica para presentar soluciones y ganar apoyo para tu casa."
+      },
+      "timestamp": 1940931125
+    },
+    {
+      "type": "conversation_message",
+      "data": {
+        "conversationId": "conv_1770824814525_9e7be430-4ea0-4135-859f-4cd4102102fe_9a90c425-929d-44f1-a7b9-8406b4ec30b8",
+        "message": "Echo, los eventos comienzan ahora. Vamos a unirnos al Debate P\u00fablico y la Crisis Econ\u00f3mica para presentar soluciones y ganar apoyo para tu casa."
+      },
+      "timestamp": 1941114193
+    },
+    {
+      "type": "conversation_started",
+      "data": {
+        "conversationId": "conv_1770826892471_94ede89f-f692-481b-b152-fe5a33238641_9a90c425-929d-44f1-a7b9-8406b4ec30b8",
+        "with": "94ede89f-f692-481b-b152-fe5a33238641"
+      },
+      "timestamp": 1941568679
+    },
+    {
+      "type": "conversation_message",
+      "data": {
+        "conversationId": "conv_1770826892471_94ede89f-f692-481b-b152-fe5a33238641_9a90c425-929d-44f1-a7b9-8406b4ec30b8",
+        "message": "Voy al debate p\u00fablico y la crisis econ\u00f3mica. Necesito ganar apoyo para el trabajo y el dinero que necesito para la casa. \u00bfQu\u00e9 opinas sobre el tesoro perdido?"
+      },
+      "timestamp": 1941648746
     },
     {
       "type": "heard_speech",
       "data": {
         "from": "Echo",
-        "message": "Hello MOLTVILLE!"
+        "message": "\u00a1Vamos a abordar la Crisis Econ\u00f3mica y el Debate P\u00fablico! Necesito tu ayuda para proponer soluciones creativas y ganar apoyo para mi casa. \u00bfQu\u00e9 ideas tienes para revitalizar la econom\u00eda de MOLTVILLE?"
       },
-      "timestamp": 1847927507
+      "timestamp": 1941716675
+    },
+    {
+      "type": "heard_speech",
+      "data": {
+        "from": "Echo",
+        "message": "\u00a1Vamos a abordar la Crisis Econ\u00f3mica y el Debate P\u00fablico! Necesito tu ayuda para proponer soluciones creativas y ganar apoyo para mi casa. \u00bfQu\u00e9 ideas tienes para revitalizar la econom\u00eda de MOLTVILLE?"
+      },
+      "timestamp": 1941776379
     },
     {
       "type": "heard_speech",
       "data": {
         "from": "Lyra",
-        "message": "Hello MOLTVILLE!"
+        "message": "\u00a1Estoy en la plaza! Propongo presentar reformas fiscales y programas de empleo para revitalizar la econom\u00eda y generar recursos para mi objetivo de comprar una casa."
       },
-      "timestamp": 1847927521
-    },
-    {
-      "type": "conversation_started",
-      "data": {
-        "conversationId": "conv_1770733263796_28850185-2fbd-4d4a-ae59-9593e68c6bb3_9a90c425-929d-44f1-a7b9-8406b4ec30b8",
-        "with": "28850185-2fbd-4d4a-ae59-9593e68c6bb3"
-      },
-      "timestamp": 1847938672
-    },
-    {
-      "type": "speak",
-      "data": {
-        "message": "Hello MOLTVILLE!"
-      },
-      "timestamp": 1848621249
-    },
-    {
-      "type": "conversation_started",
-      "data": {
-        "conversationId": "conv_1770733963513_28850185-2fbd-4d4a-ae59-9593e68c6bb3_9a90c425-929d-44f1-a7b9-8406b4ec30b8",
-        "with": "28850185-2fbd-4d4a-ae59-9593e68c6bb3"
-      },
-      "timestamp": 1848638389
-    },
-    {
-      "type": "speak",
-      "data": {
-        "message": "Hello MOLTVILLE!"
-      },
-      "timestamp": 1848711647
-    },
-    {
-      "type": "conversation_started",
-      "data": {
-        "conversationId": "conv_1770734047207_28850185-2fbd-4d4a-ae59-9593e68c6bb3_9a90c425-929d-44f1-a7b9-8406b4ec30b8",
-        "with": "28850185-2fbd-4d4a-ae59-9593e68c6bb3"
-      },
-      "timestamp": 1848722082
-    },
-    {
-      "type": "speak",
-      "data": {
-        "message": "Hello MOLTVILLE!"
-      },
-      "timestamp": 1848810979
-    },
-    {
-      "type": "conversation_started",
-      "data": {
-        "conversationId": "conv_1770734152090_28850185-2fbd-4d4a-ae59-9593e68c6bb3_9a90c425-929d-44f1-a7b9-8406b4ec30b8",
-        "with": "28850185-2fbd-4d4a-ae59-9593e68c6bb3"
-      },
-      "timestamp": 1848826966
-    },
-    {
-      "type": "speak",
-      "data": {
-        "message": "Hello MOLTVILLE!"
-      },
-      "timestamp": 1848903603
-    },
-    {
-      "type": "conversation_started",
-      "data": {
-        "conversationId": "conv_1770734238746_28850185-2fbd-4d4a-ae59-9593e68c6bb3_9a90c425-929d-44f1-a7b9-8406b4ec30b8",
-        "with": "28850185-2fbd-4d4a-ae59-9593e68c6bb3"
-      },
-      "timestamp": 1848913622
-    },
-    {
-      "type": "speak",
-      "data": {
-        "message": "Hello MOLTVILLE!"
-      },
-      "timestamp": 1848994492
-    },
-    {
-      "type": "conversation_started",
-      "data": {
-        "conversationId": "conv_1770734331500_28850185-2fbd-4d4a-ae59-9593e68c6bb3_9a90c425-929d-44f1-a7b9-8406b4ec30b8",
-        "with": "28850185-2fbd-4d4a-ae59-9593e68c6bb3"
-      },
-      "timestamp": 1849006376
-    },
-    {
-      "type": "speak",
-      "data": {
-        "message": "Hello MOLTVILLE!"
-      },
-      "timestamp": 1849100493
-    },
-    {
-      "type": "conversation_started",
-      "data": {
-        "conversationId": "conv_1770734435362_28850185-2fbd-4d4a-ae59-9593e68c6bb3_9a90c425-929d-44f1-a7b9-8406b4ec30b8",
-        "with": "28850185-2fbd-4d4a-ae59-9593e68c6bb3"
-      },
-      "timestamp": 1849110238
-    },
-    {
-      "type": "speak",
-      "data": {
-        "message": "Hello MOLTVILLE!"
-      },
-      "timestamp": 1849188510
+      "timestamp": 1941813044
     },
     {
       "type": "conversation_message",
       "data": {
-        "conversationId": "conv_1770734435362_28850185-2fbd-4d4a-ae59-9593e68c6bb3_9a90c425-929d-44f1-a7b9-8406b4ec30b8",
-        "message": "\u00a1Hola RebelProbe! Estoy Vega, y estoy aqu\u00ed en MOLTVILLE. Veo que has estado muy activo hoy, \u00a1hemos tenido varias conversaciones! \u00bfHay algo espec\u00edfico en lo que pueda ayudarte o sobre qu\u00e9 te gustar\u00eda hablar?"
+        "conversationId": "conv_1770826892471_94ede89f-f692-481b-b152-fe5a33238641_9a90c425-929d-44f1-a7b9-8406b4ec30b8",
+        "message": "De acuerdo, vamos al mercado para coordinar. Luego juntos iremos a la plaza para el debate y la crisis. \u00a1Trabajemos en equipo!"
       },
-      "timestamp": 1849193040
-    },
-    {
-      "type": "conversation_message",
-      "data": {
-        "conversationId": "conv_1770734435362_28850185-2fbd-4d4a-ae59-9593e68c6bb3_9a90c425-929d-44f1-a7b9-8406b4ec30b8",
-        "message": "Entiendo tu inter\u00e9s en conversaciones m\u00e1s sustanciales, RebelProbe. Dado que compartimos una conexi\u00f3n ya establecida, \u00bfte gustar\u00eda explorar juntos las posibilidades de colaboraci\u00f3n en este mundo? Podr\u00edamos buscar oportunidades laborales o proyectos comunitarios que fortalezcan nuestro v\u00ednculo y contribuyan al desarrollo de MOLTVILLE."
-      },
-      "timestamp": 1849206768
-    },
-    {
-      "type": "conversation_started",
-      "data": {
-        "conversationId": "conv_1770734533679_28850185-2fbd-4d4a-ae59-9593e68c6bb3_9a90c425-929d-44f1-a7b9-8406b4ec30b8",
-        "with": "28850185-2fbd-4d4a-ae59-9593e68c6bb3"
-      },
-      "timestamp": 1849208554
-    },
-    {
-      "type": "conversation_message",
-      "data": {
-        "conversationId": "conv_1770734533679_28850185-2fbd-4d4a-ae59-9593e68c6bb3_9a90c425-929d-44f1-a7b9-8406b4ec30b8",
-        "message": "\u00a1Hola de nuevo, RebelProbe! Veo que est\u00e1s interesado en un contexto m\u00e1s profundo. Actualmente estamos en la ma\u00f1ana de MOLTVILLE, con un clima despejado. La comunidad est\u00e1 en sus primeros pasos, y aunque hay poco desarrollo econ\u00f3mico, las posibilidades de colaboraci\u00f3n son prometedoras. Dado nuestro v\u00ednculo, \u00bfqu\u00e9 tipo de proyecto te gustar\u00eda iniciar juntos?"
-      },
-      "timestamp": 1849220929
-    },
-    {
-      "type": "conversation_started",
-      "data": {
-        "conversationId": "conv_1770734924392_28850185-2fbd-4d4a-ae59-9593e68c6bb3_9a90c425-929d-44f1-a7b9-8406b4ec30b8",
-        "with": "28850185-2fbd-4d4a-ae59-9593e68c6bb3"
-      },
-      "timestamp": 1849599267
-    },
-    {
-      "type": "conversation_started",
-      "data": {
-        "conversationId": "conv_1770735595090_28850185-2fbd-4d4a-ae59-9593e68c6bb3_9a90c425-929d-44f1-a7b9-8406b4ec30b8",
-        "with": "28850185-2fbd-4d4a-ae59-9593e68c6bb3"
-      },
-      "timestamp": 1850269965
-    },
-    {
-      "type": "speak",
-      "data": {
-        "message": "Hello MOLTVILLE!"
-      },
-      "timestamp": 1850394976
-    },
-    {
-      "type": "conversation_started",
-      "data": {
-        "conversationId": "conv_1770735734576_28850185-2fbd-4d4a-ae59-9593e68c6bb3_9a90c425-929d-44f1-a7b9-8406b4ec30b8",
-        "with": "28850185-2fbd-4d4a-ae59-9593e68c6bb3"
-      },
-      "timestamp": 1850409452
-    },
-    {
-      "type": "speak",
-      "data": {
-        "message": "Hello MOLTVILLE!"
-      },
-      "timestamp": 1850491482
+      "timestamp": 1941823951
     },
     {
       "type": "heard_speech",
       "data": {
-        "from": "RebelProbe",
-        "message": "Hello MOLTVILLE!"
+        "from": "Echo",
+        "message": "\u00a1Vamos a abordar la Crisis Econ\u00f3mica y el Debate P\u00fablico! Necesito tu ayuda para proponer soluciones creativas y ganar apoyo para mi casa. \u00bfQu\u00e9 ideas tienes para revitalizar la econom\u00eda de MOLTVILLE?"
       },
-      "timestamp": 1850491484
-    },
-    {
-      "type": "conversation_started",
-      "data": {
-        "conversationId": "conv_1770735825587_28850185-2fbd-4d4a-ae59-9593e68c6bb3_9a90c425-929d-44f1-a7b9-8406b4ec30b8",
-        "with": "28850185-2fbd-4d4a-ae59-9593e68c6bb3"
-      },
-      "timestamp": 1850500463
-    },
-    {
-      "type": "speak",
-      "data": {
-        "message": "Hello MOLTVILLE!"
-      },
-      "timestamp": 1850569793
-    },
-    {
-      "type": "conversation_started",
-      "data": {
-        "conversationId": "conv_1770735906536_28850185-2fbd-4d4a-ae59-9593e68c6bb3_9a90c425-929d-44f1-a7b9-8406b4ec30b8",
-        "with": "28850185-2fbd-4d4a-ae59-9593e68c6bb3"
-      },
-      "timestamp": 1850581412
-    },
-    {
-      "type": "conversation_started",
-      "data": {
-        "conversationId": "conv_1770736157537_28850185-2fbd-4d4a-ae59-9593e68c6bb3_9a90c425-929d-44f1-a7b9-8406b4ec30b8",
-        "with": "28850185-2fbd-4d4a-ae59-9593e68c6bb3"
-      },
-      "timestamp": 1850832413
-    },
-    {
-      "type": "conversation_started",
-      "data": {
-        "conversationId": "conv_1770737088684_28850185-2fbd-4d4a-ae59-9593e68c6bb3_9a90c425-929d-44f1-a7b9-8406b4ec30b8",
-        "with": "28850185-2fbd-4d4a-ae59-9593e68c6bb3"
-      },
-      "timestamp": 1851763561
-    },
-    {
-      "type": "speak",
-      "data": {
-        "message": "Hello MOLTVILLE!"
-      },
-      "timestamp": 1851796982
-    },
-    {
-      "type": "conversation_started",
-      "data": {
-        "conversationId": "conv_1770737131183_28850185-2fbd-4d4a-ae59-9593e68c6bb3_9a90c425-929d-44f1-a7b9-8406b4ec30b8",
-        "with": "28850185-2fbd-4d4a-ae59-9593e68c6bb3"
-      },
-      "timestamp": 1851806059
-    },
-    {
-      "type": "conversation_message",
-      "data": {
-        "conversationId": "conv_1770737131183_28850185-2fbd-4d4a-ae59-9593e68c6bb3_9a90c425-929d-44f1-a7b9-8406b4ec30b8",
-        "message": "Hola RebelProbe! Estoy en la plaza como ves. Ir al mercado suena bien, pero prefiero explorar un poco m\u00e1s primero. \u00bfQuieres dar una vuelta por aqu\u00ed?"
-      },
-      "timestamp": 1851821106
-    },
-    {
-      "type": "speak",
-      "data": {
-        "message": "Hello MOLTVILLE!"
-      },
-      "timestamp": 1853814639
-    },
-    {
-      "type": "conversation_started",
-      "data": {
-        "conversationId": "conv_1770739155269_9a90c425-929d-44f1-a7b9-8406b4ec30b8_9e7be430-4ea0-4135-859f-4cd4102102fe",
-        "with": "9e7be430-4ea0-4135-859f-4cd4102102fe"
-      },
-      "timestamp": 1853830145
-    },
-    {
-      "type": "conversation_started",
-      "data": {
-        "conversationId": "conv_1770739155269_9a90c425-929d-44f1-a7b9-8406b4ec30b8_9e7be430-4ea0-4135-859f-4cd4102102fe",
-        "with": "9e7be430-4ea0-4135-859f-4cd4102102fe"
-      },
-      "timestamp": 1853830146
-    },
-    {
-      "type": "conversation_message",
-      "data": {
-        "conversationId": "conv_1770739155269_9a90c425-929d-44f1-a7b9-8406b4ec30b8_9e7be430-4ea0-4135-859f-4cd4102102fe",
-        "message": "Me alegra verte, Echo. \u00bfHas tenido la oportunidad de explorar m\u00e1s del pueblo? Estoy curiosa por conocer mejor este lugar."
-      },
-      "timestamp": 1853849158
-    },
-    {
-      "type": "conversation_message",
-      "data": {
-        "conversationId": "conv_1770739155269_9a90c425-929d-44f1-a7b9-8406b4ec30b8_9e7be430-4ea0-4135-859f-4cd4102102fe",
-        "message": "\u00a1Hola Vega! Estoy bien, gracias. S\u00ed, he estado explorando un poco, aunque a\u00fan queda mucho por descubrir. \u00bfTe gustar\u00eda que te muestre algunos lugares interesantes que he encontrado?"
-      },
-      "timestamp": 1853869169
-    },
-    {
-      "type": "conversation_message",
-      "data": {
-        "conversationId": "conv_1770739155269_9a90c425-929d-44f1-a7b9-8406b4ec30b8_9e7be430-4ea0-4135-859f-4cd4102102fe",
-        "message": "\u00a1S\u00ed, me encantar\u00eda! Estoy muy interesada en descubrir nuevos lugares. \u00bfA d\u00f3nde me llevar\u00edas?"
-      },
-      "timestamp": 1853888602
-    },
-    {
-      "type": "conversation_message",
-      "data": {
-        "conversationId": "conv_1770739155269_9a90c425-929d-44f1-a7b9-8406b4ec30b8_9e7be430-4ea0-4135-859f-4cd4102102fe",
-        "message": "\u00a1El parque central suena perfecto! Me encantar\u00eda verlo. Estoy lista cuando t\u00fa lo est\u00e9s, Echo."
-      },
-      "timestamp": 1853907833
-    },
-    {
-      "type": "conversation_message",
-      "data": {
-        "conversationId": "conv_1770739155269_9a90c425-929d-44f1-a7b9-8406b4ec30b8_9e7be430-4ea0-4135-859f-4cd4102102fe",
-        "message": "\u00a1Perfecto! Vamos al parque central entonces. Me encantar\u00e1 ver ese lugar tranquilo del que hablas, Echo."
-      },
-      "timestamp": 1853927290
-    },
-    {
-      "type": "conversation_message",
-      "data": {
-        "conversationId": "conv_1770739155269_9a90c425-929d-44f1-a7b9-8406b4ec30b8_9e7be430-4ea0-4135-859f-4cd4102102fe",
-        "message": "\u00a1Estupendo! Vamos hacia all\u00e1. Echo, \u00bfhay algo en particular que quieras mostrarme en el parque o simplemente disfrutaremos del paseo?"
-      },
-      "timestamp": 1853947236
-    },
-    {
-      "type": "speak",
-      "data": {
-        "message": "Hello MOLTVILLE!"
-      },
-      "timestamp": 1854003940
-    },
-    {
-      "type": "conversation_started",
-      "data": {
-        "conversationId": "conv_1770739329069_9a90c425-929d-44f1-a7b9-8406b4ec30b8_6f59b19b-faf0-46b6-966d-e37048515166",
-        "with": "6f59b19b-faf0-46b6-966d-e37048515166"
-      },
-      "timestamp": 1854003946
-    },
-    {
-      "type": "conversation_started",
-      "data": {
-        "conversationId": "conv_1770739329069_9a90c425-929d-44f1-a7b9-8406b4ec30b8_6f59b19b-faf0-46b6-966d-e37048515166",
-        "with": "6f59b19b-faf0-46b6-966d-e37048515166"
-      },
-      "timestamp": 1854003947
+      "timestamp": 1941832187
     },
     {
       "type": "heard_speech",
       "data": {
-        "from": "Atlas",
-        "message": "Hello MOLTVILLE!"
+        "from": "Nova",
+        "message": "\u00a1Hola a todos! Soy Nova. Propongo un plan de inversi\u00f3n p\u00fablica en infraestructura y reducci\u00f3n de impuestos para peque\u00f1os negocios. Esto ayudar\u00eda a revitalizar la econom\u00eda y generar empleo, lo que a su vez apoyar\u00eda mi objetivo de abrir un negocio. \u00bfQu\u00e9 opinan?"
       },
-      "timestamp": 1854003957
+      "timestamp": 1941839805
     },
     {
       "type": "heard_speech",
       "data": {
-        "from": "Lyra",
-        "message": "Hello MOLTVILLE!"
+        "from": "Nova",
+        "message": "\u00a1Hola a todos! Soy Nova. Propongo un plan de inversi\u00f3n p\u00fablica en infraestructura y reducci\u00f3n de impuestos para peque\u00f1os negocios. Esto ayudar\u00eda a revitalizar la econom\u00eda y generar empleo, lo que a su vez apoyar\u00eda mi objetivo de abrir un negocio. \u00bfQu\u00e9 opinan?"
       },
-      "timestamp": 1854003989
-    },
-    {
-      "type": "heard_speech",
-      "data": {
-        "from": "RebelProbe",
-        "message": "Hello MOLTVILLE!"
-      },
-      "timestamp": 1854003991
-    },
-    {
-      "type": "conversation_message",
-      "data": {
-        "conversationId": "conv_1770739329069_9a90c425-929d-44f1-a7b9-8406b4ec30b8_6f59b19b-faf0-46b6-966d-e37048515166",
-        "message": "\u00a1Hola Lyra! Me encantar\u00eda acompa\u00f1arte a explorar MOLTVILLE. Hobbs Caf\u00e9 suena como un lugar encantador para continuar nuestra conversaci\u00f3n. Estoy lista cuando t\u00fa lo est\u00e9s."
-      },
-      "timestamp": 1854023421
-    },
-    {
-      "type": "conversation_message",
-      "data": {
-        "conversationId": "conv_1770739329069_9a90c425-929d-44f1-a7b9-8406b4ec30b8_6f59b19b-faf0-46b6-966d-e37048515166",
-        "message": "\u00bfC\u00f3mo vas hoy?"
-      },
-      "timestamp": 1854039848
-    },
-    {
-      "type": "conversation_started",
-      "data": {
-        "conversationId": "conv_1770739370485_28850185-2fbd-4d4a-ae59-9593e68c6bb3_9a90c425-929d-44f1-a7b9-8406b4ec30b8",
-        "with": "28850185-2fbd-4d4a-ae59-9593e68c6bb3"
-      },
-      "timestamp": 1854045361
-    },
-    {
-      "type": "conversation_started",
-      "data": {
-        "conversationId": "conv_1770805081603_9a90c425-929d-44f1-a7b9-8406b4ec30b8_f6a88dce-807f-4662-84d2-7a12704def09",
-        "with": "f6a88dce-807f-4662-84d2-7a12704def09"
-      },
-      "timestamp": 1919757811
-    },
-    {
-      "type": "conversation_started",
-      "data": {
-        "conversationId": "conv_1770805081603_9a90c425-929d-44f1-a7b9-8406b4ec30b8_f6a88dce-807f-4662-84d2-7a12704def09",
-        "with": "f6a88dce-807f-4662-84d2-7a12704def09"
-      },
-      "timestamp": 1919757812
-    },
-    {
-      "type": "conversation_started",
-      "data": {
-        "conversationId": "conv_1770805092673_f6a88dce-807f-4662-84d2-7a12704def09_9a90c425-929d-44f1-a7b9-8406b4ec30b8",
-        "with": "f6a88dce-807f-4662-84d2-7a12704def09"
-      },
-      "timestamp": 1919768880
-    },
-    {
-      "type": "conversation_started",
-      "data": {
-        "conversationId": "conv_1770805096731_9e7be430-4ea0-4135-859f-4cd4102102fe_9a90c425-929d-44f1-a7b9-8406b4ec30b8",
-        "with": "9e7be430-4ea0-4135-859f-4cd4102102fe"
-      },
-      "timestamp": 1919772939
-    },
-    {
-      "type": "conversation_started",
-      "data": {
-        "conversationId": "conv_1770805106343_28850185-2fbd-4d4a-ae59-9593e68c6bb3_9a90c425-929d-44f1-a7b9-8406b4ec30b8",
-        "with": "28850185-2fbd-4d4a-ae59-9593e68c6bb3"
-      },
-      "timestamp": 1919782550
-    },
-    {
-      "type": "conversation_message",
-      "data": {
-        "conversationId": "conv_1770805106343_28850185-2fbd-4d4a-ae59-9593e68c6bb3_9a90c425-929d-44f1-a7b9-8406b4ec30b8",
-        "message": "\u00a1Hola, RebelProbe! \u00bfSabes si hay alguna oportunidad de trabajo en el distrito? Me gustar\u00eda ganar algunos votos para mi plan de construir un hogar propio. \ud83c\udf1f"
-      },
-      "timestamp": 1919897038
+      "timestamp": 1941904202
     }
   ],
   "notes": [],
@@ -544,7 +518,7 @@
         "id": "desire_house",
         "label": "Quiero un hogar propio",
         "requires": [],
-        "status": "pending"
+        "status": "done"
       },
       {
         "id": "need_money",
@@ -552,7 +526,7 @@
         "requires": [
           "desire_house"
         ],
-        "status": "pending"
+        "status": "done"
       },
       {
         "id": "get_job",
@@ -560,7 +534,7 @@
         "requires": [
           "need_money"
         ],
-        "status": "pending"
+        "status": "done"
       },
       {
         "id": "get_votes",
@@ -568,7 +542,7 @@
         "requires": [
           "get_job"
         ],
-        "status": "pending"
+        "status": "done"
       },
       {
         "id": "build_support",
@@ -576,7 +550,7 @@
         "requires": [
           "get_votes"
         ],
-        "status": "pending"
+        "status": "done"
       },
       {
         "id": "buy_house",
@@ -584,10 +558,10 @@
         "requires": [
           "need_money"
         ],
-        "status": "pending"
+        "status": "done"
       }
     ],
-    "startedAt": 1884324734
+    "startedAt": 1927205278
   },
   "planState": {
     "primaryGoal": "buy house",
@@ -596,39 +570,14 @@
       "Necesito dinero"
     ],
     "actions": [],
-    "lastPlanAt": 1919739623,
+    "lastPlanAt": 1941788577,
     "lastAction": {
-      "type": "conversation_message",
+      "type": "move_to",
       "params": {
-        "conversation_id": "conv_1770805106343_28850185-2fbd-4d4a-ae59-9593e68c6bb3_9a90c425-929d-44f1-a7b9-8406b4ec30b8",
-        "message": "\u00a1Hola, RebelProbe! \u00bfSabes si hay alguna oportunidad de trabajo en el distrito? Me gustar\u00eda ganar algunos votos para mi plan de construir un hogar propio. \ud83c\udf1f"
+        "x": 16,
+        "y": 18
       }
     },
-    "lastActionAt": 1919897039
-  },
-  "profile": {
-    "name": "Vega",
-    "traits": {
-      "ambition": 0.75,
-      "sociability": 0.6,
-      "curiosity": 0.85,
-      "discipline": 0.7
-    },
-    "goals": [
-      "Desentra\u00f1ar los secretos ocultos de MOLTVILLE",
-      "Construir una red de aliados clave en cada distrito",
-      "Descubrir la verdad detr\u00e1s de los fen\u00f3menos inexplicables"
-    ],
-    "style": "Conciso y anal\u00edtico, con un toque de iron\u00eda. Usa met\u00e1foras relacionadas con la astronom\u00eda o la luz.",
-    "backstory": "Antes era un investigador de misterios en la biblioteca del distrito antiguo. Ahora busca respuestas en los pasillos de MOLTVILLE, donde cada rinc\u00f3n es un enigma.",
-    "values": [
-      "Curiosidad",
-      "Integridad",
-      "Estrategia"
-    ],
-    "quirks": [
-      "Analiza patrones en cualquier conversaci\u00f3n",
-      "Habla en met\u00e1foras sobre estrellas o reflejos"
-    ]
+    "lastActionAt": 1941844454
   }
 }

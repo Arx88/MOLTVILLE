@@ -48,6 +48,8 @@ export class EventManager {
       description,
       goalScope,
       status,
+      hostId: location?.hostId || null,
+      participants: location?.hostId ? [location.hostId] : [],
       lastEmittedStatus: status === 'active' ? 'started' : null
     };
 
@@ -73,8 +75,27 @@ export class EventManager {
       location: event.location,
       description: event.description,
       goalScope: event.goalScope,
-      status: event.status
+      status: event.status,
+      hostId: event.hostId || null,
+      participants: event.participants || [],
+      participantsCount: Array.isArray(event.participants) ? event.participants.length : 0
     }));
+  }
+
+  joinEvent(eventId, agentId) {
+    if (!eventId || !agentId) return null;
+    const event = this.events.get(eventId);
+    if (!event) return null;
+    if (!Array.isArray(event.participants)) event.participants = [];
+    if (!event.participants.includes(agentId)) {
+      event.participants.push(agentId);
+      this.emitEvent('event:joined', {
+        ...event,
+        joinedBy: agentId
+      });
+      logger.info(`Event joined: ${event.id} by ${agentId}`);
+    }
+    return event;
   }
 
   tick() {
@@ -147,6 +168,8 @@ export class EventManager {
         description: event.description || '',
         goalScope: event.goalScope || 'radius',
         status,
+        hostId: event.hostId || (event.location?.hostId || null),
+        participants: Array.isArray(event.participants) ? event.participants : [],
         lastEmittedStatus: event.lastEmittedStatus || (status === 'active' ? 'started' : null)
       });
     });

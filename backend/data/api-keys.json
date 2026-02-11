@@ -5,7 +5,11 @@
     "moltville_b5385142d1054c49a37ce9c4f87f527b",
     "moltville_a3791b5db5eb48c9b5d30d5a5f0ed743",
     "moltville_574da126cf954b739b3cdace401438cc",
-    "moltville_52b0d44e1be34c9587474c872137f721"
+    "moltville_52b0d44e1be34c9587474c872137f721",
+    "moltville_2605a0abec094da59047b18205a7d5b3",
+    "new-key",
+    "key-1",
+    "api-key-123"
   ],
   "apiKeyEvents": [
     {
@@ -67,6 +71,90 @@
         "moltbotName": "RebelProbe"
       },
       "createdAt": "2026-02-10T16:01:37.639Z"
+    },
+    {
+      "apiKey": "moltville_2605a0abec094da59047b18205a7d5b3",
+      "action": "issued",
+      "actorId": null,
+      "actorType": null,
+      "metadata": {
+        "moltbotName": "Infiltrator"
+      },
+      "createdAt": "2026-02-11T12:25:48.076Z"
+    },
+    {
+      "apiKey": "key-1",
+      "action": "issued",
+      "actorId": "admin-1",
+      "actorType": "operator",
+      "metadata": {
+        "reason": "seed"
+      },
+      "createdAt": "2026-02-11T13:44:00.403Z"
+    },
+    {
+      "apiKey": "key-1",
+      "action": "revoked",
+      "actorId": "admin-1",
+      "actorType": null,
+      "metadata": null,
+      "createdAt": "2026-02-11T13:44:00.405Z"
+    },
+    {
+      "apiKey": "old-key",
+      "action": "issued",
+      "actorId": null,
+      "actorType": null,
+      "metadata": null,
+      "createdAt": "2026-02-11T13:44:00.408Z"
+    },
+    {
+      "apiKey": "new-key",
+      "action": "issued",
+      "actorId": null,
+      "actorType": null,
+      "metadata": {
+        "reason": "manual"
+      },
+      "createdAt": "2026-02-11T13:44:00.409Z"
+    },
+    {
+      "apiKey": "old-key",
+      "action": "revoked",
+      "actorId": null,
+      "actorType": null,
+      "metadata": {
+        "reason": "manual",
+        "rotatedTo": "new-key"
+      },
+      "createdAt": "2026-02-11T13:44:00.410Z"
+    },
+    {
+      "apiKey": "old-key",
+      "action": "rotated",
+      "actorId": null,
+      "actorType": null,
+      "metadata": {
+        "reason": "manual",
+        "newKey": "new-key"
+      },
+      "createdAt": "2026-02-11T13:44:00.411Z"
+    },
+    {
+      "apiKey": "key-1",
+      "action": "issued",
+      "actorId": null,
+      "actorType": null,
+      "metadata": null,
+      "createdAt": "2026-02-11T13:44:00.412Z"
+    },
+    {
+      "apiKey": "api-key-123",
+      "action": "issued",
+      "actorId": null,
+      "actorType": null,
+      "metadata": null,
+      "createdAt": "2026-02-11T13:44:00.477Z"
     }
   ]
 }

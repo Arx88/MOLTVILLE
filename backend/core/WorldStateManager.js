@@ -233,6 +233,14 @@ export class WorldStateManager {
               if (Math.abs(dx) > Math.abs(dy)) agent.facing = dx > 0 ? 'right' : 'left';
               else agent.facing = dy > 0 ? 'down' : 'up';
             } else {
+              if (state.enterBuildingId && agent) {
+                const b = this.buildings.find(x => x.id === state.enterBuildingId);
+                if (b) {
+                  b.occupancy = b.occupancy.filter(id => id !== agentId);
+                  b.occupancy.push(agentId);
+                  agent.currentBuilding = b.id;
+                }
+              }
               agent.state = 'idle';
               this.movementState.delete(agentId);
             }
@@ -477,10 +485,23 @@ export class WorldStateManager {
   moveAgentTo(agentId, targetX, targetY) {
     const agent = this.agents.get(agentId);
     if (!agent) throw new Error(`Agent ${agentId} not found`);
+
     let finalTargetX = targetX;
     let finalTargetY = targetY;
+    let enterBuildingId = null;
+
+    // If target is inside a non-walkable building, route to its entrance instead
+    const targetBuilding = this.getBuildingAt(targetX, targetY);
+    if (targetBuilding && targetBuilding.type !== 'plaza' && targetBuilding.type !== 'garden') {
+      enterBuildingId = targetBuilding.id;
+      const entranceX = targetBuilding.x + Math.floor(targetBuilding.width / 2);
+      const entranceY = targetBuilding.y + targetBuilding.height; // door at bottom
+      finalTargetX = entranceX;
+      finalTargetY = entranceY;
+    }
+
     if (!this.isWalkable(finalTargetX, finalTargetY)) {
-      const fallback = this.findNearestWalkable(targetX, targetY, 3, agentId);
+      const fallback = this.findNearestWalkable(finalTargetX, finalTargetY, 6, agentId);
       if (fallback) {
         finalTargetX = fallback.x;
         finalTargetY = fallback.y;
@@ -489,7 +510,13 @@ export class WorldStateManager {
       }
     }
     if (this.isOccupied(finalTargetX, finalTargetY, agentId)) {
-      return { success: false, reason: 'Target occupied' };
+      const fallback2 = this.findNearestWalkable(finalTargetX, finalTargetY, 6, agentId);
+      if (fallback2) {
+        finalTargetX = fallback2.x;
+        finalTargetY = fallback2.y;
+      } else {
+        return { success: false, reason: 'Target occupied' };
+      }
     }
 
     const path = this.findPath(agent.x, agent.y, finalTargetX, finalTargetY);
@@ -502,7 +529,8 @@ export class WorldStateManager {
       toY: path[1].y,
       progress: 0,
       fullPath: path,
-      currentStep: 1
+      currentStep: 1,
+      enterBuildingId
     });
 
     // Update facing

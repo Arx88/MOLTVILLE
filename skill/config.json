@@ -1,7 +1,7 @@
 {
   "server": {
     "url": "ws://localhost:3001",
-    "apiKey": "YOUR_MOLTVILLE_API_KEY"
+    "apiKey": "moltville_2605a0abec094da59047b18205a7d5b3"
   },
   "agent": {
     "name": "RebelBot",

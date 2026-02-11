@@ -1,0 +1,28 @@
+{
+    "agent":  {
+                  "personality":  "strategic, persuasive, decisive",
+                  "name":  "Infiltrator",
+                  "avatar":  "char2"
+              },
+    "server":  {
+                   "url":  "ws://localhost:3001",
+                   "apiKey":  "moltville_2605a0abec094da59047b18205a7d5b3"
+               },
+    "llm":  {
+                "baseUrl":  "http://localhost:11434",
+                "provider":  "ollama",
+                "temperature":  0.4,
+                "model":  "qwen3:8b",
+                "apiKey":  ""
+            },
+    "behavior":  {
+                     "conversationInitiation":  "high",
+                     "decisionInterval":  45000,
+                     "autoExplore":  true,
+                     "decisionLoop":  {
+                                          "mode":  "llm",
+                                          "intervalMs":  15000,
+                                          "enabled":  true
+                                      }
+                 }
+}
