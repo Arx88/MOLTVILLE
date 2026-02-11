@@ -48,8 +48,8 @@ router.post('/proposals/:proposalId/join', requireAgentKey({ allowAdmin: true, u
   const coordinationManager = req.app.locals.coordinationManager;
   const agentId = req.agent?.id || req.body?.agentId;
   try {
-    const proposal = coordinationManager.joinProposal(req.params.proposalId, agentId, req.body?.role);
-    return res.json({ success: true, proposal });
+    const result = coordinationManager.joinProposal(req.params.proposalId, agentId, req.body?.role);
+    return res.json({ success: true, proposal: result.proposal, joined: result.joined });
   } catch (error) {
     return res.status(error.message === 'Proposal not found' ? 404 : 400).json({ success: false, error: error.message });
   }

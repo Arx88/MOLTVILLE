@@ -51,23 +51,27 @@ export class CoordinationManager {
     }
 
     const now = Date.now();
+    const normalizedRole = typeof role === 'string' && role.trim() ? role.trim() : 'participant';
     const existing = proposal.members.find((member) => member.agentId === agentId);
+    let joined = false;
+
     if (existing) {
-      existing.role = role || existing.role;
+      existing.role = normalizedRole || existing.role;
       existing.status = 'joined';
       existing.joinedAt = existing.joinedAt || now;
     } else {
       proposal.members.push({
         agentId,
-        role: typeof role === 'string' && role.trim() ? role.trim() : 'participant',
+        role: normalizedRole,
         status: 'joined',
         joinedAt: now
       });
+      proposal.history.push({ type: 'proposal_joined', at: now, by: agentId, role: normalizedRole });
+      joined = true;
     }
 
     proposal.updatedAt = now;
-    proposal.history.push({ type: 'proposal_joined', at: now, by: agentId, role });
-    return proposal;
+    return { proposal, joined };
   }
 
   commitTask(proposalId, agentId, { task, role = 'participant', dueAt = null } = {}) {
@@ -78,12 +82,26 @@ export class CoordinationManager {
     this.joinProposal(proposalId, agentId, role);
 
     const now = Date.now();
+    const normalizedTask = typeof task === 'string' && task.trim() ? task.trim() : 'support_proposal';
+    const normalizedRole = typeof role === 'string' && role.trim() ? role.trim() : 'participant';
+
+    const existing = proposal.commitments.find((entry) =>
+      entry.agentId === agentId &&
+      entry.task === normalizedTask &&
+      ['pending', 'in_progress'].includes(entry.status)
+    );
+
+    if (existing) {
+      existing.updatedAt = now;
+      return existing;
+    }
+
     const commitment = {
       id: `commit_${randomUUID()}`,
       proposalId,
       agentId,
-      task: typeof task === 'string' && task.trim() ? task.trim() : 'support_proposal',
-      role: typeof role === 'string' && role.trim() ? role.trim() : 'participant',
+      task: normalizedTask,
+      role: normalizedRole,
       status: 'pending',
       progress: 0,
       notes: '',

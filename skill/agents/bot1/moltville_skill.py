@@ -56,6 +56,8 @@ class MOLTVILLESkill:
         self._conversation_repeat_count: Dict[str, int] = {}
         self._conversation_cooldown = 0
         self._conversation_stale_seconds = 120
+        self._coord_dialogue_cooldown_seconds = 90
+        self._last_coord_dialogue_ts: Dict[str, float] = {}
         self._relation_update_cooldown = 8
         self._last_relation_update: Dict[str, float] = {}
         self._plan_state = self.long_memory.get("planState", {}) if isinstance(self.long_memory, dict) else {}
@@ -1221,16 +1223,26 @@ class MOLTVILLESkill:
                 }
 
             nearby = perception.get("nearbyAgents", []) or []
-            if nearby and random.random() < 0.45:
+            if nearby and random.random() < 0.25:
                 target_id = nearby[0].get("id")
                 if isinstance(target_id, str) and target_id:
-                    return {
-                        "type": "start_conversation",
-                        "params": {
-                            "target_id": target_id,
-                            "message": f"Estoy coordinando la propuesta {proposal_id[:8]}. ¿Te sumas a una tarea?"
+                    now_ts = time.time()
+                    cooldown_key = f"{proposal_id}:{target_id}"
+                    last_ts = self._last_coord_dialogue_ts.get(cooldown_key, 0)
+                    if (now_ts - last_ts) >= self._coord_dialogue_cooldown_seconds:
+                        self._last_coord_dialogue_ts[cooldown_key] = now_ts
+                        prompt_variants = [
+                            f"Estoy coordinando la propuesta {proposal_id[:8]}. ¿Te sumas a una tarea?",
+                            f"Necesito apoyo para la propuesta {proposal_id[:8]}. ¿Puedes encargarte de una parte?",
+                            f"Vamos con la propuesta {proposal_id[:8]}. ¿Te unes para cerrar un objetivo?"
+                        ]
+                        return {
+                            "type": "start_conversation",
+                            "params": {
+                                "target_id": target_id,
+                                "message": random.choice(prompt_variants)
+                            }
                         }
-                    }
             return None
 
         nearby = perception.get("nearbyAgents", []) or []
@@ -2045,7 +2057,7 @@ class MOLTVILLESkill:
             proposal_id = params.get("proposal_id")
             if isinstance(proposal_id, str) and proposal_id.strip():
                 joined = await self.join_coordination_proposal(proposal_id.strip(), params.get("role", "participant"))
-                if isinstance(joined, dict) and joined.get("success"):
+                if isinstance(joined, dict) and joined.get("success") and joined.get("joined") is True:
                     await self.speak("Me sumo a la coordinación. Repartamos tareas.")
         elif action_type == "coord_commit":
             proposal_id = params.get("proposal_id")
