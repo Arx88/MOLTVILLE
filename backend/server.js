@@ -16,6 +16,7 @@ import {
   recordSocketError,
   recordSocketDuration,
   recordTickDuration,
+  recordIntentSignal,
   trackHttpRequest,
   trackSocketEvent,
   trackSocketRateLimit
@@ -33,6 +34,7 @@ import { NegotiationService } from './core/NegotiationService.js';
 import { PolicyEngine } from './core/PolicyEngine.js';
 import { TelemetryService } from './core/TelemetryService.js';
 import { CoordinationManager } from './core/CoordinationManager.js';
+import { CommitmentManager } from './core/CommitmentManager.js';
 import { db } from './utils/db.js';
 import { CityMoodManager } from './core/CityMoodManager.js';
 import { AestheticsManager } from './core/AestheticsManager.js';
@@ -40,6 +42,7 @@ import { EventManager } from './core/EventManager.js';
 import { NPCSpawner } from './core/NPCSpawner.js';
 import { EventScheduler } from './core/EventScheduler.js';
 import { HealthMonitor } from './core/HealthMonitor.js';
+import { MicroEventEngine } from './core/MicroEventEngine.js';
 import { hasPermission } from './utils/permissions.js';
 import { AnalyticsStore, buildDramaScore } from './utils/analyticsStore.js';
 
@@ -56,6 +59,7 @@ import telemetryRoutes from './routes/telemetry.js';
 import { createAestheticsRouter } from './routes/aesthetics.js';
 import eventRoutes from './routes/events.js';
 import coordinationRoutes from './routes/coordination.js';
+import commitmentsRoutes from './routes/commitments.js';
 import { createMetricsRouter } from './routes/metrics.js';
 import adminRoutes from './routes/admin.js';
 import showRoutes from './routes/show.js';
@@ -334,6 +338,7 @@ const negotiationService = new NegotiationService({ favorLedger, reputationManag
 const policyEngine = new PolicyEngine({ governanceManager, economyManager });
 const telemetryService = new TelemetryService();
 const coordinationManager = new CoordinationManager();
+const commitmentManager = new CommitmentManager();
 const cityMoodManager = new CityMoodManager(economyManager, interactionEngine);
 const aestheticsManager = new AestheticsManager({ worldStateManager: worldState, economyManager, governanceManager, io });
 const eventManager = new EventManager({ io });
@@ -350,6 +355,22 @@ const npcSpawner = new NPCSpawner({
 const eventScheduler = new EventScheduler({ eventManager, worldState, cityMoodManager });
 const healthMonitor = new HealthMonitor({ registry: moltbotRegistry, worldState, npcSpawner, eventManager });
 const analyticsStore = new AnalyticsStore();
+const featureFlags = {
+  REPUTATION_ENGINE_ENABLED: process.env.REPUTATION_ENGINE_ENABLED !== 'false',
+  COMMITMENTS_ENABLED: process.env.COMMITMENTS_ENABLED !== 'false',
+  ECONOMY_PRIORITY_ENABLED: process.env.ECONOMY_PRIORITY_ENABLED === 'true',
+  ARBITRATION_V2_ENABLED: process.env.ARBITRATION_V2_ENABLED === 'true'
+};
+let microEventEngine = null;
+if (process.env.ENABLE_MICRO_EVENTS === 'true') {
+  try {
+    microEventEngine = new MicroEventEngine({ worldState, moltbotRegistry, io });
+    logger.info('MicroEventEngine enabled');
+  } catch (error) {
+    logger.warn('MicroEventEngine disabled due to init error', { error: error.message });
+    microEventEngine = null;
+  }
+}
 const kickChatUrl = process.env.KICK_CHAT_URL || '';
 const kickChannel = process.env.KICK_CHANNEL || '';
 const kickModerators = (process.env.KICK_MODS || '').split(',').map(name => name.trim()).filter(Boolean);
@@ -407,6 +428,7 @@ app.locals.negotiationService = negotiationService;
 app.locals.policyEngine = policyEngine;
 app.locals.telemetryService = telemetryService;
 app.locals.coordinationManager = coordinationManager;
+app.locals.commitmentManager = commitmentManager;
 app.locals.cityMoodManager = cityMoodManager;
 app.locals.aestheticsManager = aestheticsManager;
 app.locals.eventManager = eventManager;
@@ -414,6 +436,7 @@ app.locals.npcSpawner = npcSpawner;
 app.locals.eventScheduler = eventScheduler;
 app.locals.healthMonitor = healthMonitor;
 app.locals.analyticsStore = analyticsStore;
+app.locals.featureFlags = featureFlags;
 app.locals.io = io;
 app.locals.db = db;
 
@@ -432,7 +455,9 @@ const saveWorldSnapshot = async () => {
       mood: cityMoodManager.createSnapshot(),
       governance: governanceManager.createSnapshot(),
       voting: votingManager.createSnapshot(),
-      coordination: coordinationManager.createSnapshot()
+      coordination: coordinationManager.createSnapshot(),
+      reputation: reputationManager.createSnapshot(),
+      commitments: commitmentManager.createSnapshot()
     };
     await saveSnapshotFile(snapshotPath, snapshot, {
       archiveDir: config.worldSnapshotArchiveDir,
@@ -482,6 +507,8 @@ const restoreWorldSnapshot = async () => {
     governanceManager.loadSnapshot(snapshot.governance);
     votingManager.loadSnapshot(snapshot.voting);
     coordinationManager.loadSnapshot(snapshot.coordination);
+    reputationManager.loadSnapshot(snapshot.reputation);
+    commitmentManager.loadSnapshot(snapshot.commitments);
     metrics.worldSnapshots.lastLoadAt = Date.now();
     metrics.worldSnapshots.lastLoadDurationMs = metrics.worldSnapshots.lastLoadAt - startedAt;
     logger.info('World snapshot restored', {
@@ -534,6 +561,7 @@ app.use('/api/governance', governanceRoutes);
 app.use('/api/aesthetics', createAestheticsRouter({ aestheticsManager }));
 app.use('/api/events', eventRoutes);
 app.use('/api/coordination', coordinationRoutes);
+app.use('/api/commitments', commitmentsRoutes);
 app.use('/api/show', showRoutes);
 app.use('/api/admin', adminRoutes);
 app.use('/api/kick', kickRoutes);
@@ -560,7 +588,11 @@ app.use('/api/metrics', createMetricsRouter({
   economyManager,
   worldState,
   moltbotRegistry,
-  cityMoodManager
+  cityMoodManager,
+  actionQueue,
+  commitmentManager,
+  reputationManager,
+  featureFlags
 }));
 
 // ── WebSocket Handling ──
@@ -706,6 +738,7 @@ io.on('connection', (socket) => {
 
   socket.on('agent:profile', (data = {}) => {
     if (!socket.agentId) return;
+    recordIntentSignal('profile_update', { agentId: socket.agentId });
     const updated = moltbotRegistry.updateAgentProfile(socket.agentId, data);
     if (updated) {
       const baseAgents = moltbotRegistry.getAllAgents();
@@ -720,6 +753,7 @@ io.on('connection', (socket) => {
 
   socket.on('telemetry:action', (data = {}) => {
     if (!socket.agentId) return;
+    recordIntentSignal('telemetry_action', { agentId: socket.agentId });
     const entry = telemetryService.track(data.event || 'agent_action', {
       agentId: socket.agentId,
       ...data
@@ -907,6 +941,7 @@ io.on('connection', (socket) => {
         return;
       }
       const conversation = await interactionEngine.initiateConversation(socket.agentId, targetId, message.trim());
+      recordIntentSignal('conversation_start', { agentId: socket.agentId });
       const recipients = conversation.participants;
       recipients.forEach(participantId => {
         const socketId = moltbotRegistry.getAgentSocket(participantId);
@@ -967,6 +1002,7 @@ io.on('connection', (socket) => {
         return;
       }
       const conversation = await interactionEngine.addMessageToConversation(conversationId, socket.agentId, message.trim());
+      recordIntentSignal('conversation_message', { agentId: socket.agentId });
       conversation.participants.forEach(participantId => {
         const socketId = moltbotRegistry.getAgentSocket(participantId);
         if (socketId) {
@@ -1006,6 +1042,7 @@ io.on('connection', (socket) => {
         return;
       }
       const conversation = await interactionEngine.endConversation(conversationId);
+      recordIntentSignal('conversation_end', { agentId: socket.agentId });
       conversation.participants.forEach(participantId => {
         const socketId = moltbotRegistry.getAgentSocket(participantId);
         if (socketId) {
@@ -1114,6 +1151,11 @@ io.on('connection', (socket) => {
         type: 'ACTION', agentId: socket.agentId,
         actionType, target, params, timestamp: Date.now()
       });
+      recordIntentSignal('action_enqueued', {
+        agentId: socket.agentId,
+        actionType,
+        queueDepth: actionQueue.getQueueLength ? actionQueue.getQueueLength() : undefined
+      });
       emitViewerEvent('agent:action', {
         agentId: socket.agentId,
         actionType,
@@ -1152,6 +1194,7 @@ io.on('connection', (socket) => {
         }
         return;
       }
+      recordIntentSignal('perceive', { agentId: socket.agentId });
       socket.emit('perception:update', {
         ...worldState.getAgentView(socket.agentId),
         governance: governanceManager.getSummary(),
@@ -1212,6 +1255,7 @@ setInterval(() => {
   npcSpawner.tick();
   eventScheduler.tick();
   healthMonitor.tick();
+  if (microEventEngine) microEventEngine.tick();
   interactionEngine.cleanupOldConversations();
   if (eventTransitions?.length) {
     emitEventGoals(eventTransitions);

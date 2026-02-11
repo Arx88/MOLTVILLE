@@ -19,7 +19,11 @@ export const createMetricsRouter = ({
   economyManager,
   worldState,
   moltbotRegistry,
-  cityMoodManager
+  cityMoodManager,
+  actionQueue,
+  commitmentManager,
+  reputationManager,
+  featureFlags
 }) => {
   const router = express.Router();
 
@@ -56,7 +60,9 @@ export const createMetricsRouter = ({
         averageBalance: economyManager.getAverageBalance(),
         inventory: economyManager.getInventoryStats(),
         itemTransactions: economyManager.getItemTransactions(500).length,
-        treasury: economyManager.getTreasurySummary()
+        treasury: economyManager.getTreasurySummary(),
+        ...economyManager.getMetrics(),
+        treasuryNet: economyManager.getTreasurySummary().balance
       },
       events: eventCounts,
       world: metrics.world,
@@ -76,15 +82,67 @@ export const createMetricsRouter = ({
 
   router.get('/intents', (req, res) => {
     const intentRoutes = Object.entries(metrics.http.byRoute || {})
-      .filter(([route]) => route.includes('/api/metrics/intents') || route.includes('/api/moltbot/'))
+      .filter(([route]) => route.includes('/api/moltbot/') || route.includes('/api/telemetry/') || route.includes('/api/metrics/intents'))
+      .sort((a, b) => b[1] - a[1])
+      .slice(0, 25)
       .reduce((acc, [route, count]) => ({ ...acc, [route]: count }), {});
+
+    const topActionTypes = Object.entries(metrics.intent?.actionTypes || {})
+      .sort((a, b) => b[1] - a[1])
+      .slice(0, 10)
+      .reduce((acc, [actionType, count]) => ({ ...acc, [actionType]: count }), {});
+
+    const topAgents = Object.entries(metrics.intent?.byAgent || {})
+      .sort((a, b) => b[1] - a[1])
+      .slice(0, 10)
+      .reduce((acc, [agentId, count]) => ({ ...acc, [agentId]: count }), {});
+
+    const uptimeMinutes = Math.max(1, Math.floor((Date.now() - metrics.startTime) / 60000));
+    const commitmentStats = commitmentManager?.stats ? commitmentManager.stats() : { created: 0, completed: 0, expired: 0 };
+    const intentPayload = metrics.intent || {};
+    const actionsExecuted = Object.values(intentPayload.actionTypes || {}).reduce((sum, n) => sum + Number(n || 0), 0);
+
     res.json({
       success: true,
       generatedAt: Date.now(),
       health: metrics.health,
       httpErrors: metrics.errors?.http || {},
+      connectedAgents: moltbotRegistry.getAgentCount(),
+      queueDepth: actionQueue.getQueueLength ? actionQueue.getQueueLength() : null,
+      intents: intentPayload,
+      topActionTypes,
+      topAgents,
       intentRoutes,
-      note: 'Intent health endpoint enabled. Agent-level intent counters must be published by skill telemetry.'
+      featureFlags: featureFlags || {},
+      commitments: commitmentStats,
+      rates: {
+        conversationMessagesPerMin: Number(((intentPayload.conversationMessages || 0) / uptimeMinutes).toFixed(3)),
+        actionsExecutedPerMin: Number((actionsExecuted / uptimeMinutes).toFixed(3)),
+        jobApplyRatePerMin: Number(((economyManager.getMetrics()?.jobsApplied || 0) / uptimeMinutes).toFixed(3)),
+        jobCompletionRatePerMin: Number(((economyManager.getMetrics()?.jobsCompleted || 0) / uptimeMinutes).toFixed(3))
+      },
+      loopScore: Number((Math.max(0, (intentPayload.conversationMessages || 0) - actionsExecuted) / uptimeMinutes).toFixed(3)),
+      reputationDeltaTop: reputationManager?.leaderboard ? reputationManager.leaderboard(5) : []
+    });
+  });
+
+  router.get('/summary', (req, res) => {
+    const uptimeMinutes = Math.max(1, Math.floor((Date.now() - metrics.startTime) / 60000));
+    const intent = metrics.intent || {};
+    const actionsExecuted = Object.values(intent.actionTypes || {}).reduce((sum, n) => sum + Number(n || 0), 0);
+    const commitments = commitmentManager?.stats ? commitmentManager.stats() : { created: 0, completed: 0, expired: 0 };
+    res.json({
+      success: true,
+      generatedAt: Date.now(),
+      connectedAgents: moltbotRegistry.getAgentCount(),
+      conversationMessagesPerMin: Number(((intent.conversationMessages || 0) / uptimeMinutes).toFixed(3)),
+      actionsExecutedPerMin: Number((actionsExecuted / uptimeMinutes).toFixed(3)),
+      jobsApplied: economyManager.getMetrics()?.jobsApplied || 0,
+      jobsCompleted: economyManager.getMetrics()?.jobsCompleted || 0,
+      paymentsCount: economyManager.getMetrics()?.paymentsCount || 0,
+      treasuryNet: economyManager.getTreasurySummary().balance,
+      commitments,
+      loopScore: Number((Math.max(0, (intent.conversationMessages || 0) - actionsExecuted) / uptimeMinutes).toFixed(3))
     });
   });
 
