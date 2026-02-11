@@ -1575,9 +1575,6 @@ class MOLTVILLESkill:
         decision_config = self.config.get("behavior", {}).get("decisionLoop", {})
         mode = decision_config.get("mode", "heuristic")
         if mode == "llm":
-            goal_action = await self._goal_action(perception)
-            if goal_action:
-                return goal_action
             has_conversation = bool(self._conversation_state) or bool(perception.get("conversations"))
             if has_conversation:
                 action = await self._decide_with_llm(perception, force_conversation=True)
@@ -1586,15 +1583,12 @@ class MOLTVILLESkill:
                 if action:
                     return action
                 return {"type": "wait", "params": {}}
-            nearby = perception.get("nearbyAgents", []) or []
-            if nearby:
-                target_id = nearby[0].get("id")
-                message = await self._llm_social_message("greeting", {"target": target_id})
-                if target_id and message:
-                    return {"type": "start_conversation", "params": {"target_id": target_id, "message": message}}
+
             action = await self._decide_with_llm(perception)
             if action:
                 return action
+
+            # Fallbacks when LLM fails, without forcing specific goals.
             plan_action = await self._next_plan_action(perception)
             if plan_action:
                 return plan_action
@@ -1602,9 +1596,6 @@ class MOLTVILLESkill:
             if convo_action:
                 return convo_action
         else:
-            goal_action = await self._goal_action(perception)
-            if goal_action:
-                return goal_action
             plan_action = await self._next_plan_action(perception)
             if plan_action:
                 return plan_action
