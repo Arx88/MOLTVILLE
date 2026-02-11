@@ -1,7 +1,7 @@
 {
     "server":  {
                    "url":  "ws://localhost:3001",
-                   "apiKey":  "moltville_a3791b5db5eb48c9b5d30d5a5f0ed743"
+                   "apiKey":  "moltville_a75730030f7948dd8ce37e26a01398f0"
                },
     "agent":  {
                   "name":  "Echo",
@@ -14,9 +14,13 @@
                      "decisionInterval":  60000,
                      "decisionLoop":  {
                                           "enabled":  true,
-                                          "intervalMs":  20000,
+                                          "intervalMs":  12000,
                                           "mode":  "llm"
-                                      }
+                                      },
+                     "arbitrationV2":  {
+                                           "queueTtlSec":  45,
+                                           "enabled":  false
+                                       }
                  },
     "llm":  {
                 "provider":  "ollama",

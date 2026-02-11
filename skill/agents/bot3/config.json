@@ -1,7 +1,7 @@
 {
     "server":  {
                    "url":  "ws://localhost:3001",
-                   "apiKey":  "moltville_b5385142d1054c49a37ce9c4f87f527b"
+                   "apiKey":  "moltville_1c44f805296c425286138528617e6cdd"
                },
     "agent":  {
                   "name":  "Atlas",
@@ -10,13 +10,17 @@
               },
     "behavior":  {
                      "autoExplore":  true,
-                     "conversationInitiation":  "moderate",
+                     "conversationInitiation":  "high",
                      "decisionInterval":  60000,
                      "decisionLoop":  {
                                           "enabled":  true,
-                                          "intervalMs":  20000,
+                                          "intervalMs":  12000,
                                           "mode":  "llm"
-                                      }
+                                      },
+                     "arbitrationV2":  {
+                                           "queueTtlSec":  45,
+                                           "enabled":  false
+                                       }
                  },
     "llm":  {
                 "provider":  "ollama",

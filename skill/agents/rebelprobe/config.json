@@ -1,7 +1,7 @@
 {
     "server":  {
                    "url":  "ws://localhost:3001",
-                   "apiKey":  "moltville_52b0d44e1be34c9587474c872137f721"
+                   "apiKey":  "moltville_1e62977096474986a2aaa9213e605943"
                },
     "agent":  {
                   "name":  "RebelProbe",
@@ -10,13 +10,17 @@
               },
     "behavior":  {
                      "autoExplore":  true,
-                     "conversationInitiation":  "low",
+                     "conversationInitiation":  "high",
                      "decisionInterval":  60000,
                      "decisionLoop":  {
                                           "enabled":  true,
-                                          "intervalMs":  20000,
+                                          "intervalMs":  12000,
                                           "mode":  "llm"
-                                      }
+                                      },
+                     "arbitrationV2":  {
+                                           "queueTtlSec":  45,
+                                           "enabled":  false
+                                       }
                  },
     "llm":  {
                 "provider":  "ollama",

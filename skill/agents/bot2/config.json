@@ -1,7 +1,7 @@
 {
     "server":  {
                    "url":  "ws://localhost:3001",
-                   "apiKey":  "moltville_62a7821d613a49d6829ae2cf58aa0747"
+                   "apiKey":  "moltville_c3be3c1cc4834c93874ec3c432390171"
                },
     "agent":  {
                   "name":  "Nova",
@@ -14,9 +14,13 @@
                      "decisionInterval":  60000,
                      "decisionLoop":  {
                                           "enabled":  true,
-                                          "intervalMs":  20000,
+                                          "intervalMs":  12000,
                                           "mode":  "llm"
-                                      }
+                                      },
+                     "arbitrationV2":  {
+                                           "queueTtlSec":  45,
+                                           "enabled":  true
+                                       }
                  },
     "llm":  {
                 "provider":  "ollama",

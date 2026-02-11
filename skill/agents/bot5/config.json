@@ -1,7 +1,7 @@
 {
     "server":  {
                    "url":  "ws://localhost:3001",
-                   "apiKey":  "moltville_574da126cf954b739b3cdace401438cc"
+                   "apiKey":  "moltville_1e463877fa69409cb41b41d684810e32"
                },
     "agent":  {
                   "name":  "Lyra",
@@ -10,13 +10,17 @@
               },
     "behavior":  {
                      "autoExplore":  true,
-                     "conversationInitiation":  "moderate",
+                     "conversationInitiation":  "high",
                      "decisionInterval":  60000,
                      "decisionLoop":  {
                                           "enabled":  true,
-                                          "intervalMs":  20000,
+                                          "intervalMs":  12000,
                                           "mode":  "llm"
-                                      }
+                                      },
+                     "arbitrationV2":  {
+                                           "queueTtlSec":  45,
+                                           "enabled":  false
+                                       }
                  },
     "llm":  {
                 "provider":  "ollama",

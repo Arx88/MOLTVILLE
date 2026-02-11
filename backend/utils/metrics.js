@@ -66,6 +66,21 @@ export const metrics = {
     lastLoadDurationMs: null,
     lastSizeBytes: null,
     avgSizeBytes: 0
+  },
+  intent: {
+    decisions: 0,
+    profileUpdates: 0,
+    telemetryActions: 0,
+    perceiveCalls: 0,
+    conversationStarts: 0,
+    conversationMessages: 0,
+    conversationEnds: 0,
+    actionsEnqueued: 0,
+    actionTypes: buildCounter(),
+    byAgent: buildCounter(),
+    queueDepthLast: 0,
+    queueDepthMax: 0,
+    lastAt: null
   }
 };
 
@@ -136,5 +151,50 @@ export const recordTickDuration = (durationMs) => {
       : (metrics.world.avgTickMs * (metrics.world.ticks - 1) + durationMs) / metrics.world.ticks;
   if (durationMs > metrics.performance.latencyBudgetMs) {
     metrics.performance.tickBudgetExceeded += 1;
+  }
+};
+
+
+export const recordIntentSignal = (kind, payload = {}) => {
+  const intent = metrics.intent;
+  intent.lastAt = Date.now();
+  const agentId = payload.agentId || payload.id;
+  if (agentId) {
+    intent.byAgent[agentId] = (intent.byAgent[agentId] || 0) + 1;
+  }
+  switch (kind) {
+    case 'decision':
+      intent.decisions += 1;
+      break;
+    case 'profile_update':
+      intent.profileUpdates += 1;
+      break;
+    case 'telemetry_action':
+      intent.telemetryActions += 1;
+      break;
+    case 'perceive':
+      intent.perceiveCalls += 1;
+      break;
+    case 'conversation_start':
+      intent.conversationStarts += 1;
+      break;
+    case 'conversation_message':
+      intent.conversationMessages += 1;
+      break;
+    case 'conversation_end':
+      intent.conversationEnds += 1;
+      break;
+    case 'action_enqueued':
+      intent.actionsEnqueued += 1;
+      if (payload.actionType) {
+        intent.actionTypes[payload.actionType] = (intent.actionTypes[payload.actionType] || 0) + 1;
+      }
+      if (Number.isFinite(payload.queueDepth)) {
+        intent.queueDepthLast = payload.queueDepth;
+        intent.queueDepthMax = Math.max(intent.queueDepthMax || 0, payload.queueDepth);
+      }
+      break;
+    default:
+      break;
   }
 };

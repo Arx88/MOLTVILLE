@@ -323,6 +323,10 @@ export class NPCSpawner {
       const isSocial = this.isAtSocialSpace(npc.id);
       if (!isSocial && Math.random() < 0.7) {
         this.moveToSocialSpace(npc.id);
+        // Anti-inacción: después de moverse, reintenta conducta pronto en lugar de esperar
+        // todo el behaviorInterval (que se vuelve crítico si hay reinicios frecuentes).
+        const followUpDelayMs = Math.min(8000, Math.max(1500, Math.floor(this.config.behaviorIntervalMs * 0.2)));
+        npc.lastActionAt = Date.now() - (this.config.behaviorIntervalMs - followUpDelayMs);
         return;
       }
 

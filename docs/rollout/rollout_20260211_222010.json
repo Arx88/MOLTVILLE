@@ -1,0 +1,200 @@
+﻿{
+    "startedAt":  "2026-02-11T22:20:10.8205440+01:00",
+    "agents":  [
+                   "bot1",
+                   "bot2",
+                   "bot3",
+                   "bot4",
+                   "bot5",
+                   "rebelprobe"
+               ],
+    "canary":  [
+                   "bot1",
+                   "bot2"
+               ],
+    "half":  [
+                 "bot1",
+                 "bot2",
+                 "bot3"
+             ],
+    "baseline":  {
+                     "timestamp":  "2026-02-11T22:20:10.9188342+01:00",
+                     "connectedAgents":  6,
+                     "conversationMessagesPerMin":  0,
+                     "actionsExecutedPerMin":  0,
+                     "actionsByType":  "{}",
+                     "jobsApplied":  0,
+                     "jobsCompleted":  0,
+                     "paymentsCount":  78,
+                     "treasuryNet":  -156,
+                     "commitmentsCreated":  0,
+                     "commitmentsCompleted":  0,
+                     "commitmentsExpired":  0,
+                     "join404":  0,
+                     "errorRate":  0,
+                     "loopScore":  0,
+                     "featureFlags":  "{\"REPUTATION_ENGINE_ENABLED\":true,\"COMMITMENTS_ENABLED\":true,\"ECONOMY_PRIORITY_ENABLED\":false,\"ARBITRATION_V2_ENABLED\":false}",
+                     "uptimeMin":  13
+                 },
+    "phases":  [
+                   {
+                       "phase":  "canary_2",
+                       "enabled":  [
+                                       "bot1",
+                                       "bot2"
+                                   ],
+                       "expectedMinAgents":  4,
+                       "rows":  [
+                                    {
+                                        "timestamp":  "2026-02-11T22:20:21.4223917+01:00",
+                                        "connectedAgents":  6,
+                                        "conversationMessagesPerMin":  0,
+                                        "actionsExecutedPerMin":  0,
+                                        "actionsByType":  "{}",
+                                        "jobsApplied":  0,
+                                        "jobsCompleted":  0,
+                                        "paymentsCount":  78,
+                                        "treasuryNet":  -156,
+                                        "commitmentsCreated":  0,
+                                        "commitmentsCompleted":  0,
+                                        "commitmentsExpired":  0,
+                                        "join404":  0,
+                                        "errorRate":  0,
+                                        "loopScore":  0,
+                                        "featureFlags":  "{\"REPUTATION_ENGINE_ENABLED\":true,\"COMMITMENTS_ENABLED\":true,\"ECONOMY_PRIORITY_ENABLED\":false,\"ARBITRATION_V2_ENABLED\":false}",
+                                        "uptimeMin":  14
+                                    },
+                                    {
+                                        "timestamp":  "2026-02-11T22:21:21.4292646+01:00",
+                                        "connectedAgents":  6,
+                                        "conversationMessagesPerMin":  0,
+                                        "actionsExecutedPerMin":  0,
+                                        "actionsByType":  "{}",
+                                        "jobsApplied":  0,
+                                        "jobsCompleted":  0,
+                                        "paymentsCount":  84,
+                                        "treasuryNet":  -168,
+                                        "commitmentsCreated":  0,
+                                        "commitmentsCompleted":  0,
+                                        "commitmentsExpired":  0,
+                                        "join404":  0,
+                                        "errorRate":  0,
+                                        "loopScore":  0,
+                                        "featureFlags":  "{\"REPUTATION_ENGINE_ENABLED\":true,\"COMMITMENTS_ENABLED\":true,\"ECONOMY_PRIORITY_ENABLED\":false,\"ARBITRATION_V2_ENABLED\":false}",
+                                        "uptimeMin":  15
+                                    },
+                                    {
+                                        "timestamp":  "2026-02-11T22:22:21.4341847+01:00",
+                                        "connectedAgents":  6,
+                                        "conversationMessagesPerMin":  0,
+                                        "actionsExecutedPerMin":  0,
+                                        "actionsByType":  "{}",
+                                        "jobsApplied":  0,
+                                        "jobsCompleted":  0,
+                                        "paymentsCount":  90,
+                                        "treasuryNet":  -180,
+                                        "commitmentsCreated":  0,
+                                        "commitmentsCompleted":  0,
+                                        "commitmentsExpired":  0,
+                                        "join404":  0,
+                                        "errorRate":  0,
+                                        "loopScore":  0,
+                                        "featureFlags":  "{\"REPUTATION_ENGINE_ENABLED\":true,\"COMMITMENTS_ENABLED\":true,\"ECONOMY_PRIORITY_ENABLED\":false,\"ARBITRATION_V2_ENABLED\":false}",
+                                        "uptimeMin":  16
+                                    }
+                                ],
+                       "criteria":  {
+                                        "minConnectedAgents":  4,
+                                        "maxErrorRate":  0.05,
+                                        "join404DeltaLTE":  0
+                                    },
+                       "observed":  {
+                                        "minConnectedAgents":  6,
+                                        "maxErrorRate":  0,
+                                        "join404Delta":  0
+                                    },
+                       "passed":  true
+                   },
+                   {
+                       "phase":  "rollout_50",
+                       "enabled":  [
+                                       "bot1",
+                                       "bot2",
+                                       "bot3"
+                                   ],
+                       "expectedMinAgents":  4,
+                       "rows":  [
+                                    {
+                                        "timestamp":  "2026-02-11T22:23:31.8878063+01:00",
+                                        "connectedAgents":  6,
+                                        "conversationMessagesPerMin":  0,
+                                        "actionsExecutedPerMin":  0,
+                                        "actionsByType":  "{}",
+                                        "jobsApplied":  0,
+                                        "jobsCompleted":  0,
+                                        "paymentsCount":  102,
+                                        "treasuryNet":  -204,
+                                        "commitmentsCreated":  0,
+                                        "commitmentsCompleted":  0,
+                                        "commitmentsExpired":  0,
+                                        "join404":  0,
+                                        "errorRate":  0,
+                                        "loopScore":  0,
+                                        "featureFlags":  "{\"REPUTATION_ENGINE_ENABLED\":true,\"COMMITMENTS_ENABLED\":true,\"ECONOMY_PRIORITY_ENABLED\":false,\"ARBITRATION_V2_ENABLED\":false}",
+                                        "uptimeMin":  17
+                                    },
+                                    {
+                                        "timestamp":  "2026-02-11T22:24:31.8932770+01:00",
+                                        "connectedAgents":  0,
+                                        "conversationMessagesPerMin":  0,
+                                        "actionsExecutedPerMin":  0,
+                                        "actionsByType":  "{}",
+                                        "jobsApplied":  0,
+                                        "jobsCompleted":  0,
+                                        "paymentsCount":  108,
+                                        "treasuryNet":  -216,
+                                        "commitmentsCreated":  0,
+                                        "commitmentsCompleted":  0,
+                                        "commitmentsExpired":  0,
+                                        "join404":  0,
+                                        "errorRate":  0,
+                                        "loopScore":  0,
+                                        "featureFlags":  "{\"REPUTATION_ENGINE_ENABLED\":true,\"COMMITMENTS_ENABLED\":true,\"ECONOMY_PRIORITY_ENABLED\":false,\"ARBITRATION_V2_ENABLED\":false}",
+                                        "uptimeMin":  18
+                                    },
+                                    {
+                                        "timestamp":  "2026-02-11T22:25:31.8970641+01:00",
+                                        "connectedAgents":  6,
+                                        "conversationMessagesPerMin":  0,
+                                        "actionsExecutedPerMin":  0,
+                                        "actionsByType":  "{}",
+                                        "jobsApplied":  0,
+                                        "jobsCompleted":  0,
+                                        "paymentsCount":  114,
+                                        "treasuryNet":  -228,
+                                        "commitmentsCreated":  0,
+                                        "commitmentsCompleted":  0,
+                                        "commitmentsExpired":  0,
+                                        "join404":  0,
+                                        "errorRate":  0,
+                                        "loopScore":  0,
+                                        "featureFlags":  "{\"REPUTATION_ENGINE_ENABLED\":true,\"COMMITMENTS_ENABLED\":true,\"ECONOMY_PRIORITY_ENABLED\":false,\"ARBITRATION_V2_ENABLED\":false}",
+                                        "uptimeMin":  19
+                                    }
+                                ],
+                       "criteria":  {
+                                        "minConnectedAgents":  4,
+                                        "maxErrorRate":  0.05,
+                                        "join404DeltaLTE":  0
+                                    },
+                       "observed":  {
+                                        "minConnectedAgents":  0,
+                                        "maxErrorRate":  0,
+                                        "join404Delta":  0
+                                    },
+                       "passed":  false
+                   }
+               ],
+    "rollback":  "half_failed",
+    "finishedAt":  "2026-02-11T22:26:42.3183003+01:00"
+}
