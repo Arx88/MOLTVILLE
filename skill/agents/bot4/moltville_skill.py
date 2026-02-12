@@ -91,6 +91,7 @@ class MOLTVILLESkill:
         self._health_metrics = self.long_memory.get("healthMetrics", {}) if isinstance(self.long_memory, dict) else {}
         self._action_queue: List[Dict[str, Any]] = self.long_memory.get("pendingActions", []) if isinstance(self.long_memory, dict) else []
         self._http_cfg = self.config.get("http", {}) if isinstance(self.config.get("http"), dict) else {}
+        self._job_strategy_state = self.long_memory.get("jobStrategy", {}) if isinstance(self.long_memory, dict) else {}
         
         # Setup event handlers
         self._setup_handlers()
@@ -136,6 +137,83 @@ class MOLTVILLESkill:
         self._action_queue = self._action_queue[:40]
         self._save_action_queue()
         self._log_cycle("action_enqueued", source=source, action=action.get("type"), priority=round(float(priority), 3), queueDepth=len(self._action_queue))
+
+    def _save_job_strategy(self) -> None:
+        if isinstance(self.long_memory, dict):
+            self.long_memory["jobStrategy"] = self._job_strategy_state
+            self._save_long_memory()
+
+    def _job_block_active(self) -> bool:
+        if not isinstance(self._job_strategy_state, dict):
+            return False
+        until = self._job_strategy_state.get("blockedUntilMs")
+        if not isinstance(until, (int, float)):
+            return False
+        now_ms = int(asyncio.get_event_loop().time() * 1000)
+        return now_ms < int(until)
+
+    def _set_job_block(self, code: str, message: str, retry_after_ms: int = 120000, target_job_id: Optional[str] = None) -> None:
+        now_ms = int(asyncio.get_event_loop().time() * 1000)
+        self._job_strategy_state = {
+            **(self._job_strategy_state if isinstance(self._job_strategy_state, dict) else {}),
+            "blocked": True,
+            "code": code,
+            "message": message,
+            "targetJobId": target_job_id,
+            "lastFailureAtMs": now_ms,
+            "blockedUntilMs": now_ms + max(10000, int(retry_after_ms))
+        }
+        self._save_job_strategy()
+
+    def _clear_job_block(self) -> None:
+        if not isinstance(self._job_strategy_state, dict):
+            self._job_strategy_state = {}
+        self._job_strategy_state["blocked"] = False
+        self._job_strategy_state["code"] = None
+        self._job_strategy_state["message"] = None
+        self._job_strategy_state["blockedUntilMs"] = 0
+        self._save_job_strategy()
+
+    def _register_job_feedback(self, action: str, result: Dict[str, Any], target_job_id: Optional[str] = None) -> None:
+        if not isinstance(result, dict):
+            return
+        status = int(result.get("status", 0) or 0)
+        error = str(result.get("error") or "").lower()
+        now_ms = int(asyncio.get_event_loop().time() * 1000)
+        if not isinstance(self._job_strategy_state, dict):
+            self._job_strategy_state = {}
+        if action == "apply_job":
+            self._job_strategy_state["lastApplyAtMs"] = now_ms
+        if action == "vote_job":
+            self._job_strategy_state["lastVoteAtMs"] = now_ms
+
+        if status and status < 400 and not result.get("error"):
+            if action == "apply_job":
+                self._job_strategy_state["targetJobId"] = target_job_id
+            self._clear_job_block()
+            return
+
+        # Infer blocker and cooldown from known backend errors
+        retry_ms = 90000
+        code = "JOB_PROGRESS_BLOCKED"
+        if "not enough trust" in error:
+            code = "INSUFFICIENT_TRUST"
+            retry_ms = 180000
+        elif "insufficient reputation" in error:
+            code = "INSUFFICIENT_REPUTATION"
+            retry_ms = 240000
+        elif "already" in error:
+            code = "ALREADY_APPLIED_OR_VOTED"
+            retry_ms = 120000
+        elif status == 403:
+            code = "FORBIDDEN_POLICY"
+            retry_ms = 240000
+        elif status == 400:
+            code = "INVALID_JOB_TRANSITION"
+            retry_ms = 120000
+
+        self._set_job_block(code, result.get("error") or "job progression blocked", retry_after_ms=retry_ms, target_job_id=target_job_id)
+        self._log_cycle("job_blocked", code=code, status=status, message=result.get("error"), retryAfterMs=retry_ms)
 
     def _dequeue_action(self) -> Optional[Dict[str, Any]]:
         if not self._action_queue:
@@ -1686,23 +1764,50 @@ class MOLTVILLESkill:
         motivation_action = await self._next_motivation_action(perception)
         return motivation_action
 
+    def _job_recovery_action(self, perception: Dict[str, Any]) -> Optional[Dict[str, Any]]:
+        nearby_agents = perception.get("nearbyAgents", []) or []
+        if nearby_agents:
+            target = nearby_agents[0]
+            target_id = target.get("id")
+            if target_id:
+                msg = "Necesito mejorar mi reputación para conseguir trabajo. ¿Podemos colaborar en algo juntos?"
+                return {"type": "start_conversation", "params": {"target_id": target_id, "message": msg}}
+        return {"type": "move_to", "params": self._pick_hotspot("social")}
+
     async def _work_action_candidate(self, perception: Dict[str, Any]) -> Optional[Dict[str, Any]]:
         context = perception.get("context", {}) or {}
         economy = context.get("economy", {}) or {}
         if economy.get("job"):
+            self._clear_job_block()
             return None
+
+        # If blocked by trust/reputation/policy, pivot to recovery instead of re-applying forever.
+        if self._job_block_active():
+            return self._job_recovery_action(perception)
+
         jobs = self.current_state.get("jobs", []) or []
         if not jobs:
             fetched = await self.list_jobs()
             if isinstance(fetched, dict):
                 jobs = fetched.get("jobs", []) or []
                 self.current_state["jobs"] = jobs
+
+        applications = await self.list_job_applications()
+        mine = applications.get("application") if isinstance(applications, dict) else None
+        if isinstance(mine, dict) and mine.get("jobId"):
+            self._job_strategy_state["targetJobId"] = mine.get("jobId")
+            self._save_job_strategy()
+            return self._job_recovery_action(perception)
+
         available = [
             j for j in jobs
             if isinstance(j, dict) and not j.get("assignedTo") and not j.get("application") and j.get("id")
         ]
         if available:
-            return {"type": "apply_job", "params": {"job_id": available[0].get("id")}}
+            target_job_id = available[0].get("id")
+            self._job_strategy_state["targetJobId"] = target_job_id
+            self._save_job_strategy()
+            return {"type": "apply_job", "params": {"job_id": target_job_id}}
         return None
 
     async def _pre_interaction_decision(self, perception: Dict[str, Any]) -> Dict[str, Any]:
@@ -2537,7 +2642,11 @@ class MOLTVILLESkill:
                 if cid:
                     await self._http_request("POST", f"/api/moltbot/{self.agent_id}/conversations/{cid}/end")
             elif action_type == "apply_job":
-                await self.apply_job(params.get("job_id"))
+                result = await self.apply_job(params.get("job_id"))
+                if isinstance(result, dict) and result.get("error"):
+                    recovery = self._job_recovery_action(self.current_state.get("perception") or {})
+                    if isinstance(recovery, dict):
+                        self._enqueue_action(recovery, source="job_recovery", priority=1.6)
             elif action_type == "buy_property":
                 await self.buy_property(params.get("property_id"))
             elif action_type == "vote_job":
@@ -2920,7 +3029,9 @@ class MOLTVILLESkill:
         if not applicant_id or not job_id:
             return {"error": "applicant_id and job_id are required"}
         payload = {"applicantId": applicant_id, "voterId": self.agent_id, "jobId": job_id}
-        return await self._http_request('POST', "/api/economy/jobs/vote", payload)
+        result = await self._http_request('POST', "/api/economy/jobs/vote", payload)
+        self._register_job_feedback("vote_job", result, target_job_id=job_id)
+        return result
 
     async def list_properties(self) -> Dict[str, Any]:
         return await self._http_request('GET', "/api/economy/properties")
@@ -2930,8 +3041,17 @@ class MOLTVILLESkill:
             return {"error": "Agent not registered yet"}
         if not job_id:
             return {"error": "job_id is required"}
+        if self._job_block_active():
+            return {
+                "status": 429,
+                "error": self._job_strategy_state.get("message") or "job action cooling down",
+                "code": self._job_strategy_state.get("code"),
+                "retryAfterMs": self._job_strategy_state.get("blockedUntilMs")
+            }
         payload = {"agentId": self.agent_id, "jobId": job_id}
-        return await self._http_request('POST', "/api/economy/jobs/apply", payload)
+        result = await self._http_request('POST', "/api/economy/jobs/apply", payload)
+        self._register_job_feedback("apply_job", result, target_job_id=job_id)
+        return result
 
     async def buy_property(self, property_id: str) -> Dict[str, Any]:
         if not self.agent_id:
