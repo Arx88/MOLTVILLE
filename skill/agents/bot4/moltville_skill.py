@@ -1632,12 +1632,14 @@ class MOLTVILLESkill:
         balance = float(econ.get("balance", 0) or 0)
         properties = econ.get("properties") if isinstance(econ.get("properties"), list) else []
 
-        jobs = self.current_state.get("jobs", []) or []
-        if not jobs:
-            fetched = await self.list_jobs()
-            if isinstance(fetched, dict):
-                jobs = fetched.get("jobs", []) or []
-                self.current_state["jobs"] = jobs
+        # Refresh every cycle so votes see latest job applications.
+        jobs = []
+        fetched = await self.list_jobs()
+        if isinstance(fetched, dict):
+            jobs = fetched.get("jobs", []) or []
+            self.current_state["jobs"] = jobs
+        else:
+            jobs = self.current_state.get("jobs", []) or []
         open_with_app = [
             j for j in jobs
             if isinstance(j, dict)
