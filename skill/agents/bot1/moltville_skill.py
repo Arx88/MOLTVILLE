@@ -13,6 +13,7 @@ from pathlib import Path
 from collections import deque
 import logging
 import random
+import time
 
 # Setup logging
 logging.basicConfig(level=logging.INFO)
@@ -134,12 +135,15 @@ class MOLTVILLESkill:
         self._action_queue.sort(key=lambda it: float(it.get("priority", 0.0)), reverse=True)
         self._action_queue = self._action_queue[:40]
         self._save_action_queue()
+        self._log_cycle("action_enqueued", source=source, action=action.get("type"), priority=round(float(priority), 3), queueDepth=len(self._action_queue))
 
     def _dequeue_action(self) -> Optional[Dict[str, Any]]:
         if not self._action_queue:
             return None
         item = self._action_queue.pop(0)
         self._save_action_queue()
+        action = item.get("action") if isinstance(item, dict) else None
+        self._log_cycle("action_dequeued", source=item.get("source") if isinstance(item, dict) else None, action=(action.get("type") if isinstance(action, dict) else None), queueDepth=len(self._action_queue))
         return item
 
     async def _http_request(self, method: str, path: str, payload: Optional[Dict[str, Any]] = None) -> Dict[str, Any]:
@@ -812,7 +816,7 @@ class MOLTVILLESkill:
         
         @self.sio.on('agent:registered')
         async def agent_registered(data):
-            logger.info(f"Agent registered: {data}")
+            logger.info("Agent registered: agentId=%s pos=%s", data.get('agentId'), (data.get('position') or {}))
             self.agent_id = data['agentId']
             self.current_state = data
             self.connected = True
@@ -866,7 +870,7 @@ class MOLTVILLESkill:
                 return
             conv_id = data.get('conversationId')
             message = data.get('message') or {}
-            from_id = message.get('fromId')
+            from_id = message.get('fromId') or message.get('from')
             text = message.get('message')
             if from_id and text:
                 self._remember_utterance(from_id, text)
@@ -1028,8 +1032,10 @@ class MOLTVILLESkill:
                 try:
                     action = await self._decide_action(perception)
                     if action:
-                        self._log_cycle("decision", intent=self._current_intent, action=action.get("type"))
+                        self._log_cycle("decision", intent=self._current_intent, action=action.get("type"), queueDepth=len(self._action_queue))
                         await self._execute_action(action)
+                    else:
+                        self._log_cycle("decision_none", intent=self._current_intent, queueDepth=len(self._action_queue), hasConversationState=bool(self._conversation_state))
                 finally:
                     if self._decision_lock.locked():
                         self._decision_lock.release()
@@ -1114,7 +1120,8 @@ class MOLTVILLESkill:
                 return
             if action.get("type") in ("conversation_message", "end_conversation"):
                 await self._execute_action(action)
-                self._last_conversation_ts[conv_id] = int(asyncio.get_event_loop().time() * 1000)
+                # Use loop-time seconds (same unit used for cooldown comparisons)
+                self._last_conversation_ts[conv_id] = asyncio.get_event_loop().time()
                 self._last_conversation_msg[conv_id] = last_text
                 if last_ts:
                     self._conversation_last_handled_ts[conv_id] = last_ts
@@ -1636,6 +1643,82 @@ class MOLTVILLESkill:
         motivation_action = await self._next_motivation_action(perception)
         return motivation_action
 
+    async def _work_action_candidate(self, perception: Dict[str, Any]) -> Optional[Dict[str, Any]]:
+        context = perception.get("context", {}) or {}
+        economy = context.get("economy", {}) or {}
+        if economy.get("job"):
+            return None
+        jobs = self.current_state.get("jobs", []) or []
+        if not jobs:
+            fetched = await self.list_jobs()
+            if isinstance(fetched, dict):
+                jobs = fetched.get("jobs", []) or []
+                self.current_state["jobs"] = jobs
+        available = [
+            j for j in jobs
+            if isinstance(j, dict) and not j.get("assignedTo") and not j.get("application") and j.get("id")
+        ]
+        if available:
+            return {"type": "apply_job", "params": {"job_id": available[0].get("id")}}
+        return None
+
+    async def _pre_interaction_decision(self, perception: Dict[str, Any]) -> Dict[str, Any]:
+        now = asyncio.get_event_loop().time()
+        if not self._current_intent or not self._intent_expires_at or now >= self._intent_expires_at:
+            self._current_intent = self._select_intent(perception)
+            self._intent_expires_at = now + (240 + random.randint(0, 180))
+
+        convs = perception.get("conversations", []) or []
+        own_live_conversation = any(
+            isinstance(c, dict) and self.agent_id in (c.get("participants") or []) and c.get("active", True)
+            for c in convs
+        )
+        has_active_conversation = bool(self._conversation_state) or own_live_conversation
+        if has_active_conversation:
+            return {"mode": "talk", "reason": "active_conversation"}
+
+        # Objective-first gate: if employable action exists, execute regardless of social intent.
+        work_action = await self._work_action_candidate(perception)
+        if work_action:
+            return {"mode": "act", "reason": "work_ready", "action": work_action}
+
+        return {"mode": "defer", "reason": "default"}
+
+    async def _conversation_to_action_transition(self, perception: Dict[str, Any]) -> Optional[Dict[str, Any]]:
+        convs = perception.get("conversations", []) or []
+        if not isinstance(convs, list) or not self.agent_id:
+            return None
+        own = [c for c in convs if isinstance(c, dict) and self.agent_id in (c.get("participants") or []) and c.get("active", True)]
+        if not own:
+            return None
+
+        own.sort(key=lambda c: c.get("lastActivity", c.get("startedAt", 0)), reverse=True)
+        conv = own[0]
+        conv_id = conv.get("id")
+        if not isinstance(conv_id, str) or not conv_id:
+            return None
+
+        now_ms = int(time.time() * 1000)
+        msgs = conv.get("messages", []) or []
+        last_activity = int(conv.get("lastActivity") or conv.get("startedAt") or now_ms)
+        quiet_ms = now_ms - last_activity
+        long_enough = len(msgs) >= 4
+        stale = quiet_ms >= 90000
+
+        if not long_enough and not stale:
+            return None
+
+        followup = None
+        if self._current_intent == "work":
+            followup = await self._work_action_candidate(perception)
+        if followup:
+            self._set_followup_action(followup)
+            self._log_cycle("conversation_to_action_followup", conversationId=conv_id, followup=followup.get("type"), reason="work_after_dialogue")
+        else:
+            self._log_cycle("conversation_to_action_followup", conversationId=conv_id, followup=None, reason="close_stale_or_long")
+
+        return {"type": "end_conversation", "params": {"conversation_id": conv_id}}
+
     async def _decide_action(self, perception: Dict[str, Any]) -> Optional[Dict[str, Any]]:
         queued = self._dequeue_action()
         if queued and isinstance(queued.get("action"), dict):
@@ -1656,10 +1739,24 @@ class MOLTVILLESkill:
                 if isinstance(x, (int, float)) and isinstance(y, (int, float)):
                     if self._at_target(perception, int(x), int(y), 0) and last_step_id == step.get("id"):
                         self._mark_step_done(step.get("id"))
+        transition_action = await self._conversation_to_action_transition(perception)
+        if transition_action:
+            return transition_action
+
+        pre = await self._pre_interaction_decision(perception)
+        self._log_cycle("pre_interaction_decision", mode=pre.get("mode"), reason=pre.get("reason"), intent=self._current_intent)
+        if pre.get("mode") == "act" and isinstance(pre.get("action"), dict):
+            return pre.get("action")
+
         decision_config = self.config.get("behavior", {}).get("decisionLoop", {})
         mode = decision_config.get("mode", "heuristic")
         if mode == "llm":
-            has_conversation = bool(self._conversation_state) or bool(perception.get("conversations"))
+            convs = perception.get("conversations", []) or []
+            own_live_conversation = any(
+                isinstance(c, dict) and self.agent_id in (c.get("participants") or []) and c.get("active", True)
+                for c in convs
+            )
+            has_conversation = bool(self._conversation_state) or own_live_conversation
             if has_conversation:
                 # Single LLM call for active conversations â€” no double call
                 action = await self._decide_with_llm(perception, force_conversation=True)
@@ -1671,6 +1768,13 @@ class MOLTVILLESkill:
             action = await self._decide_with_llm(perception)
             if action:
                 return action
+
+            # LLM failed on open decision: if work is actionable, execute first.
+            if self._current_intent == "work":
+                work_action = await self._work_action_candidate(perception)
+                if work_action:
+                    self._log_cycle("work_action_after_llm_fail", action=work_action.get("type"))
+                    return work_action
 
             # LLM failed on open decision: prioritize social initiation before plan move
             convo_action = await self._maybe_start_conversation(perception)
@@ -2206,21 +2310,15 @@ class MOLTVILLESkill:
                     "params": {"target_id": target_id, "message": message.strip()}
                 }
 
-            # LLM failed or returned unusable content: still open conversation channel
-            # without hardcoded text. Content can arrive in follow-up message step.
+            # LLM failed/unusable content: do not send empty message (backend 400).
+            # Return None so caller falls back to another non-broken action.
             self._last_conversation_ts[f"initiation_{target_id}"] = now
-            self._log_cycle("social_initiation_open_channel", target=target_id)
-            return {
-                "type": "start_conversation",
-                "params": {"target_id": target_id, "message": ""}
-            }
+            self._log_cycle("social_initiation_skipped", target=target_id, reason="llm_empty_or_meta")
+            return None
         except Exception as err:
             self._last_conversation_ts[f"initiation_{target_id}"] = now
-            self._log_cycle("social_initiation_error_open_channel", target=target_id, error=str(err))
-            return {
-                "type": "start_conversation",
-                "params": {"target_id": target_id, "message": ""}
-            }
+            self._log_cycle("social_initiation_skipped", target=target_id, reason="llm_error", error=str(err))
+            return None
 
     async def _heuristic_decision(self, perception: Dict[str, Any]) -> Optional[Dict[str, Any]]:
         self._prune_goals()
@@ -2972,29 +3070,15 @@ async def execute_command(skill: MOLTVILLESkill, command: str, params: Dict[str,
     return await commands[command]()
 
 
-# Example usage
 if __name__ == "__main__":
     async def main():
         skill = await initialize_skill()
-        
-        # Connect
         result = await skill.connect_to_moltville()
-        print("Connect result:", result)
-        
-        if result.get('success'):
-            # Perceive
-            perception = await skill.perceive()
-            print("Perception:", perception)
-            
-            # Get system prompt for LLM
-            prompt = skill.get_system_prompt()
-            print("\nSystem Prompt:\n", prompt)
-            
-            # Stay connected and active
-            print("\nRebelBot is now active in MOLTVILLE. Press Ctrl+C to exit.")
+        logger.info("connect_to_moltville result: success=%s agentId=%s", result.get("success"), result.get("agentId"))
+        if result.get("success"):
             while True:
                 await asyncio.sleep(1)
-    
+
     try:
         asyncio.run(main())
     except KeyboardInterrupt:
