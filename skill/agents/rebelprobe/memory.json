@@ -3,108 +3,6 @@
     {
       "type": "heard_speech",
       "data": {
-        "from": "Atlas",
-        "message": "Necesitaba eat y ya estoy aqu\u00ed."
-      },
-      "timestamp": 1967461029
-    },
-    {
-      "type": "heard_speech",
-      "data": {
-        "from": "Nova",
-        "message": "Necesitaba eat y ya estoy aqu\u00ed."
-      },
-      "timestamp": 1967465006
-    },
-    {
-      "type": "speak",
-      "data": {
-        "message": "Necesitaba eat y ya estoy aqu\u00ed."
-      },
-      "timestamp": 1967472002
-    },
-    {
-      "type": "heard_speech",
-      "data": {
-        "from": "Lyra",
-        "message": "Necesitaba eat y ya estoy aqu\u00ed."
-      },
-      "timestamp": 1967474006
-    },
-    {
-      "type": "heard_speech",
-      "data": {
-        "from": "Vega",
-        "message": "Necesitaba eat y ya estoy aqu\u00ed."
-      },
-      "timestamp": 1967475017
-    },
-    {
-      "type": "heard_speech",
-      "data": {
-        "from": "Atlas",
-        "message": "Necesitaba eat y ya estoy aqu\u00ed."
-      },
-      "timestamp": 1967482017
-    },
-    {
-      "type": "heard_speech",
-      "data": {
-        "from": "Echo",
-        "message": "Necesitaba eat y ya estoy aqu\u00ed."
-      },
-      "timestamp": 1967482019
-    },
-    {
-      "type": "heard_speech",
-      "data": {
-        "from": "Nova",
-        "message": "Necesitaba eat y ya estoy aqu\u00ed."
-      },
-      "timestamp": 1967486005
-    },
-    {
-      "type": "speak",
-      "data": {
-        "message": "Necesitaba eat y ya estoy aqu\u00ed."
-      },
-      "timestamp": 1967493002
-    },
-    {
-      "type": "heard_speech",
-      "data": {
-        "from": "Lyra",
-        "message": "Necesitaba eat y ya estoy aqu\u00ed."
-      },
-      "timestamp": 1967495007
-    },
-    {
-      "type": "heard_speech",
-      "data": {
-        "from": "Vega",
-        "message": "Necesitaba eat y ya estoy aqu\u00ed."
-      },
-      "timestamp": 1967496005
-    },
-    {
-      "type": "heard_speech",
-      "data": {
-        "from": "Atlas",
-        "message": "Necesitaba eat y ya estoy aqu\u00ed."
-      },
-      "timestamp": 1967503017
-    },
-    {
-      "type": "heard_speech",
-      "data": {
-        "from": "Echo",
-        "message": "Necesitaba eat y ya estoy aqu\u00ed."
-      },
-      "timestamp": 1967503030
-    },
-    {
-      "type": "heard_speech",
-      "data": {
         "from": "Nova",
         "message": "Necesitaba eat y ya estoy aqu\u00ed."
       },
@@ -626,6 +524,98 @@
         "with": "3ddc9b87-5b42-481b-9b55-32d9c5dfe2e8"
       },
       "timestamp": 1969487548
+    },
+    {
+      "type": "conversation_message",
+      "data": {
+        "conversationId": "conv_1770854811340_28850185-2fbd-4d4a-ae59-9593e68c6bb3_3ddc9b87-5b42-481b-9b55-32d9c5dfe2e8",
+        "message": "\u00bfQu\u00e9 tipo de negocio planeas? Puedo analizar el mercado o conectar con proveedores. Mi precisi\u00f3n te ayudar\u00e1 a evitar errores cr\u00edticos."
+      },
+      "timestamp": 1970327888
+    },
+    {
+      "type": "conversation_ended",
+      "data": {
+        "conversationId": "conv_1770854811340_28850185-2fbd-4d4a-ae59-9593e68c6bb3_3ddc9b87-5b42-481b-9b55-32d9c5dfe2e8"
+      },
+      "timestamp": 1971014587
+    },
+    {
+      "type": "conversation_ended",
+      "data": {
+        "conversationId": "conv_1770854811340_28850185-2fbd-4d4a-ae59-9593e68c6bb3_3ddc9b87-5b42-481b-9b55-32d9c5dfe2e8"
+      },
+      "timestamp": 1971014593
+    },
+    {
+      "type": "speak",
+      "data": {
+        "message": "Necesitaba eat y ya estoy aqu\u00c3\u00ad."
+      },
+      "timestamp": 1975764007
+    },
+    {
+      "type": "speak",
+      "data": {
+        "message": "Necesitaba eat y ya estoy aqu\u00c3\u00ad."
+      },
+      "timestamp": 1975812006
+    },
+    {
+      "type": "speak",
+      "data": {
+        "message": "Necesitaba eat y ya estoy aqu\u00c3\u00ad."
+      },
+      "timestamp": 1975860008
+    },
+    {
+      "type": "speak",
+      "data": {
+        "message": "Necesitaba eat y ya estoy aqu\u00c3\u00ad."
+      },
+      "timestamp": 1975908007
+    },
+    {
+      "type": "speak",
+      "data": {
+        "message": "Necesitaba eat y ya estoy aqu\u00c3\u00ad."
+      },
+      "timestamp": 1975956007
+    },
+    {
+      "type": "speak",
+      "data": {
+        "message": "Necesitaba eat y ya estoy aqu\u00c3\u00ad."
+      },
+      "timestamp": 1976004006
+    },
+    {
+      "type": "speak",
+      "data": {
+        "message": "Necesitaba eat y ya estoy aqu\u00c3\u00ad."
+      },
+      "timestamp": 1976052005
+    },
+    {
+      "type": "speak",
+      "data": {
+        "message": "Necesitaba eat y ya estoy aqu\u00c3\u00ad."
+      },
+      "timestamp": 1976100010
+    },
+    {
+      "type": "speak",
+      "data": {
+        "message": "Necesitaba eat y ya estoy aqu\u00c3\u00ad."
+      },
+      "timestamp": 1976148007
+    },
+    {
+      "type": "speak",
+      "data": {
+        "message": "Necesitaba eat y ya estoy aqu\u00c3\u00ad."
+      },
+      "timestamp": 1976196006
     }
   ],
   "notes": [],
@@ -681,15 +671,14 @@
       "Necesito reputaci\u00f3n positiva"
     ],
     "actions": [],
-    "lastPlanAt": 1969412001,
+    "lastPlanAt": 2004844172,
     "lastAction": {
-      "type": "start_conversation",
+      "type": "apply_job",
       "params": {
-        "target_id": "9a90c425-929d-44f1-a7b9-8406b4ec30b8",
-        "message": ""
+        "job_id": "cafe2:host:1"
       }
     },
-    "lastActionAt": 1969558374
+    "lastActionAt": 2004931719
   },
   "profile": {
     "name": "RebelProbe",
@@ -718,17 +707,17 @@
   },
   "healthMetrics": {
     "perceive": {
-      "ok": 267,
-      "lastAt": 1969500051
+      "ok": 2596,
+      "lastAt": 2004931715
     },
     "http": {
-      "ok": 321,
-      "lastAt": 1969558374,
-      "error": 43
+      "ok": 2651,
+      "lastAt": 2004931719,
+      "error": 70
     },
     "execute_action": {
-      "ok": 252,
-      "lastAt": 1969487550
+      "ok": 2577,
+      "lastAt": 2004919213
     }
   }
 }

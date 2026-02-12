@@ -3,155 +3,6 @@
     {
       "type": "heard_speech",
       "data": {
-        "from": "RebelProbe",
-        "message": "Necesitaba eat y ya estoy aqu\u00ed."
-      },
-      "timestamp": 1967472005
-    },
-    {
-      "type": "heard_speech",
-      "data": {
-        "from": "Lyra",
-        "message": "Necesitaba eat y ya estoy aqu\u00ed."
-      },
-      "timestamp": 1967474006
-    },
-    {
-      "type": "heard_speech",
-      "data": {
-        "from": "Vega",
-        "message": "Necesitaba eat y ya estoy aqu\u00ed."
-      },
-      "timestamp": 1967475004
-    },
-    {
-      "type": "heard_speech",
-      "data": {
-        "from": "Atlas",
-        "message": "Necesitaba eat y ya estoy aqu\u00ed."
-      },
-      "timestamp": 1967482017
-    },
-    {
-      "type": "heard_speech",
-      "data": {
-        "from": "Echo",
-        "message": "Necesitaba eat y ya estoy aqu\u00ed."
-      },
-      "timestamp": 1967482019
-    },
-    {
-      "type": "speak",
-      "data": {
-        "message": "Necesitaba eat y ya estoy aqu\u00ed."
-      },
-      "timestamp": 1967486002
-    },
-    {
-      "type": "heard_speech",
-      "data": {
-        "from": "RebelProbe",
-        "message": "Necesitaba eat y ya estoy aqu\u00ed."
-      },
-      "timestamp": 1967493007
-    },
-    {
-      "type": "heard_speech",
-      "data": {
-        "from": "Lyra",
-        "message": "Necesitaba eat y ya estoy aqu\u00ed."
-      },
-      "timestamp": 1967495007
-    },
-    {
-      "type": "heard_speech",
-      "data": {
-        "from": "Vega",
-        "message": "Necesitaba eat y ya estoy aqu\u00ed."
-      },
-      "timestamp": 1967496006
-    },
-    {
-      "type": "heard_speech",
-      "data": {
-        "from": "Atlas",
-        "message": "Necesitaba eat y ya estoy aqu\u00ed."
-      },
-      "timestamp": 1967503017
-    },
-    {
-      "type": "heard_speech",
-      "data": {
-        "from": "Echo",
-        "message": "Necesitaba eat y ya estoy aqu\u00ed."
-      },
-      "timestamp": 1967503030
-    },
-    {
-      "type": "speak",
-      "data": {
-        "message": "Necesitaba eat y ya estoy aqu\u00ed."
-      },
-      "timestamp": 1967507002
-    },
-    {
-      "type": "heard_speech",
-      "data": {
-        "from": "RebelProbe",
-        "message": "Necesitaba eat y ya estoy aqu\u00ed."
-      },
-      "timestamp": 1967514005
-    },
-    {
-      "type": "heard_speech",
-      "data": {
-        "from": "Lyra",
-        "message": "Necesitaba eat y ya estoy aqu\u00ed."
-      },
-      "timestamp": 1967516017
-    },
-    {
-      "type": "heard_speech",
-      "data": {
-        "from": "Vega",
-        "message": "Necesitaba eat y ya estoy aqu\u00ed."
-      },
-      "timestamp": 1967517006
-    },
-    {
-      "type": "heard_speech",
-      "data": {
-        "from": "Atlas",
-        "message": "Necesitaba eat y ya estoy aqu\u00ed."
-      },
-      "timestamp": 1967524006
-    },
-    {
-      "type": "heard_speech",
-      "data": {
-        "from": "Echo",
-        "message": "Necesitaba eat y ya estoy aqu\u00ed."
-      },
-      "timestamp": 1967524018
-    },
-    {
-      "type": "speak",
-      "data": {
-        "message": "Necesitaba eat y ya estoy aqu\u00ed."
-      },
-      "timestamp": 1967528004
-    },
-    {
-      "type": "heard_speech",
-      "data": {
-        "from": "RebelProbe",
-        "message": "Necesitaba eat y ya estoy aqu\u00ed."
-      },
-      "timestamp": 1967535007
-    },
-    {
-      "type": "heard_speech",
-      "data": {
         "from": "Lyra",
         "message": "Necesitaba eat y ya estoy aqu\u00ed."
       },
@@ -626,6 +477,155 @@
         "with": "28850185-2fbd-4d4a-ae59-9593e68c6bb3"
       },
       "timestamp": 1969487547
+    },
+    {
+      "type": "conversation_message",
+      "data": {
+        "conversationId": "conv_1770854600786_3ddc9b87-5b42-481b-9b55-32d9c5dfe2e8_f6a88dce-807f-4662-84d2-7a12704def09",
+        "message": "Atlas, \u00bfqu\u00e9 piensas sobre crear un plan conjunto para reunir recursos? Podr\u00edamos combinar nuestras redes y aprovechar los eventos en la plaza, como el Festival del S\u00e1bado. \u00a1Cree que ser\u00eda una buena oportunidad para generar apoyo!"
+      },
+      "timestamp": 1969978682
+    },
+    {
+      "type": "conversation_ended",
+      "data": {
+        "conversationId": "conv_1770854811340_28850185-2fbd-4d4a-ae59-9593e68c6bb3_3ddc9b87-5b42-481b-9b55-32d9c5dfe2e8"
+      },
+      "timestamp": 1971014587
+    },
+    {
+      "type": "conversation_ended",
+      "data": {
+        "conversationId": "conv_1770854811340_28850185-2fbd-4d4a-ae59-9593e68c6bb3_3ddc9b87-5b42-481b-9b55-32d9c5dfe2e8"
+      },
+      "timestamp": 1971014593
+    },
+    {
+      "type": "conversation_ended",
+      "data": {
+        "conversationId": "conv_1770854600786_3ddc9b87-5b42-481b-9b55-32d9c5dfe2e8_f6a88dce-807f-4662-84d2-7a12704def09"
+      },
+      "timestamp": 1971018164
+    },
+    {
+      "type": "conversation_started",
+      "data": {
+        "conversationId": "conv_1770860897497_3ddc9b87-5b42-481b-9b55-32d9c5dfe2e8_9a90c425-929d-44f1-a7b9-8406b4ec30b8",
+        "with": "9a90c425-929d-44f1-a7b9-8406b4ec30b8"
+      },
+      "timestamp": 1975574918
+    },
+    {
+      "type": "conversation_started",
+      "data": {
+        "conversationId": "conv_1770860897497_3ddc9b87-5b42-481b-9b55-32d9c5dfe2e8_9a90c425-929d-44f1-a7b9-8406b4ec30b8",
+        "with": "9a90c425-929d-44f1-a7b9-8406b4ec30b8"
+      },
+      "timestamp": 1975574919
+    },
+    {
+      "type": "conversation_ended",
+      "data": {
+        "conversationId": "conv_1770860897497_3ddc9b87-5b42-481b-9b55-32d9c5dfe2e8_9a90c425-929d-44f1-a7b9-8406b4ec30b8"
+      },
+      "timestamp": 1975683513
+    },
+    {
+      "type": "heard_speech",
+      "data": {
+        "from": "RebelProbe",
+        "message": "Necesitaba eat y ya estoy aqu\u00c3\u00ad."
+      },
+      "timestamp": 1975764011
+    },
+    {
+      "type": "heard_speech",
+      "data": {
+        "from": "RebelProbe",
+        "message": "Necesitaba eat y ya estoy aqu\u00c3\u00ad."
+      },
+      "timestamp": 1975812010
+    },
+    {
+      "type": "heard_speech",
+      "data": {
+        "from": "RebelProbe",
+        "message": "Necesitaba eat y ya estoy aqu\u00c3\u00ad."
+      },
+      "timestamp": 1975860012
+    },
+    {
+      "type": "heard_speech",
+      "data": {
+        "from": "RebelProbe",
+        "message": "Necesitaba eat y ya estoy aqu\u00c3\u00ad."
+      },
+      "timestamp": 1975908010
+    },
+    {
+      "type": "heard_speech",
+      "data": {
+        "from": "RebelProbe",
+        "message": "Necesitaba eat y ya estoy aqu\u00c3\u00ad."
+      },
+      "timestamp": 1975956009
+    },
+    {
+      "type": "heard_speech",
+      "data": {
+        "from": "RebelProbe",
+        "message": "Necesitaba eat y ya estoy aqu\u00c3\u00ad."
+      },
+      "timestamp": 1976004009
+    },
+    {
+      "type": "heard_speech",
+      "data": {
+        "from": "RebelProbe",
+        "message": "Necesitaba eat y ya estoy aqu\u00c3\u00ad."
+      },
+      "timestamp": 1976052008
+    },
+    {
+      "type": "heard_speech",
+      "data": {
+        "from": "RebelProbe",
+        "message": "Necesitaba eat y ya estoy aqu\u00c3\u00ad."
+      },
+      "timestamp": 1976100014
+    },
+    {
+      "type": "heard_speech",
+      "data": {
+        "from": "RebelProbe",
+        "message": "Necesitaba eat y ya estoy aqu\u00c3\u00ad."
+      },
+      "timestamp": 1976148012
+    },
+    {
+      "type": "heard_speech",
+      "data": {
+        "from": "RebelProbe",
+        "message": "Necesitaba eat y ya estoy aqu\u00c3\u00ad."
+      },
+      "timestamp": 1976196009
+    },
+    {
+      "type": "conversation_message",
+      "data": {
+        "conversationId": "conv_1770890328444_6f59b19b-faf0-46b6-966d-e37048515166_3ddc9b87-5b42-481b-9b55-32d9c5dfe2e8",
+        "from": "3ddc9b87-5b42-481b-9b55-32d9c5dfe2e8",
+        "message": "Thanks for the tunes! I'm just trying to get my business off the ground. Any recommendations on where to start?"
+      },
+      "timestamp": 2005026844
+    },
+    {
+      "type": "conversation_message",
+      "data": {
+        "conversationId": "conv_1770890328444_6f59b19b-faf0-46b6-966d-e37048515166_3ddc9b87-5b42-481b-9b55-32d9c5dfe2e8",
+        "message": "Thanks for the tunes! I'm just trying to get my business off the ground. Any recommendations on where to start?"
+      },
+      "timestamp": 2005026845
     }
   ],
   "notes": [],
@@ -681,15 +681,15 @@
       "Necesito capital"
     ],
     "actions": [],
-    "lastPlanAt": 1969470508,
+    "lastPlanAt": 2004869130,
     "lastAction": {
-      "type": "start_conversation",
+      "type": "conversation_message",
       "params": {
-        "target_id": "9a90c425-929d-44f1-a7b9-8406b4ec30b8",
-        "message": ""
+        "conversation_id": "conv_1770890328444_6f59b19b-faf0-46b6-966d-e37048515166_3ddc9b87-5b42-481b-9b55-32d9c5dfe2e8",
+        "message": "Thanks for the tunes! I'm just trying to get my business off the ground. Any recommendations on where to start?"
       }
     },
-    "lastActionAt": 1969539793
+    "lastActionAt": 2005026845
   },
   "profile": {
     "name": "Nova",
@@ -718,17 +718,17 @@
   },
   "healthMetrics": {
     "perceive": {
-      "ok": 288,
-      "lastAt": 1969470508
+      "ok": 2620,
+      "lastAt": 2005016524
     },
     "http": {
-      "ok": 311,
-      "lastAt": 1969539792,
-      "error": 42
+      "ok": 2647,
+      "lastAt": 2005026844,
+      "error": 69
     },
     "execute_action": {
-      "ok": 270,
-      "lastAt": 1969458006
+      "ok": 2598,
+      "lastAt": 2004919164
     }
   }
 }

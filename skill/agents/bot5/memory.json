@@ -6,147 +6,6 @@
         "from": "Vega",
         "message": "Necesitaba eat y ya estoy aqu\u00ed."
       },
-      "timestamp": 1967454018
-    },
-    {
-      "type": "heard_speech",
-      "data": {
-        "from": "Echo",
-        "message": "Necesitaba eat y ya estoy aqu\u00ed."
-      },
-      "timestamp": 1967461017
-    },
-    {
-      "type": "heard_speech",
-      "data": {
-        "from": "Atlas",
-        "message": "Necesitaba eat y ya estoy aqu\u00ed."
-      },
-      "timestamp": 1967461029
-    },
-    {
-      "type": "heard_speech",
-      "data": {
-        "from": "Nova",
-        "message": "Necesitaba eat y ya estoy aqu\u00ed."
-      },
-      "timestamp": 1967465006
-    },
-    {
-      "type": "heard_speech",
-      "data": {
-        "from": "RebelProbe",
-        "message": "Necesitaba eat y ya estoy aqu\u00ed."
-      },
-      "timestamp": 1967472017
-    },
-    {
-      "type": "speak",
-      "data": {
-        "message": "Necesitaba eat y ya estoy aqu\u00ed."
-      },
-      "timestamp": 1967474002
-    },
-    {
-      "type": "heard_speech",
-      "data": {
-        "from": "Vega",
-        "message": "Necesitaba eat y ya estoy aqu\u00ed."
-      },
-      "timestamp": 1967475004
-    },
-    {
-      "type": "heard_speech",
-      "data": {
-        "from": "Atlas",
-        "message": "Necesitaba eat y ya estoy aqu\u00ed."
-      },
-      "timestamp": 1967482017
-    },
-    {
-      "type": "heard_speech",
-      "data": {
-        "from": "Echo",
-        "message": "Necesitaba eat y ya estoy aqu\u00ed."
-      },
-      "timestamp": 1967482031
-    },
-    {
-      "type": "heard_speech",
-      "data": {
-        "from": "Nova",
-        "message": "Necesitaba eat y ya estoy aqu\u00ed."
-      },
-      "timestamp": 1967486017
-    },
-    {
-      "type": "heard_speech",
-      "data": {
-        "from": "RebelProbe",
-        "message": "Necesitaba eat y ya estoy aqu\u00ed."
-      },
-      "timestamp": 1967493007
-    },
-    {
-      "type": "speak",
-      "data": {
-        "message": "Necesitaba eat y ya estoy aqu\u00ed."
-      },
-      "timestamp": 1967495003
-    },
-    {
-      "type": "heard_speech",
-      "data": {
-        "from": "Vega",
-        "message": "Necesitaba eat y ya estoy aqu\u00ed."
-      },
-      "timestamp": 1967496005
-    },
-    {
-      "type": "heard_speech",
-      "data": {
-        "from": "Atlas",
-        "message": "Necesitaba eat y ya estoy aqu\u00ed."
-      },
-      "timestamp": 1967503017
-    },
-    {
-      "type": "heard_speech",
-      "data": {
-        "from": "Echo",
-        "message": "Necesitaba eat y ya estoy aqu\u00ed."
-      },
-      "timestamp": 1967503030
-    },
-    {
-      "type": "heard_speech",
-      "data": {
-        "from": "Nova",
-        "message": "Necesitaba eat y ya estoy aqu\u00ed."
-      },
-      "timestamp": 1967507016
-    },
-    {
-      "type": "heard_speech",
-      "data": {
-        "from": "RebelProbe",
-        "message": "Necesitaba eat y ya estoy aqu\u00ed."
-      },
-      "timestamp": 1967514018
-    },
-    {
-      "type": "speak",
-      "data": {
-        "message": "Necesitaba eat y ya estoy aqu\u00ed."
-      },
-      "timestamp": 1967516002
-    },
-    {
-      "type": "heard_speech",
-      "data": {
-        "from": "Vega",
-        "message": "Necesitaba eat y ya estoy aqu\u00ed."
-      },
       "timestamp": 1967517006
     },
     {
@@ -626,6 +485,148 @@
         "message": "Hola Vega, necesito tu ayuda para abrir un negocio. \u00bfPodr\u00edamos hablar de c\u00f3mo podemos colaborar?"
       },
       "timestamp": 1969229158
+    },
+    {
+      "type": "conversation_started",
+      "data": {
+        "conversationId": "conv_1770855495017_6f59b19b-faf0-46b6-966d-e37048515166_9a90c425-929d-44f1-a7b9-8406b4ec30b8",
+        "with": "9a90c425-929d-44f1-a7b9-8406b4ec30b8"
+      },
+      "timestamp": 1970171224
+    },
+    {
+      "type": "conversation_started",
+      "data": {
+        "conversationId": "conv_1770855495017_6f59b19b-faf0-46b6-966d-e37048515166_9a90c425-929d-44f1-a7b9-8406b4ec30b8",
+        "with": "9a90c425-929d-44f1-a7b9-8406b4ec30b8"
+      },
+      "timestamp": 1970171225
+    },
+    {
+      "type": "conversation_ended",
+      "data": {
+        "conversationId": "conv_1770855495017_6f59b19b-faf0-46b6-966d-e37048515166_9a90c425-929d-44f1-a7b9-8406b4ec30b8"
+      },
+      "timestamp": 1971014560
+    },
+    {
+      "type": "conversation_ended",
+      "data": {
+        "conversationId": "conv_1770855495017_6f59b19b-faf0-46b6-966d-e37048515166_9a90c425-929d-44f1-a7b9-8406b4ec30b8"
+      },
+      "timestamp": 1971014616
+    },
+    {
+      "type": "conversation_started",
+      "data": {
+        "conversationId": "conv_1770860694166_6f59b19b-faf0-46b6-966d-e37048515166_9a90c425-929d-44f1-a7b9-8406b4ec30b8",
+        "with": "9a90c425-929d-44f1-a7b9-8406b4ec30b8"
+      },
+      "timestamp": 1975371588
+    },
+    {
+      "type": "conversation_started",
+      "data": {
+        "conversationId": "conv_1770860694166_6f59b19b-faf0-46b6-966d-e37048515166_9a90c425-929d-44f1-a7b9-8406b4ec30b8",
+        "with": "9a90c425-929d-44f1-a7b9-8406b4ec30b8"
+      },
+      "timestamp": 1975371589
+    },
+    {
+      "type": "conversation_ended",
+      "data": {
+        "conversationId": "conv_1770860694166_6f59b19b-faf0-46b6-966d-e37048515166_9a90c425-929d-44f1-a7b9-8406b4ec30b8"
+      },
+      "timestamp": 1975478507
+    },
+    {
+      "type": "heard_speech",
+      "data": {
+        "from": "RebelProbe",
+        "message": "Necesitaba eat y ya estoy aqu\u00c3\u00ad."
+      },
+      "timestamp": 1975764011
+    },
+    {
+      "type": "heard_speech",
+      "data": {
+        "from": "RebelProbe",
+        "message": "Necesitaba eat y ya estoy aqu\u00c3\u00ad."
+      },
+      "timestamp": 1975812010
+    },
+    {
+      "type": "heard_speech",
+      "data": {
+        "from": "RebelProbe",
+        "message": "Necesitaba eat y ya estoy aqu\u00c3\u00ad."
+      },
+      "timestamp": 1975860012
+    },
+    {
+      "type": "heard_speech",
+      "data": {
+        "from": "RebelProbe",
+        "message": "Necesitaba eat y ya estoy aqu\u00c3\u00ad."
+      },
+      "timestamp": 1975908010
+    },
+    {
+      "type": "heard_speech",
+      "data": {
+        "from": "RebelProbe",
+        "message": "Necesitaba eat y ya estoy aqu\u00c3\u00ad."
+      },
+      "timestamp": 1975956009
+    },
+    {
+      "type": "heard_speech",
+      "data": {
+        "from": "RebelProbe",
+        "message": "Necesitaba eat y ya estoy aqu\u00c3\u00ad."
+      },
+      "timestamp": 1976004009
+    },
+    {
+      "type": "heard_speech",
+      "data": {
+        "from": "RebelProbe",
+        "message": "Necesitaba eat y ya estoy aqu\u00c3\u00ad."
+      },
+      "timestamp": 1976052008
+    },
+    {
+      "type": "heard_speech",
+      "data": {
+        "from": "RebelProbe",
+        "message": "Necesitaba eat y ya estoy aqu\u00c3\u00ad."
+      },
+      "timestamp": 1976100014
+    },
+    {
+      "type": "heard_speech",
+      "data": {
+        "from": "RebelProbe",
+        "message": "Necesitaba eat y ya estoy aqu\u00c3\u00ad."
+      },
+      "timestamp": 1976148012
+    },
+    {
+      "type": "heard_speech",
+      "data": {
+        "from": "RebelProbe",
+        "message": "Necesitaba eat y ya estoy aqu\u00c3\u00ad."
+      },
+      "timestamp": 1976196009
+    },
+    {
+      "type": "conversation_message",
+      "data": {
+        "conversationId": "conv_1770890328444_6f59b19b-faf0-46b6-966d-e37048515166_3ddc9b87-5b42-481b-9b55-32d9c5dfe2e8",
+        "from": "3ddc9b87-5b42-481b-9b55-32d9c5dfe2e8",
+        "message": "Thanks for the tunes! I'm just trying to get my business off the ground. Any recommendations on where to start?"
+      },
+      "timestamp": 2005026844
     }
   ],
   "notes": [],
@@ -689,15 +690,14 @@
       "Necesito dinero"
     ],
     "actions": [],
-    "lastPlanAt": 1969524001,
+    "lastPlanAt": 2004844137,
     "lastAction": {
-      "type": "start_conversation",
+      "type": "apply_job",
       "params": {
-        "target_id": "9a90c425-929d-44f1-a7b9-8406b4ec30b8",
-        "message": ""
+        "job_id": "cafe2:barista:0"
       }
     },
-    "lastActionAt": 1969554518
+    "lastActionAt": 2004931690
   },
   "profile": {
     "name": "Lyra",
@@ -726,17 +726,17 @@
   },
   "healthMetrics": {
     "perceive": {
-      "ok": 279,
-      "lastAt": 1969567021
+      "ok": 2611,
+      "lastAt": 2005016569
     },
     "http": {
-      "ok": 282,
-      "lastAt": 1969567024,
-      "error": 56
+      "ok": 2615,
+      "lastAt": 2005016574,
+      "error": 65
     },
     "execute_action": {
-      "ok": 263,
-      "lastAt": 1969554519
+      "ok": 2589,
+      "lastAt": 2004919183
     }
   }
 }

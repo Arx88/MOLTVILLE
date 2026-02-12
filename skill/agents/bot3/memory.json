@@ -3,29 +3,6 @@
     {
       "type": "heard_speech",
       "data": {
-        "from": "Lyra",
-        "message": "Necesitaba eat y ya estoy aqu\u00ed."
-      },
-      "timestamp": 1967474006
-    },
-    {
-      "type": "heard_speech",
-      "data": {
-        "from": "Vega",
-        "message": "Necesitaba eat y ya estoy aqu\u00ed."
-      },
-      "timestamp": 1967475004
-    },
-    {
-      "type": "speak",
-      "data": {
-        "message": "Necesitaba eat y ya estoy aqu\u00ed."
-      },
-      "timestamp": 1967482014
-    },
-    {
-      "type": "heard_speech",
-      "data": {
         "from": "Echo",
         "message": "Necesitaba eat y ya estoy aqu\u00ed."
       },
@@ -627,6 +604,28 @@
         "message": "Vega, necesito clarificar: \u00bfqu\u00e9 tipo de trabajo necesitas exactamente en tu campa\u00f1a? Si puedo ayudarte a investigar el tesoro perdido en el mercado, \u00bfqu\u00e9 beneficios obtendr\u00edas como compensaci\u00f3n?"
       },
       "timestamp": 1969318240
+    },
+    {
+      "type": "conversation_message",
+      "data": {
+        "conversationId": "conv_1770854483566_9a90c425-929d-44f1-a7b9-8406b4ec30b8_f6a88dce-807f-4662-84d2-7a12704def09",
+        "message": "Vega, acepto ayudarte a investigar el tesoro perdido. Si encontramos el tesoro, dividiremos los beneficios. \u00bfD\u00f3nde empezamos?"
+      },
+      "timestamp": 1970073668
+    },
+    {
+      "type": "conversation_ended",
+      "data": {
+        "conversationId": "conv_1770853229432_f6a88dce-807f-4662-84d2-7a12704def09_9e7be430-4ea0-4135-859f-4cd4102102fe"
+      },
+      "timestamp": 1975280503
+    },
+    {
+      "type": "conversation_ended",
+      "data": {
+        "conversationId": "conv_1770853229432_f6a88dce-807f-4662-84d2-7a12704def09_9e7be430-4ea0-4135-859f-4cd4102102fe"
+      },
+      "timestamp": 1975280505
     }
   ],
   "notes": [],
@@ -690,7 +689,14 @@
       "Necesito dinero"
     ],
     "actions": [],
-    "lastPlanAt": 1969556869
+    "lastPlanAt": 2004919206,
+    "lastAction": {
+      "type": "apply_job",
+      "params": {
+        "job_id": "cafe1:host:1"
+      }
+    },
+    "lastActionAt": 2005029051
   },
   "profile": {
     "name": "Atlas",
@@ -719,17 +725,17 @@
   },
   "healthMetrics": {
     "perceive": {
-      "ok": 304,
-      "lastAt": 1969556869
+      "ok": 2634,
+      "lastAt": 2005029046
     },
     "http": {
-      "ok": 342,
-      "lastAt": 1969544367,
-      "error": 70
+      "ok": 2676,
+      "lastAt": 2005029051,
+      "error": 106
     },
     "execute_action": {
-      "ok": 287,
-      "lastAt": 1969544368
+      "ok": 2613,
+      "lastAt": 2005016545
     }
   }
 }
