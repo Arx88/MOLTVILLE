@@ -598,9 +598,9 @@
   .agent-name-hud { color: #d7e2ff; font-size: 12px; }
 
   .agent-profile {
-    position: absolute; right: 210px; top: 90px; width: 360px;
-    max-width: min(92vw, 360px);
-    max-height: min(78vh, 760px);
+    position: absolute; right: 210px; top: 90px; width: 420px;
+    max-width: min(94vw, 420px);
+    max-height: min(76vh, 700px);
     overflow: auto;
     background: linear-gradient(180deg, rgba(18, 22, 38, 0.95), rgba(11, 14, 26, 0.95));
     border: 1px solid rgba(255, 193, 119, 0.35);
@@ -693,29 +693,39 @@
   }
   .agent-profile-body {
     display: grid;
-    gap: 10px;
+    grid-template-columns: 1fr 1fr;
+    gap: 8px;
     font-size: 13px;
   }
   .agent-profile-row {
     display: grid;
-    grid-template-columns: 132px 1fr;
-    gap: 10px;
+    grid-template-columns: 1fr;
+    gap: 6px;
     align-items: start;
     color: #d9e2ff;
-    line-height: 1.45;
+    line-height: 1.35;
     padding: 8px 10px;
     border-radius: 10px;
     background: rgba(255, 255, 255, 0.03);
     border: 1px solid rgba(255, 193, 119, 0.09);
+    min-height: 56px;
+  }
+  .agent-profile-row.agent-profile-row-wide {
+    grid-column: 1 / -1;
+    min-height: 0;
   }
   .agent-profile-row span:first-child {
     color: #f7c989;
-    font-weight: 600;
+    font-weight: 700;
+    font-size: 11px;
+    letter-spacing: 0.5px;
+    text-transform: uppercase;
   }
   .agent-profile-row span:last-child {
     color: #e9eeff;
     white-space: normal;
     word-break: break-word;
+    font-size: 13px;
   }
   .agent-profile-speech {
     margin-top: 12px;

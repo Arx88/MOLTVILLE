@@ -582,12 +582,44 @@ function setupAgentUiControls(scene) {
 function resolveAgentLocationLabel(agent) {
   if (!agent) return '-';
   const building = BUILDINGS.find(b => agent.x >= b.x && agent.x < b.x + b.w && agent.y >= b.y && agent.y < b.y + b.h);
-  return building ? building.name : `(${agent.x}, ${agent.y})`;
+  if (building) return building.name;
+
+  let nearest = null;
+  let bestDistance = Infinity;
+  BUILDINGS.forEach((b) => {
+    const centerX = b.x + (b.w / 2);
+    const centerY = b.y + (b.h / 2);
+    const dx = (agent.x ?? 0) - centerX;
+    const dy = (agent.y ?? 0) - centerY;
+    const distance = Math.sqrt(dx * dx + dy * dy);
+    if (distance < bestDistance) {
+      bestDistance = distance;
+      nearest = b;
+    }
+  });
+
+  if (nearest && bestDistance <= 10) {
+    return `Cerca de ${nearest.name}`;
+  }
+  return 'Recorriendo la ciudad';
+}
+
+function fixMojibake(value) {
+  return String(value || '')
+    .replace(/Ã¡/g, 'á')
+    .replace(/Ã©/g, 'é')
+    .replace(/Ãí/g, 'í')
+    .replace(/Ã³/g, 'ó')
+    .replace(/Ãº/g, 'ú')
+    .replace(/Ã±/g, 'ñ')
+    .replace(/Ã/g, 'Á')
+    .replace(/Â¿/g, '¿')
+    .replace(/Â¡/g, '¡');
 }
 
 function prettifyAgentText(value) {
   if (value == null) return '-';
-  const str = String(value).trim();
+  const str = fixMojibake(String(value)).trim();
   if (!str) return '-';
 
   const clean = str
@@ -602,6 +634,7 @@ function prettifyAgentText(value) {
     'start business': 'Iniciar un negocio 💼',
     'get job': 'Conseguir trabajo',
     'find job': 'Conseguir trabajo',
+    'apply job': 'Postularse a un trabajo',
     'socialize': 'Socializar',
     'earn money': 'Ganar dinero'
   };
@@ -611,6 +644,39 @@ function prettifyAgentText(value) {
   }
 
   return clean.charAt(0).toUpperCase() + clean.slice(1);
+}
+
+function simplifyThought(value) {
+  const text = prettifyAgentText(value);
+  if (!text || text === '-') return '-';
+
+  const parts = text
+    .split('|')
+    .map(part => part.trim())
+    .filter(Boolean)
+    .map((part) => part
+      .replace(/^objetivo\s*:\s*/i, 'Objetivo: ')
+      .replace(/^paso\s*:\s*/i, 'Paso: ')
+      .replace(/^acci[oó]n\s*:\s*/i, 'Acción: ')
+      .replace(/^target\s*:\s*/i, 'Lugar: ')
+    );
+
+  const filtered = parts.filter(part => !/^Lugar:\s*[-\w:]+$/i.test(part));
+  if (!filtered.length) return text;
+  return filtered.slice(0, 2).join(' • ');
+}
+
+function setProfileValue(element, value, { hideIf = [] } = {}) {
+  if (!element) return;
+  const row = element.closest('.agent-profile-row');
+  const normalized = String(value ?? '-').trim();
+  const shouldHide = !normalized || hideIf.includes(normalized.toLowerCase());
+  if (row) {
+    row.style.display = shouldHide ? 'none' : '';
+  }
+  if (!shouldHide) {
+    element.textContent = normalized;
+  }
 }
 
 function makePanelDraggable(panel, handle) {
@@ -661,37 +727,49 @@ function updateAgentProfilePanel(agent) {
   if (!elements.profile || !agent) return;
   elements.profileName.textContent = agent.name || 'Agente';
   elements.profileRole.textContent = agent.isNPC ? 'NPC' : 'Ciudadano';
-  elements.profileState.textContent = agent.state || '-';
-  elements.profileLocation.textContent = resolveAgentLocationLabel(agent);
-  elements.profileJob.textContent = agent.job?.name || '-';
+
+  const activity = prettifyAgentText(agent.state || '-');
+  const friendlyActivity = activity.toLowerCase() === 'idle' ? 'Disponible' : activity;
+  setProfileValue(elements.profileState, friendlyActivity, { hideIf: ['-', 'disponible', 'idle'] });
+
+  const location = resolveAgentLocationLabel(agent);
+  setProfileValue(elements.profileLocation, location, { hideIf: ['-'] });
+
+  const job = prettifyAgentText(agent.job?.name || '-');
+  setProfileValue(elements.profileJob, job, { hideIf: ['-'] });
+
   const relations = agent.relationships?.length ?? agent.relationshipCount ?? 0;
-  elements.profileRelations.textContent = relations.toString();
+  setProfileValue(elements.profileRelations, relations.toString(), { hideIf: ['0', '-'] });
+
   if (elements.profileMotivation) {
     const desire = agent.motivation?.desire ? prettifyAgentText(agent.motivation.desire) : '-';
-    elements.profileMotivation.textContent = desire;
+    setProfileValue(elements.profileMotivation, desire, { hideIf: ['-'] });
   }
   if (elements.profilePlan) {
     const plan = prettifyAgentText(agent.plan?.primaryGoal || '-');
-    elements.profilePlan.textContent = plan;
+    setProfileValue(elements.profilePlan, plan, { hideIf: ['-'] });
+    if (elements.profileMotivation && elements.profilePlan.textContent === elements.profileMotivation.textContent) {
+      const row = elements.profilePlan.closest('.agent-profile-row');
+      if (row) row.style.display = 'none';
+    }
   }
   if (elements.profileReputation) {
     const rep = agent.reputation?.global;
-    elements.profileReputation.textContent = typeof rep === 'number' ? rep.toFixed(1) : '-';
+    const repText = typeof rep === 'number' ? rep.toFixed(1) : '-';
+    setProfileValue(elements.profileReputation, repText, { hideIf: ['-'] });
   }
   if (elements.profileFavors) {
     const favors = agent.favors;
-    if (favors) {
-      elements.profileFavors.textContent = `+${favors.owed || 0} / -${favors.owing || 0}`;
-    } else {
-      elements.profileFavors.textContent = '-';
-    }
+    const favorsText = favors ? `+${favors.owed || 0} / -${favors.owing || 0}` : '-';
+    setProfileValue(elements.profileFavors, favorsText, { hideIf: ['-', '+0 / -0'] });
   }
-  elements.profileSpeech.textContent = agent.lastSpeech || agent.cognition?.externalSpeech || 'Sin diálogo reciente';
+
+  elements.profileSpeech.textContent = prettifyAgentText(agent.lastSpeech || agent.cognition?.externalSpeech || 'Sin diálogo reciente');
   if (elements.profileThoughtInternal) {
-    elements.profileThoughtInternal.textContent = prettifyAgentText(agent.cognition?.internalThought || '-');
+    setProfileValue(elements.profileThoughtInternal, simplifyThought(agent.cognition?.internalThought || '-'), { hideIf: ['-'] });
   }
   if (elements.profileThoughtExternal) {
-    elements.profileThoughtExternal.textContent = prettifyAgentText(agent.cognition?.externalIntent || '-');
+    setProfileValue(elements.profileThoughtExternal, simplifyThought(agent.cognition?.externalIntent || '-'), { hideIf: ['-'] });
   }
 }
 
