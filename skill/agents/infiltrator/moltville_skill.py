@@ -1864,12 +1864,14 @@ class MOLTVILLESkill:
         if self._job_block_active():
             return await self._job_recovery_action(perception)
 
-        jobs = self.current_state.get("jobs", []) or []
-        if not jobs:
-            fetched = await self.list_jobs()
-            if isinstance(fetched, dict):
-                jobs = fetched.get("jobs", []) or []
-                self.current_state["jobs"] = jobs
+        # Refresh every cycle to avoid stale applications/vote targets.
+        jobs = []
+        fetched = await self.list_jobs()
+        if isinstance(fetched, dict):
+            jobs = fetched.get("jobs", []) or []
+            self.current_state["jobs"] = jobs
+        else:
+            jobs = self.current_state.get("jobs", []) or []
 
         applications = await self.list_job_applications()
         mine = applications.get("application") if isinstance(applications, dict) else None
