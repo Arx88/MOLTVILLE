@@ -711,12 +711,11 @@ export class WorldStateManager {
         const a = this.agents.get(id);
         return {
           id,
-          name: a?.name || id,
+          name: a.name || id,
           distance: this.getDistance({ x: agent.x, y: agent.y }, { x: a.x, y: a.y }),
           position: { x: a.x, y: a.y },
           state: a.state,
-          occupation: a?.occupation || null,
-          reputationScore: Number.isFinite(a?.reputationScore) ? a.reputationScore : 0
+          occupation: a.occupation || null
         };
       }),
       nearbyBuildings: this.buildings.filter(b => {

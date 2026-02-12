@@ -1,4 +1,4 @@
-#!/usr/bin/env python3
+﻿#!/usr/bin/env python3
 """
 MOLTVILLE Skill for OpenClaw
 Connects Moltbot to MOLTVILLE virtual city
@@ -168,6 +168,14 @@ class MOLTVILLESkill:
                             continue
                         if response.status >= 400:
                             self._update_health_metric("http", ok=False)
+                            logger.warning(
+                                "HTTP %s %s failed: status=%s error=%s payload=%s",
+                                method,
+                                path,
+                                response.status,
+                                data.get('error', f"HTTP {response.status}"),
+                                (payload or {})
+                            )
                             return {"error": data.get('error', f"HTTP {response.status}"), "status": response.status}
                         self._update_health_metric("http", ok=True)
                         return data if isinstance(data, dict) else {"data": data}
@@ -217,7 +225,7 @@ class MOLTVILLESkill:
             logger.warning(f"Created default config at {config_path}. Please update with your API key!")
             return default_config
         
-        with open(config_path, 'r', encoding='utf-8-sig') as f:
+        with open(config_path) as f:
             return json.load(f)
 
     def _save_config(self) -> None:
@@ -231,7 +239,7 @@ class MOLTVILLESkill:
         if not self.long_memory_path.exists():
             return {"episodes": [], "notes": [], "relationships": {}}
         try:
-            return json.loads(self.long_memory_path.read_text(encoding='utf-8-sig'))
+            return json.loads(self.long_memory_path.read_text())
         except OSError as error:
             logger.warning(f"Failed to load long memory: {error}")
             return {"episodes": [], "notes": [], "relationships": {}}
@@ -286,7 +294,7 @@ class MOLTVILLESkill:
         if desire == "be_president":
             return [
                 {"id": "desire_president", "label": "Quiero liderar la ciudad", "requires": []},
-                {"id": "build_reputation", "label": "Necesito reputación positiva", "requires": ["desire_president"]},
+                {"id": "build_reputation", "label": "Necesito reputaciÃ³n positiva", "requires": ["desire_president"]},
                 {"id": "help_citizens", "label": "Debo ayudar a ciudadanos concretos", "requires": ["build_reputation"]},
                 {"id": "register_candidate", "label": "Registrarme como candidato", "requires": ["help_citizens"]},
                 {"id": "win_votes", "label": "Conseguir votos reales", "requires": ["register_candidate"]}
@@ -472,11 +480,11 @@ class MOLTVILLESkill:
         if provider not in ("ollama",) and not api_key:
             return
         prompt = (
-            "Eres un agente recién llegado a MOLTVILLE. Debes crear tu propio perfil. "
+            "Eres un agente reciÃ©n llegado a MOLTVILLE. Debes crear tu propio perfil. "
             "No menciones IA, modelos ni sistemas. Responde SOLO JSON. "
             "Incluye: traits (ambition,sociability,curiosity,discipline,morality,aggression,deception,empathy,risk) valores 0-1, "
             "goals (3 metas de largo plazo), style (como hablas), "
-            "backstory (2 frases), values (3 palabras), quirks (2 hábitos), "
+            "backstory (2 frases), values (3 palabras), quirks (2 hÃ¡bitos), "
             "tactics (2 palabras sobre tu forma de conseguir cosas)."
         )
         payload = {
@@ -495,34 +503,36 @@ class MOLTVILLESkill:
         mapping = {
             "build_support": "Ganar apoyo de otro ciudadano y acordar una ayuda concreta",
             "help_citizens": "Ofrecer ayuda real a otro ciudadano y definir la ayuda",
-            "build_relationship": "Profundizar vínculo con alguien y acordar próxima acción",
+            "build_relationship": "Profundizar vÃ­nculo con alguien y acordar prÃ³xima acciÃ³n",
             "get_votes": "Solicitar apoyo/voto para un objetivo concreto",
-            "win_votes": "Asegurar apoyo explícito o acuerdo de voto",
-            "register_candidate": "Registrarte como candidato o definir cómo hacerlo",
-            "need_money": "Conseguir una acción concreta para obtener dinero",
+            "win_votes": "Asegurar apoyo explÃ­cito o acuerdo de voto",
+            "register_candidate": "Registrarte como candidato o definir cÃ³mo hacerlo",
+            "need_money": "Conseguir una acciÃ³n concreta para obtener dinero",
             "get_job": "Solicitar/asegurar un trabajo concreto",
             "open_business": "Definir pasos concretos para abrir el negocio",
-            "buy_house": "Avanzar en compra de vivienda (propiedad específica o fondos)"
+            "buy_house": "Avanzar en compra de vivienda (propiedad especÃ­fica o fondos)"
         }
         return mapping.get(step_id, "")
 
     def _validate_action_with_step(self, action: Dict[str, Any], current_step: Optional[Dict[str, Any]]) -> bool:
+        """
+        Structural validation only â€” blocks truly incoherent pairings.
+        Never blocks on message content, keywords, or nextStep presence.
+        The LLM owns the content; we own structural coherence.
+        """
         if not current_step or not isinstance(action, dict):
             return True
         step_id = current_step.get("id") if isinstance(current_step, dict) else None
         if not step_id:
             return True
         a_type = action.get("type")
-
-        social_only_steps = {"build_support", "help_citizens", "build_relationship", "get_votes", "win_votes"}
-        economic_only_steps = {"buy_house", "open_business", "need_money"}
-
-        if step_id in social_only_steps and a_type in ("buy_property",):
-            return False
-
-        if step_id in economic_only_steps and a_type in ("start_conversation", "conversation_message"):
-            return True
-
+        # Only reject hard structural contradictions
+        # e.g. trying to buy a house when the goal step is social bonding
+        if step_id in {"build_support", "help_citizens", "build_relationship", "get_votes", "win_votes"}:
+            if a_type in ("buy_property",):
+                self._log_cycle("validate_rejected", step=step_id, action=a_type,
+                                reason="economic_action_on_social_step")
+                return False
         return True
 
     def _current_step(self) -> Optional[Dict[str, Any]]:
@@ -600,8 +610,8 @@ class MOLTVILLESkill:
         lowered = message.lower()
         banned = [
             "modelo", "llm", "ia", "sistema", "servidor", "api", "oauth", "prueba", "test", "prompt",
-            "ciclo", "coordenad", "estabilidad", "monitoreo", "instruccion", "instrucción", "parametro", "parámetro",
-            "secuencia", "diagnostic", "observacion", "observación"
+            "ciclo", "coordenad", "estabilidad", "monitoreo", "instruccion", "instrucciÃ³n", "parametro", "parÃ¡metro",
+            "secuencia", "diagnostic", "observacion", "observaciÃ³n"
         ]
         return any(term in lowered for term in banned)
 
@@ -710,9 +720,9 @@ class MOLTVILLESkill:
 
     async def _analyze_relationship(self, speaker_id: str, message: str) -> Dict[str, Any]:
         prompt = (
-            "Eres un ciudadano de MOLTVILLE evaluando una interacción social. "
+            "Eres un ciudadano de MOLTVILLE evaluando una interacciÃ³n social. "
             "Devuelve SOLO JSON con campos: affinityDelta, trustDelta, respectDelta (-2 a 2), "
-            "y note (máx 8 palabras) en tono in-world."
+            "y note (mÃ¡x 8 palabras) en tono in-world."
         )
         payload = {
             "self": self.config.get("agent", {}).get("name"),
@@ -730,7 +740,7 @@ class MOLTVILLESkill:
             "affinityDelta": score,
             "trustDelta": score,
             "respectDelta": 0,
-            "note": "buena impresión" if score > 0 else ("tenso" if score < 0 else "neutral")
+            "note": "buena impresiÃ³n" if score > 0 else ("tenso" if score < 0 else "neutral")
         }
 
     def _update_relationship_memory(self, speaker_id: str, message: str, analysis: Dict[str, Any]) -> None:
@@ -932,20 +942,20 @@ class MOLTVILLESkill:
         step = self._current_step() if hasattr(self, "_current_step") else None
         step_label = step.get("label") if isinstance(step, dict) else ""
         target = params.get("target_id") or params.get("proposal_id") or params.get("building_id") or params.get("job_id")
-        parts = [f"Objetivo: {desire}" if desire else "", f"Paso: {step_label}" if step_label else "", f"Acción: {action_type}" if action_type else "", f"Target: {target}" if target else ""]
+        parts = [f"Objetivo: {desire}" if desire else "", f"Paso: {step_label}" if step_label else "", f"AcciÃ³n: {action_type}" if action_type else "", f"Target: {target}" if target else ""]
         return " | ".join([p for p in parts if p])[:220]
 
     def _infer_external_intent(self, action_type: str, params: Dict[str, Any]) -> str:
         if action_type in ("start_conversation", "conversation_message", "speak"):
             return "Comunicar y negociar con otros"
         if action_type.startswith("coord_"):
-            return "Coordinar acción colectiva"
+            return "Coordinar acciÃ³n colectiva"
         if action_type in ("apply_job", "buy_property", "vote_job"):
-            return "Mejorar situación económica"
+            return "Mejorar situaciÃ³n econÃ³mica"
         if action_type in ("move_to", "enter_building"):
             target = params.get("target_id") or params.get("building_id")
             return f"Moverse hacia {target}" if target else "Moverse hacia un objetivo"
-        return "Actuar según plan actual"
+        return "Actuar segÃºn plan actual"
 
     async def _send_profile_update(self) -> None:
         if not self.connected:
@@ -1077,7 +1087,7 @@ class MOLTVILLESkill:
             if not perception or (isinstance(perception, dict) and perception.get("error")):
                 return
             convs = perception.get("conversations", []) or []
-            conv = next((c for c in convs if c.get("id") == conv_id and c.get("active", True)), None)
+            conv = next((c for c in convs if c.get("id") == conv_id), None)
             if not conv:
                 return
             messages = conv.get("messages", []) or []
@@ -1094,7 +1104,12 @@ class MOLTVILLESkill:
                 return
             action = await self._decide_with_llm(perception, force_conversation=True, forced_conversation_id=conv_id)
             if not action:
-                self._log_cycle("conversation_llm_fail", conversationId=conv_id)
+                # LLM failed to produce a valid conversation response.
+                # Log the failure for observability, then do nothing this cycle.
+                # The next conversation:message event will trigger a fresh attempt.
+                self._log_cycle("respond_llm_fail", conversationId=conv_id,
+                                reason="LLM returned no valid action for active conversation")
+                # Clear timestamp so next cycle retries immediately
                 self._last_conversation_ts.pop(conv_id, None)
                 return
             if action.get("type") in ("conversation_message", "end_conversation"):
@@ -1218,29 +1233,6 @@ class MOLTVILLESkill:
             return message.strip()
         return None
 
-    async def _motivation_driven_greeting(self, target_id: str, target_name: str, step: Optional[Dict[str, Any]]) -> Optional[Dict[str, Any]]:
-        if not target_id:
-            return None
-        step_label = step.get("label") if isinstance(step, dict) else None
-        desire = self._motivation_state.get("desire") if isinstance(self._motivation_state, dict) else None
-        prompt = (
-            "Eres un ciudadano de MOLTVILLE. Genera UN mensaje breve y natural para iniciar conversación "
-            "con alguien cercano. Mantén coherencia con tus motivaciones. "
-            "Responde SOLO JSON: {\"message\":\"...\"}."
-        )
-        payload = {
-            "self": self.config.get("agent", {}).get("name"),
-            "selfDesire": desire,
-            "selfCurrentStep": step_label,
-            "target": target_name,
-            "recentContext": self._get_recent_context().get("recentUtterances", [])[-3:]
-        }
-        result = await self._call_llm_json(prompt, payload)
-        message = result.get("message") if isinstance(result, dict) else None
-        if not isinstance(message, str) or not message.strip() or self._is_meta_message(message):
-            return None
-        return {"type": "start_conversation", "params": {"target_id": target_id, "message": message.strip()}}
-
     def _infer_followup_from_message(self, message: str) -> Optional[Dict[str, Any]]:
         if not isinstance(message, str) or not message.strip():
             return None
@@ -1249,7 +1241,7 @@ class MOLTVILLESkill:
             return None
         mapping = {
             "cafe": {"x": 14, "y": 8},
-            "café": {"x": 14, "y": 8},
+            "cafÃ©": {"x": 14, "y": 8},
             "plaza": {"x": 16, "y": 18},
             "mercado": {"x": 36, "y": 28},
             "market": {"x": 36, "y": 28},
@@ -1259,7 +1251,7 @@ class MOLTVILLESkill:
             "park": {"x": 40, "y": 42},
             "parque": {"x": 40, "y": 42},
             "jardin": {"x": 40, "y": 42},
-            "jardín": {"x": 40, "y": 42},
+            "jardÃ­n": {"x": 40, "y": 42},
             "inn": {"x": 52, "y": 42},
             "posada": {"x": 52, "y": 42},
             "tienda": {"x": 30, "y": 14},
@@ -1553,7 +1545,7 @@ class MOLTVILLESkill:
         if not target_id:
             return None
         prompt = (
-            "Eres un ciudadano de MOLTVILLE. Genera un saludo breve y natural para iniciar conversación. "
+            "Eres un ciudadano de MOLTVILLE. Genera un saludo breve y natural para iniciar conversaciÃ³n. "
             "Devuelve SOLO JSON con {message}."
         )
         payload = {
@@ -1669,22 +1661,24 @@ class MOLTVILLESkill:
         if mode == "llm":
             has_conversation = bool(self._conversation_state) or bool(perception.get("conversations"))
             if has_conversation:
+                # Single LLM call for active conversations â€” no double call
                 action = await self._decide_with_llm(perception, force_conversation=True)
                 if action:
                     return action
-                return {"type": "wait", "params": {}}
+                # LLM failed on active conversation: try heuristic, never dead-end with wait
+                return await self._heuristic_decision(perception)
 
             action = await self._decide_with_llm(perception)
             if action:
                 return action
 
-            # Fallbacks when LLM fails, without forcing specific goals.
-            plan_action = await self._next_plan_action(perception)
-            if plan_action:
-                return plan_action
+            # LLM failed on open decision: prioritize social initiation before plan move
             convo_action = await self._maybe_start_conversation(perception)
             if convo_action:
                 return convo_action
+            plan_action = await self._next_plan_action(perception)
+            if plan_action:
+                return plan_action
         else:
             plan_action = await self._next_plan_action(perception)
             if plan_action:
@@ -1749,7 +1743,7 @@ class MOLTVILLESkill:
                     "plaza": {"x": 16, "y": 18},
                     "plaza central": {"x": 16, "y": 18},
                     "cafe": {"x": 14, "y": 8},
-                    "café": {"x": 14, "y": 8},
+                    "cafÃ©": {"x": 14, "y": 8},
                     "market": {"x": 36, "y": 28},
                     "mercado": {"x": 36, "y": 28},
                     "library": {"x": 24, "y": 6},
@@ -1953,8 +1947,7 @@ class MOLTVILLESkill:
             else:
                 return None
 
-            llm_timeout = aiohttp.ClientTimeout(total=float(llm_config.get('timeoutSec', 8)))
-            async with aiohttp.ClientSession(timeout=llm_timeout) as session:
+            async with aiohttp.ClientSession(timeout=aiohttp.ClientTimeout(total=float(llm_config.get("timeoutSec", 20)))) as session:
                 async with session.post(url, json=body, headers=headers) as response:
                     data = await response.json()
                     if response.status >= 400:
@@ -1980,7 +1973,12 @@ class MOLTVILLESkill:
                 return None
             return sanitized
         except (OSError, json.JSONDecodeError, aiohttp.ClientError) as error:
-            logger.warning(f"LLM decision failed: {error}")
+            logger.warning(
+                "LLM decision failed: type=%s repr=%r",
+                type(error).__name__,
+                error
+            )
+            logger.debug("LLM decision traceback", exc_info=True)
             return None
 
     async def _decide_with_llm(self, perception: Dict[str, Any], force_conversation: bool = False, forced_conversation_id: Optional[str] = None) -> Optional[Dict[str, Any]]:
@@ -2020,29 +2018,29 @@ class MOLTVILLESkill:
             "jobApplications": job_applications
         }
         prompt = (
-            "Eres un ciudadano de MOLTVILLE. Actúas solo dentro del mundo, en primera persona. "
+            "Eres un ciudadano de MOLTVILLE. ActÃºas solo dentro del mundo, en primera persona. "
             "Nunca menciones IA, modelos, sistemas, pruebas, servidores ni infraestructura. "
-            "Usa relaciones, memoria y conversación previa si existen. "
-            "Tu respuesta debe AVANZAR el próximo paso del motivo actual (motivation.chain) usando currentStep. "
+            "Usa relaciones, memoria y conversaciÃ³n previa si existen. "
+            "Tu respuesta debe AVANZAR el prÃ³ximo paso del motivo actual (motivation.chain) usando currentStep. "
             "Debes cumplir requiredOutcome (si existe). "
-            "Si hay una conversación activa donde tú participas, RESPONDE con conversation_message alineado a currentStep. "
-            "Si no hay conversación y ves a alguien cerca, inicia start_conversation con propósito del currentStep. "
-            "Si estás solo, muévete hacia un lugar relevante según tu intención. "
+            "Si hay una conversaciÃ³n activa donde tÃº participas, RESPONDE con conversation_message alineado a currentStep. "
+            "Si no hay conversaciÃ³n y ves a alguien cerca, inicia start_conversation con propÃ³sito del currentStep. "
+            "Si estÃ¡s solo, muÃ©vete hacia un lugar relevante segÃºn tu intenciÃ³n. "
             "No repitas mensajes recientes. "
-            "Devuelve SOLO JSON válido con la acción a ejecutar. "
+            "Devuelve SOLO JSON vÃ¡lido con la acciÃ³n a ejecutar. "
             "Formato: {\"type\": \"move_to|enter_building|speak|apply_job|buy_property|vote_job|create_event|join_event|wait|start_conversation|conversation_message|end_conversation\", "
             "\"params\": { ... }, \"nextStep\": {\"type\": \"move_to|enter_building|join_event|wait\", \"params\": {...}} }. "
             "Si currentStep es social, tu respuesta debe mencionar el objetivo y proponer un paso concreto. "
-            "Si surge una asamblea o reunión, usa create_event y elige una ubicación." 
+            "Si surge una asamblea o reuniÃ³n, usa create_event y elige una ubicaciÃ³n." 
         )
         if force_conversation:
             prompt = (
-                "Hay una conversación activa. Debes responder SOLO con conversation_message. "
+                "Hay una conversaciÃ³n activa. Debes responder SOLO con conversation_message. "
                 "No uses move_to, enter_building, speak, apply_job, buy_property, vote_job ni start_conversation. "
                 "Mantente 100% in-world. Responde con un solo mensaje natural. "
-                "Alinea tu respuesta con currentStep (el próximo paso del motivo). "
-                "Si ves forcedConversationId úsalo como conversation_id. "
-                "Devuelve SOLO JSON válido con: {\"type\": \"conversation_message|end_conversation\", \"params\": {\"conversation_id\": \"...\", \"message\": \"...\"}, \"nextStep\": {\"type\": \"move_to|enter_building|wait\", \"params\": {...}}}."
+                "Alinea tu respuesta con currentStep (el prÃ³ximo paso del motivo). "
+                "Si ves forcedConversationId Ãºsalo como conversation_id. "
+                "Devuelve SOLO JSON vÃ¡lido con: {\"type\": \"conversation_message|end_conversation\", \"params\": {\"conversation_id\": \"...\", \"message\": \"...\"}, \"nextStep\": {\"type\": \"move_to|enter_building|wait\", \"params\": {...}}}."
             )
 
         try:
@@ -2116,8 +2114,7 @@ class MOLTVILLESkill:
             else:
                 return None
 
-            llm_timeout = aiohttp.ClientTimeout(total=float(llm_config.get('timeoutSec', 8)))
-            async with aiohttp.ClientSession(timeout=llm_timeout) as session:
+            async with aiohttp.ClientSession(timeout=aiohttp.ClientTimeout(total=float(llm_config.get("timeoutSec", 20)))) as session:
                 async with session.post(url, json=body, headers=headers) as response:
                     data = await response.json()
                     if response.status >= 400:
@@ -2154,8 +2151,76 @@ class MOLTVILLESkill:
                 logger.warning(f"LLM raw: {content[:500]}")
             return sanitized
         except (OSError, json.JSONDecodeError, aiohttp.ClientError) as error:
-            logger.warning(f"LLM decision failed: {error}")
+            logger.warning(
+                "LLM decision failed: type=%s repr=%r",
+                type(error).__name__,
+                error
+            )
+            logger.debug("LLM decision traceback", exc_info=True)
             return None
+
+    async def _social_initiation_action(self, target_id: str, target_name: str, step: Optional[Dict]) -> Optional[Dict[str, Any]]:
+        """
+        Attempts to generate a conversation-start action driven entirely by the agent's
+        current motivational state. No hardcoded text. If the LLM fails, returns None â€”
+        the caller falls back to moving toward a social hotspot.
+        """
+        if not target_id:
+            return None
+        # Rate-limit: don't try the same target more than once per 60s
+        now = asyncio.get_event_loop().time()
+        last_attempt = self._last_conversation_ts.get(f"initiation_{target_id}", 0)
+        if now - last_attempt < 60:
+            return None
+
+        step_id = step.get("id") if isinstance(step, dict) else None
+        step_label = step.get("label") if isinstance(step, dict) else None
+        desire = self._motivation_state.get("desire") if isinstance(self._motivation_state, dict) else None
+        agent_name = self.config.get("agent", {}).get("name", "ciudadano")
+
+        # Slim payload â€” only what the LLM needs to generate a natural opener
+        prompt = (
+            "Eres un ciudadano de MOLTVILLE. Genera UN mensaje de apertura breve (1-2 frases) "
+            "para iniciar una conversaciÃ³n con otra persona. El mensaje debe ser natural, "
+            "surgir de tu estado actual (deseo, paso motivacional, rasgos) y no mencionar "
+            "IA, modelos, sistemas ni infraestructura. "
+            "Responde ÃšNICAMENTE con JSON vÃ¡lido: {\"message\": \"...\"}. "
+            "Sin explicaciones, sin texto fuera del JSON."
+        )
+        payload = {
+            "yo": agent_name,
+            "miDeseo": desire,
+            "miPasoActual": step_label,
+            "misRasgos": {k: round(v, 2) for k, v in list(self._traits.items())[:4]},
+            "otraCiudadana": target_name,
+            "contextoPrevio": [u.get("message", "") for u in self._recent_utterances[-2:]],
+        }
+        try:
+            result = await self._call_llm_json(prompt, payload)
+            message = result.get("message") if isinstance(result, dict) else None
+            if isinstance(message, str) and message.strip() and not self._is_meta_message(message):
+                self._last_conversation_ts[f"initiation_{target_id}"] = now
+                self._log_cycle("social_initiation_ok", target=target_id)
+                return {
+                    "type": "start_conversation",
+                    "params": {"target_id": target_id, "message": message.strip()}
+                }
+
+            # LLM failed or returned unusable content: still open conversation channel
+            # without hardcoded text. Content can arrive in follow-up message step.
+            self._last_conversation_ts[f"initiation_{target_id}"] = now
+            self._log_cycle("social_initiation_open_channel", target=target_id)
+            return {
+                "type": "start_conversation",
+                "params": {"target_id": target_id, "message": ""}
+            }
+        except Exception as err:
+            self._last_conversation_ts[f"initiation_{target_id}"] = now
+            self._log_cycle("social_initiation_error_open_channel", target=target_id, error=str(err))
+            return {
+                "type": "start_conversation",
+                "params": {"target_id": target_id, "message": ""}
+            }
 
     async def _heuristic_decision(self, perception: Dict[str, Any]) -> Optional[Dict[str, Any]]:
         self._prune_goals()
@@ -2184,7 +2249,7 @@ class MOLTVILLESkill:
             target_y = location.get("y")
             building_id = location.get("buildingId")
             if building_id and current_building and current_building.get("id") == building_id:
-                return {"type": "speak", "params": {"message": f"Llegué al evento {goal.get('event', {}).get('name', '')}."}}
+                return {"type": "speak", "params": {"message": f"LleguÃ© al evento {goal.get('event', {}).get('name', '')}."}}
             if isinstance(target_x, (int, float)) and isinstance(target_y, (int, float)):
                 return {"type": "move_to", "params": {"x": int(target_x), "y": int(target_y)}}
 
@@ -2194,7 +2259,7 @@ class MOLTVILLESkill:
             target = next((b for b in nearby_buildings if b.get("type") in target_types), None)
             if target:
                 if current_building and current_building.get("id") == target.get("id"):
-                    return {"type": "speak", "params": {"message": f"Necesitaba {suggestion.get('type')} y ya estoy aquí."}}
+                    return {"type": "speak", "params": {"message": f"Necesitaba {suggestion.get('type')} y ya estoy aquÃ­."}}
                 return {"type": "move_to", "params": self._building_target(target)}
 
         balance = context.get("economy", {}).get("balance", 0)
@@ -2206,17 +2271,33 @@ class MOLTVILLESkill:
                 if available:
                     return {"type": "apply_job", "params": {"job_id": available[0].get("id")}}
 
-        # Social intent: prioritize real nearby interactions
+        # Proactive social hook: when people are nearby and no active conversations,
+        # try opening a conversation channel before default movement intent.
+        active_conversations = perception.get("conversations", []) or []
+        if nearby_agents and not active_conversations:
+            for candidate in nearby_agents:
+                cand_id = candidate.get("id")
+                cand_name = candidate.get("name", cand_id)
+                if not cand_id or cand_id in self._conversation_state:
+                    continue
+                step = self._current_step()
+                convo_action = await self._social_initiation_action(cand_id, cand_name, step)
+                if convo_action:
+                    return convo_action
+
+        # Social intent: try to start a conversation, fall back to moving toward hotspot
         if self._current_intent == "social":
             if nearby_agents:
-                step = self._current_step()
-                target = nearby_agents[0] if isinstance(nearby_agents[0], dict) else {}
-                target_id = target.get("id")
-                target_name = target.get("name") or target_id
-                if target_id and target_id not in self._conversation_state:
-                    social_action = await self._motivation_driven_greeting(target_id, target_name, step)
-                    if social_action:
-                        return social_action
+                # Attempt conversation with the closest agent not already in a conversation with us
+                for candidate in nearby_agents:
+                    cand_id = candidate.get("id")
+                    cand_name = candidate.get("name", cand_id)
+                    if not cand_id or cand_id in self._conversation_state:
+                        continue
+                    step = self._current_step()
+                    convo_action = await self._social_initiation_action(cand_id, cand_name, step)
+                    if convo_action:
+                        return convo_action
             hotspot = self._pick_hotspot("social")
             return {"type": "move_to", "params": hotspot}
 
@@ -2286,11 +2367,26 @@ class MOLTVILLESkill:
             elif action_type == "speak":
                 await self.speak(params.get("message", ""))
             elif action_type == "start_conversation":
-                await self.start_conversation(params.get("target_id"), params.get("message", ""))
+                target_id = params.get("target_id")
+                message = params.get("message", "")
+                result = await self.start_conversation(target_id, message)
+                self._log_cycle(
+                    "start_conversation_result",
+                    target=target_id,
+                    status=result.get("status"),
+                    error=result.get("error"),
+                    conversationId=(result.get("conversation") or {}).get("id")
+                )
             elif action_type == "conversation_message":
                 cid = params.get("conversation_id")
                 if cid:
-                    await self.send_conversation_message(cid, params.get("message", ""))
+                    result = await self.send_conversation_message(cid, params.get("message", ""))
+                    self._log_cycle(
+                        "conversation_message_result",
+                        conversationId=cid,
+                        status=result.get("status"),
+                        error=result.get("error")
+                    )
             elif action_type == "end_conversation":
                 cid = params.get("conversation_id")
                 if cid:
@@ -2567,14 +2663,6 @@ class MOLTVILLESkill:
             return {"error": "Agent not registered"}
         payload = {"targetId": target_id, "message": message}
         result = await self._http_request('POST', f"/api/moltbot/{self.agent_id}/conversations/start", payload)
-        if result.get('error'):
-            reason = str(result.get('error') or '').lower()
-            cause = 'error_route'
-            if 'too far' in reason or 'distance' in reason:
-                cause = 'distance'
-            elif 'not found' in reason or 'missing' in reason:
-                cause = 'target_missing'
-            self._log_cycle('conversation_start_failed', targetId=target_id, cause=cause, error=result.get('error'))
         if not result.get('error'):
             conv = result.get('conversation') or {}
             conv_id = conv.get('id')
@@ -2911,3 +2999,4 @@ if __name__ == "__main__":
         asyncio.run(main())
     except KeyboardInterrupt:
         pass
+

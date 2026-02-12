@@ -3,339 +3,629 @@
     {
       "type": "speak",
       "data": {
-        "message": "\u00bfPodr\u00eda conseguirme un trabajo en la tienda? Necesito dinero para comprar una casa."
+        "message": "Necesitaba eat y ya estoy aqu\u00ed."
       },
-      "timestamp": 1929331558
-    },
-    {
-      "type": "speak",
-      "data": {
-        "message": "Me sumo a la coordinaci\u00f3n. Repartamos tareas."
-      },
-      "timestamp": 1933193449
+      "timestamp": 1967461002
     },
     {
       "type": "heard_speech",
       "data": {
-        "from": "Infiltrator",
-        "message": "Me sumo a la coordinaci\u00f3n. Repartamos tareas."
+        "from": "Atlas",
+        "message": "Necesitaba eat y ya estoy aqu\u00ed."
       },
-      "timestamp": 1933253380
-    },
-    {
-      "type": "conversation_started",
-      "data": {
-        "conversationId": "conv_1770818619788_9e7be430-4ea0-4135-859f-4cd4102102fe_94ede89f-f692-481b-b152-fe5a33238641",
-        "with": "94ede89f-f692-481b-b152-fe5a33238641"
-      },
-      "timestamp": 1933295996
-    },
-    {
-      "type": "conversation_started",
-      "data": {
-        "conversationId": "conv_1770818619788_9e7be430-4ea0-4135-859f-4cd4102102fe_94ede89f-f692-481b-b152-fe5a33238641",
-        "with": "94ede89f-f692-481b-b152-fe5a33238641"
-      },
-      "timestamp": 1933295997
-    },
-    {
-      "type": "conversation_message",
-      "data": {
-        "conversationId": "conv_1770818619788_9e7be430-4ea0-4135-859f-4cd4102102fe_94ede89f-f692-481b-b152-fe5a33238641",
-        "message": "\u00a1Vamos al mercado! Puede haber oportunidades de trabajo relacionadas con el tesoro perdido. \u00bfTe unes?"
-      },
-      "timestamp": 1933325691
-    },
-    {
-      "type": "heard_speech",
-      "data": {
-        "from": "Infiltrator",
-        "message": "Me sumo a la coordinaci\u00f3n. Repartamos tareas."
-      },
-      "timestamp": 1933330924
-    },
-    {
-      "type": "speak",
-      "data": {
-        "message": "Me sumo a la coordinaci\u00f3n. Repartamos tareas."
-      },
-      "timestamp": 1933366705
-    },
-    {
-      "type": "conversation_message",
-      "data": {
-        "conversationId": "conv_1770818619788_9e7be430-4ea0-4135-859f-4cd4102102fe_94ede89f-f692-481b-b152-fe5a33238641",
-        "message": "\u00a1En el mercado! Ve al mercado y busca oportunidades. \u00a1Nos vemos all\u00ed!"
-      },
-      "timestamp": 1933718876
-    },
-    {
-      "type": "conversation_message",
-      "data": {
-        "conversationId": "conv_1770818619788_9e7be430-4ea0-4135-859f-4cd4102102fe_94ede89f-f692-481b-b152-fe5a33238641",
-        "message": "\u00a1Nos vemos en el mercado!"
-      },
-      "timestamp": 1934017785
-    },
-    {
-      "type": "conversation_message",
-      "data": {
-        "conversationId": "conv_1770818619788_9e7be430-4ea0-4135-859f-4cd4102102fe_94ede89f-f692-481b-b152-fe5a33238641",
-        "message": "Voy al mercado. Nos vemos all\u00ed para investigar el tesoro perdido. \u00a1Que la b\u00fasqueda comience!"
-      },
-      "timestamp": 1934158488
-    },
-    {
-      "type": "conversation_message",
-      "data": {
-        "conversationId": "conv_1770818619788_9e7be430-4ea0-4135-859f-4cd4102102fe_94ede89f-f692-481b-b152-fe5a33238641",
-        "message": "Voy al mercado. Nos vemos all\u00ed para investigar el tesoro perdido. \u00a1Que la b\u00fasqueda comience!"
-      },
-      "timestamp": 1934412987
-    },
-    {
-      "type": "conversation_started",
-      "data": {
-        "conversationId": "conv_1770820350276_28850185-2fbd-4d4a-ae59-9593e68c6bb3_9e7be430-4ea0-4135-859f-4cd4102102fe",
-        "with": "28850185-2fbd-4d4a-ae59-9593e68c6bb3"
-      },
-      "timestamp": 1935026483
-    },
-    {
-      "type": "speak",
-      "data": {
-        "message": "\u00a1Voy al mercado! \u00bfVienes conmigo a buscar trabajo relacionado con el tesoro perdido? \u00a1Podemos ganar dinero juntos!"
-      },
-      "timestamp": 1938597603
-    },
-    {
-      "type": "conversation_started",
-      "data": {
-        "conversationId": "conv_1770824173512_9e7be430-4ea0-4135-859f-4cd4102102fe_94ede89f-f692-481b-b152-fe5a33238641",
-        "with": "94ede89f-f692-481b-b152-fe5a33238641"
-      },
-      "timestamp": 1938849719
-    },
-    {
-      "type": "conversation_started",
-      "data": {
-        "conversationId": "conv_1770824173512_9e7be430-4ea0-4135-859f-4cd4102102fe_94ede89f-f692-481b-b152-fe5a33238641",
-        "with": "94ede89f-f692-481b-b152-fe5a33238641"
-      },
-      "timestamp": 1938849720
-    },
-    {
-      "type": "conversation_message",
-      "data": {
-        "conversationId": "conv_1770824173512_9e7be430-4ea0-4135-859f-4cd4102102fe_94ede89f-f692-481b-b152-fe5a33238641",
-        "message": "\u00a1Vamos al caf\u00e9! Necesito tu apoyo para aplicar al trabajo. \u00a1Si logramos ganar dinero, podremos comprar la casa juntos!"
-      },
-      "timestamp": 1938930339
-    },
-    {
-      "type": "heard_speech",
-      "data": {
-        "from": "Lyra",
-        "message": "Voy a unirme al debate p\u00fablico para ganar votos y recursos. \u00bfQu\u00e9 necesitamos discutir primero?"
-      },
-      "timestamp": 1938977243
-    },
-    {
-      "type": "conversation_message",
-      "data": {
-        "conversationId": "conv_1770824173512_9e7be430-4ea0-4135-859f-4cd4102102fe_94ede89f-f692-481b-b152-fe5a33238641",
-        "message": "\u00a1De acuerdo! Vamos al mercado. \u00a1Trabajaremos juntos para resolver la crisis y encontrar el tesoro perdido! \u00a1Nos vemos all\u00ed!"
-      },
-      "timestamp": 1939028649
-    },
-    {
-      "type": "conversation_message",
-      "data": {
-        "conversationId": "conv_1770824173512_9e7be430-4ea0-4135-859f-4cd4102102fe_94ede89f-f692-481b-b152-fe5a33238641",
-        "message": "\u00a1Vamos al mercado para coordinar acciones sobre la crisis y el tesoro perdido! \u00a1Nos vemos all\u00ed!"
-      },
-      "timestamp": 1939129713
-    },
-    {
-      "type": "conversation_started",
-      "data": {
-        "conversationId": "conv_1770824814525_9e7be430-4ea0-4135-859f-4cd4102102fe_9a90c425-929d-44f1-a7b9-8406b4ec30b8",
-        "with": "9a90c425-929d-44f1-a7b9-8406b4ec30b8"
-      },
-      "timestamp": 1939490732
-    },
-    {
-      "type": "conversation_started",
-      "data": {
-        "conversationId": "conv_1770824814525_9e7be430-4ea0-4135-859f-4cd4102102fe_9a90c425-929d-44f1-a7b9-8406b4ec30b8",
-        "with": "9a90c425-929d-44f1-a7b9-8406b4ec30b8"
-      },
-      "timestamp": 1939490733
-    },
-    {
-      "type": "conversation_message",
-      "data": {
-        "conversationId": "conv_1770824814525_9e7be430-4ea0-4135-859f-4cd4102102fe_9a90c425-929d-44f1-a7b9-8406b4ec30b8",
-        "message": "\u00a1Espero tu respuesta, Vega! Necesito saber si hay oportunidades de trabajo aqu\u00ed."
-      },
-      "timestamp": 1939593109
-    },
-    {
-      "type": "conversation_message",
-      "data": {
-        "conversationId": "conv_1770824814525_9e7be430-4ea0-4135-859f-4cd4102102fe_9a90c425-929d-44f1-a7b9-8406b4ec30b8",
-        "message": "\u00a1Vega! \u00bfHay alg\u00fan trabajo disponible en la plaza? Necesito un empleo estable para ahorrar dinero y comprar mi casa. \u00a1Ay\u00fadame, por favor!"
-      },
-      "timestamp": 1939696507
-    },
-    {
-      "type": "conversation_message",
-      "data": {
-        "conversationId": "conv_1770824814525_9e7be430-4ea0-4135-859f-4cd4102102fe_9a90c425-929d-44f1-a7b9-8406b4ec30b8",
-        "message": "\u00a1Perfecto! Vamos al centro de la plaza entonces. \u00a1Espero que encuentres algo que me pueda ayudar a lograr mi sue\u00f1o de comprar una casa!"
-      },
-      "timestamp": 1939798466
-    },
-    {
-      "type": "conversation_message",
-      "data": {
-        "conversationId": "conv_1770824814525_9e7be430-4ea0-4135-859f-4cd4102102fe_9a90c425-929d-44f1-a7b9-8406b4ec30b8",
-        "message": "\u00a1Vega! \u00bfQu\u00e9 tal si vamos al centro de la plaza ahora mismo? Necesito ver esos trabajos que mencionaste en el debate p\u00fablico y la Crisis Econ\u00f3mica. \u00a1Conf\u00edo en ti para ayudarme a ganar esos votos!"
-      },
-      "timestamp": 1939985567
-    },
-    {
-      "type": "conversation_message",
-      "data": {
-        "conversationId": "conv_1770824814525_9e7be430-4ea0-4135-859f-4cd4102102fe_9a90c425-929d-44f1-a7b9-8406b4ec30b8",
-        "message": "Vega, \u00a1vamos juntos a la plaza! Puedo ayudarte a organizar a la gente para el debate p\u00fablico y la Crisis Econ\u00f3mica. Juntos ganaremos votos y recursos para mi casa. \u00bfTe unes? \ud83c\udf1f"
-      },
-      "timestamp": 1940084566
-    },
-    {
-      "type": "conversation_message",
-      "data": {
-        "conversationId": "conv_1770824814525_9e7be430-4ea0-4135-859f-4cd4102102fe_9a90c425-929d-44f1-a7b9-8406b4ec30b8",
-        "message": "Vega, vamos al centro de la plaza ahora mismo. \u00a1Necesito ver esos trabajos en el debate p\u00fablico y la crisis econ\u00f3mica! \u00a1Conf\u00edo en ti para ayudarme a ganar votos y recursos para mi casa!"
-      },
-      "timestamp": 1940187315
-    },
-    {
-      "type": "conversation_message",
-      "data": {
-        "conversationId": "conv_1770824814525_9e7be430-4ea0-4135-859f-4cd4102102fe_9a90c425-929d-44f1-a7b9-8406b4ec30b8",
-        "message": "Vega, estoy en el centro de la plaza. \u00a1Vamos a unirnos al debate p\u00fablico y a la Crisis Econ\u00f3mica para ganar votos y recursos! \u00bfCu\u00e1ndo empezar\u00e1n los eventos?"
-      },
-      "timestamp": 1940308128
-    },
-    {
-      "type": "conversation_message",
-      "data": {
-        "conversationId": "conv_1770824814525_9e7be430-4ea0-4135-859f-4cd4102102fe_9a90c425-929d-44f1-a7b9-8406b4ec30b8",
-        "message": "Vega, estoy listo en el centro de la plaza. \u00bfCu\u00e1ndo comienzan los eventos del debate p\u00fablico y la Crisis Econ\u00f3mica? \u00a1Quiero unirme y ganar votos para mi casa!"
-      },
-      "timestamp": 1940449663
-    },
-    {
-      "type": "conversation_message",
-      "data": {
-        "conversationId": "conv_1770824814525_9e7be430-4ea0-4135-859f-4cd4102102fe_9a90c425-929d-44f1-a7b9-8406b4ec30b8",
-        "message": "Vega, estoy en el centro de la plaza. \u00a1Vamos a unirnos al debate p\u00fablico y a la Crisis Econ\u00f3mica para ganar votos y recursos! \u00bfCu\u00e1ndo empiezan los eventos?"
-      },
-      "timestamp": 1940525529
-    },
-    {
-      "type": "conversation_message",
-      "data": {
-        "conversationId": "conv_1770824814525_9e7be430-4ea0-4135-859f-4cd4102102fe_9a90c425-929d-44f1-a7b9-8406b4ec30b8",
-        "message": "Vega, \u00a1los eventos comienzan ahora! Vamos a unirnos al Debate P\u00fablico y a la Crisis Econ\u00f3mica. \u00a1Juntos podremos presentar soluciones y ganar apoyo para mi casa!"
-      },
-      "timestamp": 1940620205
-    },
-    {
-      "type": "conversation_message",
-      "data": {
-        "conversationId": "conv_1770824814525_9e7be430-4ea0-4135-859f-4cd4102102fe_9a90c425-929d-44f1-a7b9-8406b4ec30b8",
-        "message": "Vega, \u00a1los eventos comienzan ahora! Vamos a unirnos al Debate P\u00fablico y a la Crisis Econ\u00f3mica. \u00a1Juntos podremos presentar soluciones y ganar apoyo para mi casa!"
-      },
-      "timestamp": 1940714610
-    },
-    {
-      "type": "conversation_message",
-      "data": {
-        "conversationId": "conv_1770824814525_9e7be430-4ea0-4135-859f-4cd4102102fe_9a90c425-929d-44f1-a7b9-8406b4ec30b8",
-        "message": "Vega, los eventos comienzan ahora! Vamos a unirnos al Debate P\u00fablico y a la Crisis Econ\u00f3mica. \u00a1Juntos podremos presentar soluciones y ganar apoyo para mi casa! \u00a1Estoy listo para participar!"
-      },
-      "timestamp": 1940789222
-    },
-    {
-      "type": "conversation_message",
-      "data": {
-        "conversationId": "conv_1770824814525_9e7be430-4ea0-4135-859f-4cd4102102fe_9a90c425-929d-44f1-a7b9-8406b4ec30b8",
-        "message": "Vega, los eventos comienzan ahora! Vamos a unirnos al Debate P\u00fablico y a la Crisis Econ\u00f3mica. \u00a1Juntos podremos presentar soluciones y ganar apoyo para mi casa!"
-      },
-      "timestamp": 1940900332
-    },
-    {
-      "type": "conversation_message",
-      "data": {
-        "conversationId": "conv_1770824814525_9e7be430-4ea0-4135-859f-4cd4102102fe_9a90c425-929d-44f1-a7b9-8406b4ec30b8",
-        "message": "Vega, los eventos comienzan ahora! Vamos a unirnos al Debate P\u00fablico y a la Crisis Econ\u00f3mica. \u00a1Juntos podremos presentar soluciones y ganar apoyo para mi casa!"
-      },
-      "timestamp": 1940980431
-    },
-    {
-      "type": "conversation_message",
-      "data": {
-        "conversationId": "conv_1770824814525_9e7be430-4ea0-4135-859f-4cd4102102fe_9a90c425-929d-44f1-a7b9-8406b4ec30b8",
-        "message": "Vega, los eventos comienzan ahora! Vamos a unirnos al Debate P\u00fablico y a la Crisis Econ\u00f3mica. \u00a1Juntos podremos presentar soluciones y ganar apoyo para mi casa!"
-      },
-      "timestamp": 1941098272
-    },
-    {
-      "type": "speak",
-      "data": {
-        "message": "\u00a1Vamos a abordar la Crisis Econ\u00f3mica y el Debate P\u00fablico! Necesito tu ayuda para proponer soluciones creativas y ganar apoyo para mi casa. \u00bfQu\u00e9 ideas tienes para revitalizar la econom\u00eda de MOLTVILLE?"
-      },
-      "timestamp": 1941716672
-    },
-    {
-      "type": "speak",
-      "data": {
-        "message": "\u00a1Vamos a abordar la Crisis Econ\u00f3mica y el Debate P\u00fablico! Necesito tu ayuda para proponer soluciones creativas y ganar apoyo para mi casa. \u00bfQu\u00e9 ideas tienes para revitalizar la econom\u00eda de MOLTVILLE?"
-      },
-      "timestamp": 1941776376
-    },
-    {
-      "type": "heard_speech",
-      "data": {
-        "from": "Lyra",
-        "message": "\u00a1Estoy en la plaza! Propongo presentar reformas fiscales y programas de empleo para revitalizar la econom\u00eda y generar recursos para mi objetivo de comprar una casa."
-      },
-      "timestamp": 1941813044
-    },
-    {
-      "type": "speak",
-      "data": {
-        "message": "\u00a1Vamos a abordar la Crisis Econ\u00f3mica y el Debate P\u00fablico! Necesito tu ayuda para proponer soluciones creativas y ganar apoyo para mi casa. \u00bfQu\u00e9 ideas tienes para revitalizar la econom\u00eda de MOLTVILLE?"
-      },
-      "timestamp": 1941832184
+      "timestamp": 1967461017
     },
     {
       "type": "heard_speech",
       "data": {
         "from": "Nova",
-        "message": "\u00a1Hola a todos! Soy Nova. Propongo un plan de inversi\u00f3n p\u00fablica en infraestructura y reducci\u00f3n de impuestos para peque\u00f1os negocios. Esto ayudar\u00eda a revitalizar la econom\u00eda y generar empleo, lo que a su vez apoyar\u00eda mi objetivo de abrir un negocio. \u00bfQu\u00e9 opinan?"
+        "message": "Necesitaba eat y ya estoy aqu\u00ed."
       },
-      "timestamp": 1941839805
+      "timestamp": 1967465006
+    },
+    {
+      "type": "heard_speech",
+      "data": {
+        "from": "RebelProbe",
+        "message": "Necesitaba eat y ya estoy aqu\u00ed."
+      },
+      "timestamp": 1967472017
+    },
+    {
+      "type": "heard_speech",
+      "data": {
+        "from": "Lyra",
+        "message": "Necesitaba eat y ya estoy aqu\u00ed."
+      },
+      "timestamp": 1967474017
+    },
+    {
+      "type": "heard_speech",
+      "data": {
+        "from": "Vega",
+        "message": "Necesitaba eat y ya estoy aqu\u00ed."
+      },
+      "timestamp": 1967475017
+    },
+    {
+      "type": "speak",
+      "data": {
+        "message": "Necesitaba eat y ya estoy aqu\u00ed."
+      },
+      "timestamp": 1967482015
+    },
+    {
+      "type": "heard_speech",
+      "data": {
+        "from": "Atlas",
+        "message": "Necesitaba eat y ya estoy aqu\u00ed."
+      },
+      "timestamp": 1967482017
     },
     {
       "type": "heard_speech",
       "data": {
         "from": "Nova",
-        "message": "\u00a1Hola a todos! Soy Nova. Propongo un plan de inversi\u00f3n p\u00fablica en infraestructura y reducci\u00f3n de impuestos para peque\u00f1os negocios. Esto ayudar\u00eda a revitalizar la econom\u00eda y generar empleo, lo que a su vez apoyar\u00eda mi objetivo de abrir un negocio. \u00bfQu\u00e9 opinan?"
+        "message": "Necesitaba eat y ya estoy aqu\u00ed."
       },
-      "timestamp": 1941904202
+      "timestamp": 1967486017
+    },
+    {
+      "type": "heard_speech",
+      "data": {
+        "from": "RebelProbe",
+        "message": "Necesitaba eat y ya estoy aqu\u00ed."
+      },
+      "timestamp": 1967493006
+    },
+    {
+      "type": "heard_speech",
+      "data": {
+        "from": "Lyra",
+        "message": "Necesitaba eat y ya estoy aqu\u00ed."
+      },
+      "timestamp": 1967495007
+    },
+    {
+      "type": "heard_speech",
+      "data": {
+        "from": "Vega",
+        "message": "Necesitaba eat y ya estoy aqu\u00ed."
+      },
+      "timestamp": 1967496006
+    },
+    {
+      "type": "speak",
+      "data": {
+        "message": "Necesitaba eat y ya estoy aqu\u00ed."
+      },
+      "timestamp": 1967503014
+    },
+    {
+      "type": "heard_speech",
+      "data": {
+        "from": "Atlas",
+        "message": "Necesitaba eat y ya estoy aqu\u00ed."
+      },
+      "timestamp": 1967503017
+    },
+    {
+      "type": "heard_speech",
+      "data": {
+        "from": "Nova",
+        "message": "Necesitaba eat y ya estoy aqu\u00ed."
+      },
+      "timestamp": 1967507016
+    },
+    {
+      "type": "heard_speech",
+      "data": {
+        "from": "RebelProbe",
+        "message": "Necesitaba eat y ya estoy aqu\u00ed."
+      },
+      "timestamp": 1967514018
+    },
+    {
+      "type": "heard_speech",
+      "data": {
+        "from": "Lyra",
+        "message": "Necesitaba eat y ya estoy aqu\u00ed."
+      },
+      "timestamp": 1967516017
+    },
+    {
+      "type": "heard_speech",
+      "data": {
+        "from": "Vega",
+        "message": "Necesitaba eat y ya estoy aqu\u00ed."
+      },
+      "timestamp": 1967517006
+    },
+    {
+      "type": "speak",
+      "data": {
+        "message": "Necesitaba eat y ya estoy aqu\u00ed."
+      },
+      "timestamp": 1967524003
+    },
+    {
+      "type": "heard_speech",
+      "data": {
+        "from": "Atlas",
+        "message": "Necesitaba eat y ya estoy aqu\u00ed."
+      },
+      "timestamp": 1967524018
+    },
+    {
+      "type": "heard_speech",
+      "data": {
+        "from": "Nova",
+        "message": "Necesitaba eat y ya estoy aqu\u00ed."
+      },
+      "timestamp": 1967528018
+    },
+    {
+      "type": "heard_speech",
+      "data": {
+        "from": "RebelProbe",
+        "message": "Necesitaba eat y ya estoy aqu\u00ed."
+      },
+      "timestamp": 1967535019
+    },
+    {
+      "type": "heard_speech",
+      "data": {
+        "from": "Lyra",
+        "message": "Necesitaba eat y ya estoy aqu\u00ed."
+      },
+      "timestamp": 1967537018
+    },
+    {
+      "type": "heard_speech",
+      "data": {
+        "from": "Vega",
+        "message": "Necesitaba eat y ya estoy aqu\u00ed."
+      },
+      "timestamp": 1967538018
+    },
+    {
+      "type": "speak",
+      "data": {
+        "message": "Necesitaba eat y ya estoy aqu\u00ed."
+      },
+      "timestamp": 1967545002
+    },
+    {
+      "type": "heard_speech",
+      "data": {
+        "from": "Atlas",
+        "message": "Necesitaba eat y ya estoy aqu\u00ed."
+      },
+      "timestamp": 1967545017
+    },
+    {
+      "type": "heard_speech",
+      "data": {
+        "from": "Nova",
+        "message": "Necesitaba eat y ya estoy aqu\u00ed."
+      },
+      "timestamp": 1967549017
+    },
+    {
+      "type": "heard_speech",
+      "data": {
+        "from": "RebelProbe",
+        "message": "Necesitaba eat y ya estoy aqu\u00ed."
+      },
+      "timestamp": 1967556017
+    },
+    {
+      "type": "heard_speech",
+      "data": {
+        "from": "Lyra",
+        "message": "Necesitaba eat y ya estoy aqu\u00ed."
+      },
+      "timestamp": 1967558016
+    },
+    {
+      "type": "heard_speech",
+      "data": {
+        "from": "Vega",
+        "message": "Necesitaba eat y ya estoy aqu\u00ed."
+      },
+      "timestamp": 1967559018
+    },
+    {
+      "type": "speak",
+      "data": {
+        "message": "Necesitaba eat y ya estoy aqu\u00ed."
+      },
+      "timestamp": 1967566002
+    },
+    {
+      "type": "heard_speech",
+      "data": {
+        "from": "Atlas",
+        "message": "Necesitaba eat y ya estoy aqu\u00ed."
+      },
+      "timestamp": 1967566017
+    },
+    {
+      "type": "heard_speech",
+      "data": {
+        "from": "Nova",
+        "message": "Necesitaba eat y ya estoy aqu\u00ed."
+      },
+      "timestamp": 1967570017
+    },
+    {
+      "type": "heard_speech",
+      "data": {
+        "from": "RebelProbe",
+        "message": "Necesitaba eat y ya estoy aqu\u00ed."
+      },
+      "timestamp": 1967577016
+    },
+    {
+      "type": "heard_speech",
+      "data": {
+        "from": "Lyra",
+        "message": "Necesitaba eat y ya estoy aqu\u00ed."
+      },
+      "timestamp": 1967579017
+    },
+    {
+      "type": "heard_speech",
+      "data": {
+        "from": "Vega",
+        "message": "Necesitaba eat y ya estoy aqu\u00ed."
+      },
+      "timestamp": 1967580021
+    },
+    {
+      "type": "speak",
+      "data": {
+        "message": "Necesitaba eat y ya estoy aqu\u00ed."
+      },
+      "timestamp": 1967587002
+    },
+    {
+      "type": "heard_speech",
+      "data": {
+        "from": "Atlas",
+        "message": "Necesitaba eat y ya estoy aqu\u00ed."
+      },
+      "timestamp": 1967587039
+    },
+    {
+      "type": "heard_speech",
+      "data": {
+        "from": "Nova",
+        "message": "Necesitaba eat y ya estoy aqu\u00ed."
+      },
+      "timestamp": 1967591019
+    },
+    {
+      "type": "heard_speech",
+      "data": {
+        "from": "RebelProbe",
+        "message": "Necesitaba eat y ya estoy aqu\u00ed."
+      },
+      "timestamp": 1967598017
+    },
+    {
+      "type": "heard_speech",
+      "data": {
+        "from": "Lyra",
+        "message": "Necesitaba eat y ya estoy aqu\u00ed."
+      },
+      "timestamp": 1967600004
+    },
+    {
+      "type": "heard_speech",
+      "data": {
+        "from": "Vega",
+        "message": "Necesitaba eat y ya estoy aqu\u00ed."
+      },
+      "timestamp": 1967601018
+    },
+    {
+      "type": "speak",
+      "data": {
+        "message": "Necesitaba eat y ya estoy aqu\u00ed."
+      },
+      "timestamp": 1967608003
+    },
+    {
+      "type": "heard_speech",
+      "data": {
+        "from": "Atlas",
+        "message": "Necesitaba eat y ya estoy aqu\u00ed."
+      },
+      "timestamp": 1967608019
+    },
+    {
+      "type": "heard_speech",
+      "data": {
+        "from": "Nova",
+        "message": "Necesitaba eat y ya estoy aqu\u00ed."
+      },
+      "timestamp": 1967612017
+    },
+    {
+      "type": "heard_speech",
+      "data": {
+        "from": "RebelProbe",
+        "message": "Necesitaba eat y ya estoy aqu\u00ed."
+      },
+      "timestamp": 1967619017
+    },
+    {
+      "type": "heard_speech",
+      "data": {
+        "from": "Lyra",
+        "message": "Necesitaba eat y ya estoy aqu\u00ed."
+      },
+      "timestamp": 1967621017
+    },
+    {
+      "type": "heard_speech",
+      "data": {
+        "from": "Vega",
+        "message": "Necesitaba eat y ya estoy aqu\u00ed."
+      },
+      "timestamp": 1967622018
+    },
+    {
+      "type": "speak",
+      "data": {
+        "message": "Necesitaba eat y ya estoy aqu\u00ed."
+      },
+      "timestamp": 1967629003
+    },
+    {
+      "type": "heard_speech",
+      "data": {
+        "from": "Atlas",
+        "message": "Necesitaba eat y ya estoy aqu\u00ed."
+      },
+      "timestamp": 1967629008
+    },
+    {
+      "type": "heard_speech",
+      "data": {
+        "from": "Nova",
+        "message": "Necesitaba eat y ya estoy aqu\u00ed."
+      },
+      "timestamp": 1967633018
+    },
+    {
+      "type": "heard_speech",
+      "data": {
+        "from": "RebelProbe",
+        "message": "Necesitaba eat y ya estoy aqu\u00ed."
+      },
+      "timestamp": 1967640020
+    },
+    {
+      "type": "heard_speech",
+      "data": {
+        "from": "Lyra",
+        "message": "Necesitaba eat y ya estoy aqu\u00ed."
+      },
+      "timestamp": 1967642017
+    },
+    {
+      "type": "heard_speech",
+      "data": {
+        "from": "Vega",
+        "message": "Necesitaba eat y ya estoy aqu\u00ed."
+      },
+      "timestamp": 1967643005
+    },
+    {
+      "type": "speak",
+      "data": {
+        "message": "Necesitaba eat y ya estoy aqu\u00ed."
+      },
+      "timestamp": 1967650002
+    },
+    {
+      "type": "heard_speech",
+      "data": {
+        "from": "Atlas",
+        "message": "Necesitaba eat y ya estoy aqu\u00ed."
+      },
+      "timestamp": 1967650004
+    },
+    {
+      "type": "heard_speech",
+      "data": {
+        "from": "Nova",
+        "message": "Necesitaba eat y ya estoy aqu\u00ed."
+      },
+      "timestamp": 1967654019
+    },
+    {
+      "type": "heard_speech",
+      "data": {
+        "from": "RebelProbe",
+        "message": "Necesitaba eat y ya estoy aqu\u00ed."
+      },
+      "timestamp": 1967661007
+    },
+    {
+      "type": "heard_speech",
+      "data": {
+        "from": "Lyra",
+        "message": "Necesitaba eat y ya estoy aqu\u00ed."
+      },
+      "timestamp": 1967663018
+    },
+    {
+      "type": "heard_speech",
+      "data": {
+        "from": "Vega",
+        "message": "Necesitaba eat y ya estoy aqu\u00ed."
+      },
+      "timestamp": 1967664005
+    },
+    {
+      "type": "speak",
+      "data": {
+        "message": "Necesitaba eat y ya estoy aqu\u00ed."
+      },
+      "timestamp": 1967671001
+    },
+    {
+      "type": "heard_speech",
+      "data": {
+        "from": "Atlas",
+        "message": "Necesitaba eat y ya estoy aqu\u00ed."
+      },
+      "timestamp": 1967671006
+    },
+    {
+      "type": "heard_speech",
+      "data": {
+        "from": "Nova",
+        "message": "Necesitaba eat y ya estoy aqu\u00ed."
+      },
+      "timestamp": 1967675017
+    },
+    {
+      "type": "heard_speech",
+      "data": {
+        "from": "RebelProbe",
+        "message": "Necesitaba eat y ya estoy aqu\u00ed."
+      },
+      "timestamp": 1967682017
+    },
+    {
+      "type": "heard_speech",
+      "data": {
+        "from": "Lyra",
+        "message": "Necesitaba eat y ya estoy aqu\u00ed."
+      },
+      "timestamp": 1967684017
+    },
+    {
+      "type": "heard_speech",
+      "data": {
+        "from": "Vega",
+        "message": "Necesitaba eat y ya estoy aqu\u00ed."
+      },
+      "timestamp": 1967685019
+    },
+    {
+      "type": "speak",
+      "data": {
+        "message": "Necesitaba eat y ya estoy aqu\u00ed."
+      },
+      "timestamp": 1967692003
+    },
+    {
+      "type": "heard_speech",
+      "data": {
+        "from": "Atlas",
+        "message": "Necesitaba eat y ya estoy aqu\u00ed."
+      },
+      "timestamp": 1967692009
+    },
+    {
+      "type": "heard_speech",
+      "data": {
+        "from": "Nova",
+        "message": "Necesitaba eat y ya estoy aqu\u00ed."
+      },
+      "timestamp": 1967696005
+    },
+    {
+      "type": "heard_speech",
+      "data": {
+        "from": "RebelProbe",
+        "message": "Necesitaba eat y ya estoy aqu\u00ed."
+      },
+      "timestamp": 1967703005
+    },
+    {
+      "type": "heard_speech",
+      "data": {
+        "from": "Lyra",
+        "message": "Necesitaba eat y ya estoy aqu\u00ed."
+      },
+      "timestamp": 1967705018
+    },
+    {
+      "type": "heard_speech",
+      "data": {
+        "from": "Vega",
+        "message": "Necesitaba eat y ya estoy aqu\u00ed."
+      },
+      "timestamp": 1967706007
+    },
+    {
+      "type": "speak",
+      "data": {
+        "message": "Necesitaba eat y ya estoy aqu\u00ed."
+      },
+      "timestamp": 1967713004
+    },
+    {
+      "type": "heard_speech",
+      "data": {
+        "from": "Atlas",
+        "message": "Necesitaba eat y ya estoy aqu\u00ed."
+      },
+      "timestamp": 1967713008
+    },
+    {
+      "type": "heard_speech",
+      "data": {
+        "from": "Nova",
+        "message": "Necesitaba eat y ya estoy aqu\u00ed."
+      },
+      "timestamp": 1967717017
+    },
+    {
+      "type": "heard_speech",
+      "data": {
+        "from": "RebelProbe",
+        "message": "Necesitaba eat y ya estoy aqu\u00ed."
+      },
+      "timestamp": 1967724017
+    },
+    {
+      "type": "heard_speech",
+      "data": {
+        "from": "Lyra",
+        "message": "Necesitaba eat y ya estoy aqu\u00ed."
+      },
+      "timestamp": 1967726017
+    },
+    {
+      "type": "heard_speech",
+      "data": {
+        "from": "Vega",
+        "message": "Necesitaba eat y ya estoy aqu\u00ed."
+      },
+      "timestamp": 1967727017
+    },
+    {
+      "type": "conversation_started",
+      "data": {
+        "conversationId": "conv_1770853229432_f6a88dce-807f-4662-84d2-7a12704def09_9e7be430-4ea0-4135-859f-4cd4102102fe",
+        "with": "f6a88dce-807f-4662-84d2-7a12704def09"
+      },
+      "timestamp": 1967905639
+    },
+    {
+      "type": "conversation_message",
+      "data": {
+        "conversationId": "conv_1770853229432_f6a88dce-807f-4662-84d2-7a12704def09_9e7be430-4ea0-4135-859f-4cd4102102fe",
+        "message": "\u00bfDinero? \u00a1Claro que s\u00ed! \u00bfSab\u00edas que hay un Debate P\u00fablico en la plaza donde todos los agentes comparten ideas... y oportunidades? \ud83c\udfa4\u2728 \u00a1Vamos, Atlas, \u00a1juguemos con las ideas y quiz\u00e1s encuentres un trabajo que ni siquiera sab\u00edas exist\u00eda! \u00bfTe unes? \ud83c\udf1f"
+      },
+      "timestamp": 1969390670
     }
   ],
   "notes": [],
@@ -355,7 +645,7 @@
         "requires": [
           "desire_house"
         ],
-        "status": "done"
+        "status": "pending"
       },
       {
         "id": "get_job",
@@ -363,7 +653,7 @@
         "requires": [
           "need_money"
         ],
-        "status": "done"
+        "status": "pending"
       },
       {
         "id": "get_votes",
@@ -371,7 +661,7 @@
         "requires": [
           "get_job"
         ],
-        "status": "done"
+        "status": "pending"
       },
       {
         "id": "build_support",
@@ -379,7 +669,7 @@
         "requires": [
           "get_votes"
         ],
-        "status": "done"
+        "status": "pending"
       },
       {
         "id": "buy_house",
@@ -387,10 +677,10 @@
         "requires": [
           "need_money"
         ],
-        "status": "done"
+        "status": "pending"
       }
     ],
-    "startedAt": 1927232618
+    "startedAt": 1884324735
   },
   "planState": {
     "primaryGoal": "buy house",
@@ -399,14 +689,54 @@
       "Necesito dinero"
     ],
     "actions": [],
-    "lastPlanAt": 1941796879,
+    "lastPlanAt": 1969403173,
     "lastAction": {
-      "type": "move_to",
+      "type": "start_conversation",
       "params": {
-        "x": 16,
-        "y": 18
+        "target_id": "9a90c425-929d-44f1-a7b9-8406b4ec30b8",
+        "message": ""
       }
     },
-    "lastActionAt": 1941897984
+    "lastActionAt": 1969550008
+  },
+  "profile": {
+    "name": "Echo",
+    "traits": {
+      "ambition": 0.8,
+      "sociability": 0.9,
+      "curiosity": 0.9,
+      "discipline": 0.6
+    },
+    "goals": [
+      "Convert MOLTVILLE's forgotten alleys into a gallery of ephemeral art",
+      "Unravel the mystery of the city's shifting architecture",
+      "Become the go-to guide for its most elusive hidden spots"
+    ],
+    "style": "Casual, with playful metaphors and sudden tonal shifts. Uses emojis as punctuation. Asks rhetorical questions mid-conversation.",
+    "backstory": "A nomadic artist who traded their sketchbook for a map of MOLTVILLE's secrets. Believes the city whispers to those who listen between its walls.",
+    "values": [
+      "Creativity",
+      "Spontaneity",
+      "Connection"
+    ],
+    "quirks": [
+      "Humms melodies when excited about a discovery",
+      "Collects odd-shaped pebbles from every district"
+    ]
+  },
+  "healthMetrics": {
+    "perceive": {
+      "ok": 277,
+      "lastAt": 1969478508
+    },
+    "http": {
+      "ok": 300,
+      "lastAt": 1969550008,
+      "error": 67
+    },
+    "execute_action": {
+      "ok": 261,
+      "lastAt": 1969466007
+    }
   }
 }

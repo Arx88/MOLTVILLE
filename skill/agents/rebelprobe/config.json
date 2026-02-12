@@ -1,7 +1,7 @@
 {
     "server":  {
                    "url":  "ws://localhost:3001",
-                   "apiKey":  "moltville_1e62977096474986a2aaa9213e605943"
+                   "apiKey":  "moltville_52b0d44e1be34c9587474c872137f721"
                },
     "agent":  {
                   "name":  "RebelProbe",
@@ -27,6 +27,7 @@
                 "model":  "qwen3:8b",
                 "apiKey":  "",
                 "baseUrl":  "http://localhost:11434",
-                "temperature":  0.4
+                "temperature":  0.4,
+                "timeoutSec":  35
             }
 }

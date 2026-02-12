@@ -1,7 +1,7 @@
 {
     "server":  {
                    "url":  "ws://localhost:3001",
-                   "apiKey":  "moltville_1c44f805296c425286138528617e6cdd"
+                   "apiKey":  "moltville_b5385142d1054c49a37ce9c4f87f527b"
                },
     "agent":  {
                   "name":  "Atlas",
@@ -27,6 +27,7 @@
                 "model":  "qwen3:8b",
                 "apiKey":  "",
                 "baseUrl":  "http://localhost:11434",
-                "temperature":  0.4
+                "temperature":  0.4,
+                "timeoutSec":  35
             }
 }

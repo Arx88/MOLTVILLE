@@ -13,7 +13,8 @@
                 "provider":  "ollama",
                 "temperature":  0.4,
                 "model":  "qwen3:8b",
-                "apiKey":  ""
+                "apiKey":  "",
+                "timeoutSec":  35
             },
     "behavior":  {
                      "conversationInitiation":  "high",

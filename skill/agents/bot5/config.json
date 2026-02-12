@@ -1,7 +1,7 @@
 {
     "server":  {
                    "url":  "ws://localhost:3001",
-                   "apiKey":  "moltville_1e463877fa69409cb41b41d684810e32"
+                   "apiKey":  "moltville_574da126cf954b739b3cdace401438cc"
                },
     "agent":  {
                   "name":  "Lyra",
@@ -27,6 +27,7 @@
                 "model":  "qwen3:8b",
                 "apiKey":  "",
                 "baseUrl":  "http://localhost:11434",
-                "temperature":  0.4
+                "temperature":  0.4,
+                "timeoutSec":  35
             }
 }

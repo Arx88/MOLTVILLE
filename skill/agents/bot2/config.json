@@ -1,7 +1,7 @@
 {
     "server":  {
                    "url":  "ws://localhost:3001",
-                   "apiKey":  "moltville_c3be3c1cc4834c93874ec3c432390171"
+                   "apiKey":  "moltville_62a7821d613a49d6829ae2cf58aa0747"
                },
     "agent":  {
                   "name":  "Nova",
@@ -27,6 +27,7 @@
                 "model":  "qwen3:8b",
                 "apiKey":  "",
                 "baseUrl":  "http://localhost:11434",
-                "temperature":  0.4
+                "temperature":  0.4,
+                "timeoutSec":  35
             }
 }

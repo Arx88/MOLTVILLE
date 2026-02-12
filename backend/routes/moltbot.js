@@ -3,14 +3,14 @@ import { v4 as uuidv4 } from 'uuid';
 import { requireAdminKey } from '../utils/adminAuth.js';
 import { requireAgentKey } from '../utils/agentAuth.js';
 import { JoiHelpers, validateBody } from '../utils/validation.js';
-import { metrics, recordIntentSignal } from '../utils/metrics.js';
+import { recordIntentSignal } from '../utils/metrics.js';
 
 const router = express.Router();
 const { Joi } = JoiHelpers;
 
 const conversationStartSchema = Joi.object({
   targetId: Joi.string().trim().required(),
-  message: Joi.string().trim().required()
+  message: Joi.string().allow('').optional().default('')
 });
 
 const conversationMessageSchema = Joi.object({
@@ -273,14 +273,16 @@ router.post('/:agentId/conversations/start', requireAgentKey({
   allowAdmin: true,
   useSuccessResponse: true,
   getAgentId: (req) => req.params.agentId
-}), validateBody(conversationStartSchema), async (req, res) => {
+}), async (req, res) => {
   const { agentId } = req.params;
-  const { targetId, message } = req.body;
+  const targetId = typeof req.body?.targetId === 'string' ? req.body.targetId.trim() : '';
+  const message = typeof req.body?.message === 'string' ? req.body.message : '';
+  if (!targetId) {
+    return res.status(400).json({ success: false, error: 'targetId is required' });
+  }
   const { interactionEngine, moltbotRegistry, io } = req.app.locals;
   try {
     const conversation = await interactionEngine.initiateConversation(agentId, targetId, message);
-    metrics.intent.conversationStarts = (metrics.intent.conversationStarts || 0) + 1;
-    metrics.intent.lastAt = Date.now();
     recordIntentSignal('conversation_start', { agentId });
     if (io) {
       conversation.participants.forEach(participantId => {
@@ -306,8 +308,6 @@ router.post('/:agentId/conversations/:conversationId/message', requireAgentKey({
   const { interactionEngine, moltbotRegistry, io } = req.app.locals;
   try {
     const conversation = await interactionEngine.addMessageToConversation(conversationId, agentId, message);
-    metrics.intent.conversationMessages = (metrics.intent.conversationMessages || 0) + 1;
-    metrics.intent.lastAt = Date.now();
     recordIntentSignal('conversation_message', { agentId });
     const lastMessage = conversation.messages[conversation.messages.length - 1];
     if (io) {
