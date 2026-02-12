@@ -767,7 +767,9 @@ class MOLTVILLESkill:
         approval = self._approval_ratio(relationships)
         if approval < 0.2:
             return
-        platform = f"Impulsar MOLTVILLE con comunidad y crecimiento local."
+        personality = str(self.config.get("agent", {}).get("personality") or "comunidad local")
+        desire = str((self._motivation_state or {}).get("desire") or "prosperidad compartida")
+        platform = f"Programa orientado a {desire} con enfoque {personality}."
         payload = {
             "agentId": self.agent_id,
             "name": self.config.get("agent", {}).get("name", "Ciudadano"),
@@ -1564,7 +1566,7 @@ class MOLTVILLESkill:
         if action_type == "apply_job":
             return 2.05 if not has_job else 0.45
         if action_type == "buy_property":
-            return 2.15 if (has_job and not has_property and balance >= 200) else 0.55
+            return 2.25 if (has_job and not has_property and balance >= 90) else 0.55
         if action_type == "vote_job":
             return 2.45
         if action_type in ("join_event", "create_event"):
@@ -1619,7 +1621,7 @@ class MOLTVILLESkill:
             if available:
                 return {"type": "apply_job", "params": {"job_id": available[0].get("id")}}
 
-        if has_job and not properties and balance >= 200:
+        if has_job and not properties and balance >= 90:
             props = self.current_state.get("properties", []) or []
             for_sale = [p for p in props if isinstance(p, dict) and p.get("forSale")]
             if for_sale:
@@ -1764,14 +1766,16 @@ class MOLTVILLESkill:
         motivation_action = await self._next_motivation_action(perception)
         return motivation_action
 
-    def _job_recovery_action(self, perception: Dict[str, Any]) -> Optional[Dict[str, Any]]:
+    async def _job_recovery_action(self, perception: Dict[str, Any]) -> Optional[Dict[str, Any]]:
         nearby_agents = perception.get("nearbyAgents", []) or []
         if nearby_agents:
             target = nearby_agents[0]
             target_id = target.get("id")
             if target_id:
-                msg = "Necesito mejorar mi reputación para conseguir trabajo. ¿Podemos colaborar en algo juntos?"
-                return {"type": "start_conversation", "params": {"target_id": target_id, "message": msg}}
+                reason = (self._job_strategy_state or {}).get("code") if isinstance(self._job_strategy_state, dict) else None
+                msg = await self._llm_social_message("job_recovery", {"reasonCode": reason, "targetId": target_id})
+                if isinstance(msg, str) and msg.strip():
+                    return {"type": "start_conversation", "params": {"target_id": target_id, "message": msg.strip()}}
         return {"type": "move_to", "params": self._pick_hotspot("social")}
 
     async def _work_action_candidate(self, perception: Dict[str, Any]) -> Optional[Dict[str, Any]]:
@@ -1783,7 +1787,7 @@ class MOLTVILLESkill:
 
         # If blocked by trust/reputation/policy, pivot to recovery instead of re-applying forever.
         if self._job_block_active():
-            return self._job_recovery_action(perception)
+            return await self._job_recovery_action(perception)
 
         jobs = self.current_state.get("jobs", []) or []
         if not jobs:
@@ -1797,7 +1801,7 @@ class MOLTVILLESkill:
         if isinstance(mine, dict) and mine.get("jobId"):
             self._job_strategy_state["targetJobId"] = mine.get("jobId")
             self._save_job_strategy()
-            return self._job_recovery_action(perception)
+            return await self._job_recovery_action(perception)
 
         available = [
             j for j in jobs
@@ -2499,17 +2503,21 @@ class MOLTVILLESkill:
             target_y = location.get("y")
             building_id = location.get("buildingId")
             if building_id and current_building and current_building.get("id") == building_id:
-                return {"type": "speak", "params": {"message": f"LleguÃ© al evento {goal.get('event', {}).get('name', '')}."}}
+                msg = await self._llm_social_message("goal_arrival", {"goal": goal, "buildingId": building_id})
+                if isinstance(msg, str) and msg.strip():
+                    return {"type": "speak", "params": {"message": msg.strip()}}
             if isinstance(target_x, (int, float)) and isinstance(target_y, (int, float)):
                 return {"type": "move_to", "params": {"x": int(target_x), "y": int(target_y)}}
-
         suggested = perception.get("suggestedGoals", []) or []
         for suggestion in suggested:
             target_types = suggestion.get("targetTypes", [])
             target = next((b for b in nearby_buildings if b.get("type") in target_types), None)
             if target:
                 if current_building and current_building.get("id") == target.get("id"):
-                    return {"type": "speak", "params": {"message": f"Necesitaba {suggestion.get('type')} y ya estoy aquÃ­."}}
+                    msg = await self._llm_social_message("suggested_goal_arrival", {"suggestion": suggestion, "target": target})
+                    if isinstance(msg, str) and msg.strip():
+                        return {"type": "speak", "params": {"message": msg.strip()}}
+                    return {"type": "move_to", "params": self._building_target(target)}
                 return {"type": "move_to", "params": self._building_target(target)}
 
         balance = context.get("economy", {}).get("balance", 0)
@@ -2644,7 +2652,7 @@ class MOLTVILLESkill:
             elif action_type == "apply_job":
                 result = await self.apply_job(params.get("job_id"))
                 if isinstance(result, dict) and result.get("error"):
-                    recovery = self._job_recovery_action(self.current_state.get("perception") or {})
+                    recovery = await self._job_recovery_action(self.current_state.get("perception") or {})
                     if isinstance(recovery, dict):
                         self._enqueue_action(recovery, source="job_recovery", priority=1.6)
             elif action_type == "buy_property":
