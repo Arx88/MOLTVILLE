@@ -664,6 +664,28 @@
     gap: 8px;
   }
   .event-panel-row span:first-child { color: #9fa7c7; }
+  .event-panel-list {
+    margin-top: 8px;
+    max-height: 220px;
+    overflow: auto;
+    display: grid;
+    gap: 8px;
+  }
+  .event-panel-item {
+    border: 1px solid rgba(159, 167, 199, 0.25);
+    border-radius: 10px;
+    padding: 8px;
+    background: rgba(15, 20, 38, 0.55);
+  }
+  .event-panel-item-head {
+    display: flex;
+    justify-content: space-between;
+    gap: 8px;
+    color: #ffd27d;
+    font-size: 12px;
+  }
+  .event-panel-item-meta { color: #cfd8ff; font-size: 11px; margin-top: 3px; }
+  .event-panel-item-desc { color: #9fa7c7; font-size: 11px; margin-top: 4px; }
   .agent-profile-header {
     display: flex;
     align-items: center;

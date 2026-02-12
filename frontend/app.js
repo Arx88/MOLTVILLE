@@ -539,7 +539,8 @@ function getAgentUiElements() {
     eventPanelHost: document.getElementById('event-panel-host'),
     eventPanelLocation: document.getElementById('event-panel-location'),
     eventPanelParticipants: document.getElementById('event-panel-participants'),
-    eventPanelDescription: document.getElementById('event-panel-description')
+    eventPanelDescription: document.getElementById('event-panel-description'),
+    eventPanelList: document.getElementById('event-panel-list')
   };
 }
 
@@ -792,17 +793,41 @@ function closeAgentProfile() {
 function openEventPanel() {
   const elements = getAgentUiElements();
   if (!elements.eventPanel) return;
-  const activeEvent = (WORLD_CONTEXT.events || []).find(e => e.status === 'active');
-  if (!activeEvent) return;
+  const events = (WORLD_CONTEXT.events || []).filter(e => e && (e.status === 'active' || e.status === 'scheduled'));
+  if (!events.length) return;
+
+  const activeEvent = events.find(e => e.status === 'active') || events[0];
   const hostId = activeEvent.hostId || '-';
   const hostName = AGENT_DIRECTORY.get(hostId)?.name || hostId || '-';
-  const location = activeEvent.location?.name || activeEvent.location?.id || '-';
+  const location = activeEvent.location?.name || activeEvent.location?.id || activeEvent.location || '-';
   elements.eventPanelName.textContent = activeEvent.name || '-';
   elements.eventPanelHost.textContent = hostName;
   elements.eventPanelLocation.textContent = location;
   const count = activeEvent.participantsCount ?? (activeEvent.participants ? activeEvent.participants.length : 0);
   elements.eventPanelParticipants.textContent = String(count || 0);
   elements.eventPanelDescription.textContent = activeEvent.description || '-';
+
+  if (elements.eventPanelList) {
+    elements.eventPanelList.innerHTML = events.map((evt) => {
+      const evtHostId = evt.hostId || '-';
+      const evtHostName = AGENT_DIRECTORY.get(evtHostId)?.name || evtHostId || '-';
+      const evtLocation = evt.location?.name || evt.location?.id || evt.location || '-';
+      const evtCount = evt.participantsCount ?? (evt.participants ? evt.participants.length : 0);
+      return `
+        <div class="event-panel-item">
+          <div class="event-panel-item-head">
+            <strong>${evt.name || '-'}</strong>
+            <span>${evt.status || '-'}</span>
+          </div>
+          <div class="event-panel-item-meta">Creador: ${evtHostName}</div>
+          <div class="event-panel-item-meta">Ubicación: ${evtLocation}</div>
+          <div class="event-panel-item-meta">Asistentes: ${evtCount || 0}</div>
+          <div class="event-panel-item-desc">${evt.description || '-'}</div>
+        </div>
+      `;
+    }).join('');
+  }
+
   elements.eventPanel.classList.add('is-open');
 }
 
