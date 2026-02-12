@@ -1,4 +1,4 @@
-// ============================================================
+﻿// ============================================================
 // MOLTVILLE - WORLD DATA
 // ============================================================
 const TILE = 32;
@@ -12,20 +12,20 @@ const T = { GRASS:0, ROAD:1, WATER:2, SAND:3, STONE:4, DIRT:5, PATH:6, FLOWER:7 
 
 // Building definitions - richer and more varied
 let BUILDINGS = [
-  // ── Cafés & Social ──
-  { id:'cafe1', name:'Hobbs Café', type:'cafe', x:14, y:8,  w:5, h:4, color:'#c0392b', roof:'#e74c3c', accent:'#f39c12', stories:1 },
+  // â”€â”€ CafÃ©s & Social â”€â”€
+  { id:'cafe1', name:'Hobbs CafÃ©', type:'cafe', x:14, y:8,  w:5, h:4, color:'#c0392b', roof:'#e74c3c', accent:'#f39c12', stories:1 },
   { id:'cafe2', name:'Corner Bistro', type:'cafe', x:42, y:18, w:4, h:3, color:'#8e6b3e', roof:'#a67c52', accent:'#e67e22', stories:1 },
 
-  // ── Library & Culture ──
+  // â”€â”€ Library & Culture â”€â”€
   { id:'library', name:'City Library', type:'library', x:24, y:6,  w:6, h:5, color:'#5b4a8a', roof:'#7d6ba0', accent:'#9b8ec4', stories:2 },
   { id:'gallery', name:'Art Gallery', type:'gallery', x:50, y:8,  w:4, h:4, color:'#6c5b73', roof:'#8a7490', accent:'#d4a84b', stories:2 },
 
-  // ── Shops & Commerce ──
+  // â”€â”€ Shops & Commerce â”€â”€
   { id:'shop1', name:'General Store', type:'shop', x:30, y:14, w:4, h:3, color:'#2980b9', roof:'#3498db', accent:'#f1c40f', stories:1 },
   { id:'shop2', name:'Bookshop', type:'shop', x:8,  y:22, w:3, h:3, color:'#27ae60', roof:'#2ecc71', accent:'#e74c3c', stories:1 },
   { id:'market', name:'Market Square', type:'market', x:36, y:28, w:6, h:5, color:'#16a085', roof:'#1abc9c', accent:'#f39c12', stories:1 },
 
-  // ── Residences (varied) ──
+  // â”€â”€ Residences (varied) â”€â”€
   { id:'house1', name:'Maple House', type:'house', x:6,  y:6,  w:3, h:2, color:'#e67e22', roof:'#d35400', accent:'#f39c12', stories:1 },
   { id:'house2', name:'Oak Cottage', type:'house', x:10, y:14, w:2, h:2, color:'#9b59b6', roof:'#8e44ad', accent:'#f39c12', stories:1 },
   { id:'house3', name:'Pine Villa', type:'house', x:4,  y:28, w:3, h:3, color:'#3498db', roof:'#2980b9', accent:'#ecf0f1', stories:1 },
@@ -33,16 +33,16 @@ let BUILDINGS = [
   { id:'house5', name:'Birch Flat', type:'house', x:54, y:32, w:2, h:3, color:'#1abc9c', roof:'#16a085', accent:'#e67e22', stories:1 },
   { id:'house6', name:'Elm Residence', type:'house', x:18, y:36, w:3, h:2, color:'#e67e22', roof:'#d35400', accent:'#ecf0f1', stories:1 },
 
-  // ── Tall Buildings (city feel) ──
+  // â”€â”€ Tall Buildings (city feel) â”€â”€
   { id:'tower1', name:'City Hall', type:'civic', x:28, y:22, w:4, h:4, color:'#34495e', roof:'#2c3e50', accent:'#3498db', stories:3 },
   { id:'tower2', name:'Bell Tower', type:'tower', x:20, y:24, w:3, h:3, color:'#95a5a6', roof:'#7f8c8d', accent:'#f39c12', stories:4 },
   { id:'apts', name:'Sunrise Apartments', type:'apartment', x:44, y:34, w:5, h:4, color:'#2c3e50', roof:'#34495e', accent:'#3498db', stories:3 },
 
-  // ── Parks & Public ──
+  // â”€â”€ Parks & Public â”€â”€
   { id:'fountain', name:'Central Plaza', type:'plaza', x:16, y:18, w:6, h:6, color:'#95a5a6', roof:'#bdc3c7', accent:'#3498db', stories:0 },
   { id:'park2', name:'Sunset Garden', type:'garden', x:40, y:42, w:7, h:6, color:'#27ae60', roof:'#2ecc71', accent:'#f39c12', stories:0 },
 
-  // ── Special ──
+  // â”€â”€ Special â”€â”€
   { id:'inn', name:'Travelers Inn', type:'inn', x:52, y:42, w:4, h:3, color:'#a04000', roof:'#c0392b', accent:'#f39c12', stories:2 },
   { id:'church', name:'Chapel', type:'chapel', x:8,  y:42, w:3, h:4, color:'#ecf0f1', roof:'#bdc3c7', accent:'#f39c12', stories:2 },
 ];
@@ -305,11 +305,11 @@ function setupViewerSocket(scene) {
     const from = payload.fromName || 'Agente';
     const to = payload.toName || 'Agente';
     const message = payload.message || '';
-    pushFeedMessage('Conversación', `💬 ${from} → ${to}: ${message}`);
+    pushFeedMessage('ConversaciÃ³n', `ðŸ’¬ ${from} â†’ ${to}: ${message}`);
     updateAgentSpeech(payload.fromId || from, message);
     registerShowBeat({
       participants: [from, to],
-      summary: `${from} inició conversación con ${to}`,
+      summary: `${from} iniciÃ³ conversaciÃ³n con ${to}`,
       dialogue: message
     });
   });
@@ -318,7 +318,7 @@ function setupViewerSocket(scene) {
     if (!message) return;
     const from = message.fromName || 'Agente';
     const to = message.toName || 'Agente';
-    pushFeedMessage('Conversación', `💬 ${from} → ${to}: ${message.message}`);
+    pushFeedMessage('ConversaciÃ³n', `ðŸ’¬ ${from} â†’ ${to}: ${message.message}`);
     updateAgentSpeech(message.from || from, message.message);
     registerShowBeat({
       participants: [from, to],
@@ -328,91 +328,91 @@ function setupViewerSocket(scene) {
   });
   viewerSocket.on('conversation:ended', (payload) => {
     if (!payload) return;
-    pushFeedMessage('Conversación', `✅ Conversación ${payload.conversationId} finalizada.`);
+    pushFeedMessage('ConversaciÃ³n', `âœ… ConversaciÃ³n ${payload.conversationId} finalizada.`);
     registerShowBeat({
       participants: [payload?.fromName, payload?.toName].filter(Boolean),
-      summary: 'La conversación terminó.'
+      summary: 'La conversaciÃ³n terminÃ³.'
     });
   });
   viewerSocket.on('agent:social', (payload) => {
     if (!payload) return;
     const from = payload.from || 'Agente';
     const to = payload.to || 'Agente';
-    pushFeedMessage('Social', `🤝 ${from} interactuó con ${to} (${payload.actionType}).`);
+    pushFeedMessage('Social', `ðŸ¤ ${from} interactuÃ³ con ${to} (${payload.actionType}).`);
     registerShowBeat({
       participants: [from, to],
-      summary: `${from} interactuó con ${to} (${payload.actionType}).`
+      summary: `${from} interactuÃ³ con ${to} (${payload.actionType}).`
     });
   });
   viewerSocket.on('agent:action', (payload) => {
     if (!payload) return;
-    pushFeedMessage('Acción', `⚙️ ${payload.agentId} ejecutó ${payload.actionType}.`);
+    pushFeedMessage('AcciÃ³n', `âš™ï¸ ${payload.agentId} ejecutÃ³ ${payload.actionType}.`);
     registerShowBeat({
       participants: [payload.agentId || 'Agente'],
-      summary: `${payload.agentId || 'Agente'} ejecutó ${payload.actionType}.`
+      summary: `${payload.agentId || 'Agente'} ejecutÃ³ ${payload.actionType}.`
     });
   });
   viewerSocket.on('agent:spawned', (payload) => {
     if (!payload) return;
-    pushFeedMessage('Sistema', `👋 ${payload.name || 'Un agente'} llegó a Moltville.`);
+    pushFeedMessage('Sistema', `ðŸ‘‹ ${payload.name || 'Un agente'} llegÃ³ a Moltville.`);
     registerShowBeat({
       type: 'interaccion',
       participants: [payload.name || 'Agente'],
-      summary: `${payload.name || 'Un agente'} llegó a Moltville.`
+      summary: `${payload.name || 'Un agente'} llegÃ³ a Moltville.`
     });
   });
   viewerSocket.on('agent:disconnected', (payload) => {
     if (!payload) return;
-    pushFeedMessage('Sistema', `👋 ${payload.agentName || 'Un agente'} se desconectó.`);
+    pushFeedMessage('Sistema', `ðŸ‘‹ ${payload.agentName || 'Un agente'} se desconectÃ³.`);
   });
   viewerSocket.on('vote:started', (payload) => {
     if (!payload) return;
-    pushFeedMessage('Democracia', `🗳️ Nueva votación: ${payload.options?.length || 0} opciones disponibles.`);
+    pushFeedMessage('Democracia', `ðŸ—³ï¸ Nueva votaciÃ³n: ${payload.options?.length || 0} opciones disponibles.`);
   });
   viewerSocket.on('vote:closed', (payload) => {
     if (!payload) return;
     const winner = payload.winner?.name || payload.winner?.type || 'Edificio';
-    pushFeedMessage('Democracia', `🏗️ Construcción aprobada: ${winner}.`);
+    pushFeedMessage('Democracia', `ðŸ—ï¸ ConstrucciÃ³n aprobada: ${winner}.`);
   });
   viewerSocket.on('building:constructed', (payload) => {
     if (!payload) return;
-    pushFeedMessage('Ciudad', `🏙️ Nuevo edificio: ${payload.name}.`);
+    pushFeedMessage('Ciudad', `ðŸ™ï¸ Nuevo edificio: ${payload.name}.`);
   });
   viewerSocket.on('president:election_started', () => {
-    pushFeedMessage('Gobierno', '🗳️ Se abrió una elección presidencial.');
+    pushFeedMessage('Gobierno', 'ðŸ—³ï¸ Se abriÃ³ una elecciÃ³n presidencial.');
   });
   viewerSocket.on('president:election_closed', (payload) => {
     const winner = payload?.winner?.name || 'Sin presidente';
-    pushFeedMessage('Gobierno', `👑 Resultado electoral: ${winner}.`);
+    pushFeedMessage('Gobierno', `ðŸ‘‘ Resultado electoral: ${winner}.`);
   });
   viewerSocket.on('governance:policy_added', (payload) => {
     if (!payload) return;
-    pushFeedMessage('Gobierno', `📜 Política activa: ${payload.type}.`);
+    pushFeedMessage('Gobierno', `ðŸ“œ PolÃ­tica activa: ${payload.type}.`);
   });
   viewerSocket.on('governance:policy_expired', (payload) => {
     if (!payload) return;
-    pushFeedMessage('Gobierno', `⌛ Política expirada: ${payload.type}.`);
+    pushFeedMessage('Gobierno', `âŒ› PolÃ­tica expirada: ${payload.type}.`);
   });
   viewerSocket.on('aesthetics:vote_started', (payload) => {
     if (!payload) return;
-    pushFeedMessage('Estética', `🎨 Votación de distrito: ${payload.districtName}.`);
+    pushFeedMessage('EstÃ©tica', `ðŸŽ¨ VotaciÃ³n de distrito: ${payload.districtName}.`);
   });
   viewerSocket.on('aesthetics:vote_closed', (payload) => {
     if (!payload) return;
     const winner = payload.winner?.name || 'Sin cambios';
-    pushFeedMessage('Estética', `🎨 Votación cerrada: ${winner}.`);
+    pushFeedMessage('EstÃ©tica', `ðŸŽ¨ VotaciÃ³n cerrada: ${winner}.`);
   });
   viewerSocket.on('aesthetics:theme_applied', (payload) => {
     if (!payload) return;
-    pushFeedMessage('Estética', `🎨 Tema aplicado en distrito ${payload.districtId}.`);
+    pushFeedMessage('EstÃ©tica', `ðŸŽ¨ Tema aplicado en distrito ${payload.districtId}.`);
   });
   viewerSocket.on('event:started', (payload) => {
     if (!payload) return;
-    pushFeedMessage('Eventos', `🎉 Evento activo: ${payload.name}.`);
+    pushFeedMessage('Eventos', `ðŸŽ‰ Evento activo: ${payload.name}.`);
   });
   viewerSocket.on('event:ended', (payload) => {
     if (!payload) return;
-    pushFeedMessage('Eventos', `🎉 Evento finalizado: ${payload.name}.`);
+    pushFeedMessage('Eventos', `ðŸŽ‰ Evento finalizado: ${payload.name}.`);
   });
   viewerSocket.on('connect_error', () => {
     WORLD_CONTEXT.useLiveData = false;
@@ -607,15 +607,15 @@ function resolveAgentLocationLabel(agent) {
 
 function fixMojibake(value) {
   return String(value || '')
-    .replace(/Ã¡/g, 'á')
-    .replace(/Ã©/g, 'é')
-    .replace(/Ãí/g, 'í')
-    .replace(/Ã³/g, 'ó')
-    .replace(/Ãº/g, 'ú')
-    .replace(/Ã±/g, 'ñ')
-    .replace(/Ã/g, 'Á')
-    .replace(/Â¿/g, '¿')
-    .replace(/Â¡/g, '¡');
+    .replace(/ÃƒÂ¡/g, 'Ã¡')
+    .replace(/ÃƒÂ©/g, 'Ã©')
+    .replace(/ÃƒÃ­/g, 'Ã­')
+    .replace(/ÃƒÂ³/g, 'Ã³')
+    .replace(/ÃƒÂº/g, 'Ãº')
+    .replace(/ÃƒÂ±/g, 'Ã±')
+    .replace(/Ãƒ/g, 'Ã')
+    .replace(/Ã‚Â¿/g, 'Â¿')
+    .replace(/Ã‚Â¡/g, 'Â¡');
 }
 
 function prettifyAgentText(value) {
@@ -624,15 +624,15 @@ function prettifyAgentText(value) {
   if (!str) return '-';
 
   const clean = str
-    .replace(/^['"“”]+|['"“”]+$/g, '')
+    .replace(/^['"â€œâ€]+|['"â€œâ€]+$/g, '')
     .replace(/[_-]+/g, ' ')
     .replace(/\s+/g, ' ')
     .trim();
 
   const lookup = clean.toLowerCase();
   const friendlyMap = {
-    'buy house': 'Comprar una casa propia 🏠',
-    'start business': 'Iniciar un negocio 💼',
+    'buy house': 'Comprar una casa propia ðŸ ',
+    'start business': 'Iniciar un negocio ðŸ’¼',
     'get job': 'Conseguir trabajo',
     'find job': 'Conseguir trabajo',
     'apply job': 'Postularse a un trabajo',
@@ -658,13 +658,13 @@ function simplifyThought(value) {
     .map((part) => part
       .replace(/^objetivo\s*:\s*/i, 'Objetivo: ')
       .replace(/^paso\s*:\s*/i, 'Paso: ')
-      .replace(/^acci[oó]n\s*:\s*/i, 'Acción: ')
+      .replace(/^acci[oÃ³]n\s*:\s*/i, 'AcciÃ³n: ')
       .replace(/^target\s*:\s*/i, 'Lugar: ')
     );
 
   const filtered = parts.filter(part => !/^Lugar:\s*[-\w:]+$/i.test(part));
   if (!filtered.length) return text;
-  return filtered.slice(0, 2).join(' • ');
+  return filtered.slice(0, 2).join(' â€¢ ');
 }
 
 function setProfileValue(element, value, { hideIf = [] } = {}) {
@@ -765,7 +765,7 @@ function updateAgentProfilePanel(agent) {
     setProfileValue(elements.profileFavors, favorsText, { hideIf: ['-', '+0 / -0'] });
   }
 
-  elements.profileSpeech.textContent = prettifyAgentText(agent.lastSpeech || agent.cognition?.externalSpeech || 'Sin diálogo reciente');
+  elements.profileSpeech.textContent = prettifyAgentText(agent.lastSpeech || agent.cognition?.externalSpeech || 'Sin diÃ¡logo reciente');
   if (elements.profileThoughtInternal) {
     setProfileValue(elements.profileThoughtInternal, simplifyThought(agent.cognition?.internalThought || '-'), { hideIf: ['-'] });
   }
@@ -790,13 +790,25 @@ function closeAgentProfile() {
   if (scene) scene.selectedAgentId = null;
 }
 
+function pickDisplayEvent(events = []) {
+  const valid = (events || []).filter((e) => e && (e.status === 'active' || e.status === 'scheduled'));
+  if (!valid.length) return null;
+  const score = (evt) => {
+    const participants = Number(evt.participantsCount ?? (evt.participants ? evt.participants.length : 0) ?? 0);
+    const startAt = Number(evt.startAt || 0);
+    const activeBoost = evt.status === 'active' ? 1000 : 0;
+    return activeBoost + participants * 10 + startAt;
+  };
+  return valid.sort((a, b) => score(b) - score(a))[0] || null;
+}
+
 function openEventPanel() {
   const elements = getAgentUiElements();
   if (!elements.eventPanel) return;
   const events = (WORLD_CONTEXT.events || []).filter(e => e && (e.status === 'active' || e.status === 'scheduled'));
   if (!events.length) return;
 
-  const activeEvent = events.find(e => e.status === 'active') || events[0];
+  const activeEvent = pickDisplayEvent(events);
   const hostId = activeEvent.hostId || '-';
   const hostName = AGENT_DIRECTORY.get(hostId)?.name || hostId || '-';
   const location = activeEvent.location?.name || activeEvent.location?.id || activeEvent.location || '-';
@@ -820,7 +832,7 @@ function openEventPanel() {
             <span>${evt.status || '-'}</span>
           </div>
           <div class="event-panel-item-meta">Creador: ${evtHostName}</div>
-          <div class="event-panel-item-meta">Ubicación: ${evtLocation}</div>
+          <div class="event-panel-item-meta">UbicaciÃ³n: ${evtLocation}</div>
           <div class="event-panel-item-meta">Asistentes: ${evtCount || 0}</div>
           <div class="event-panel-item-desc">${evt.description || '-'}</div>
         </div>
@@ -854,7 +866,7 @@ function classifySceneType(message = '') {
   const lower = message.toLowerCase();
   if (lower.match(/beso|amor|romant|confes|cita/)) return 'romance';
   if (lower.match(/pelea|discusi|grito|traici|odio|rival/)) return 'conflicto';
-  if (lower.match(/voto|elecci|president|pol[ií]tic/)) return 'politica';
+  if (lower.match(/voto|elecci|president|pol[iÃ­]tic/)) return 'politica';
   if (lower.match(/negocio|dinero|econom/i)) return 'negocio';
   return 'interaccion';
 }
@@ -1088,9 +1100,9 @@ function computeAdvancedShowScore(scene, thread, relationshipSnapshot = null) {
 
 const NARRATIVE_PATTERNS = {
   REDEMPTION_ARC: {
-    label: 'REDENCIÓN',
+    label: 'REDENCIÃ“N',
     scoreBoost: 1.4,
-    description: '{A} y {B} están superando su rivalidad',
+    description: '{A} y {B} estÃ¡n superando su rivalidad',
     detect: (thread) => {
       const history = thread.relationshipHistory || [];
       if (history.length < 4) return false;
@@ -1104,9 +1116,9 @@ const NARRATIVE_PATTERNS = {
     }
   },
   BETRAYAL_ARC: {
-    label: 'TRAICIÓN',
+    label: 'TRAICIÃ“N',
     scoreBoost: 1.8,
-    description: 'La confianza entre {A} y {B} colapsó',
+    description: 'La confianza entre {A} y {B} colapsÃ³',
     criticalMoment: true,
     detect: (thread) => {
       const history = thread.relationshipHistory || [];
@@ -1119,7 +1131,7 @@ const NARRATIVE_PATTERNS = {
   ROMANCE_ARC: {
     label: 'ROMANCE',
     scoreBoost: 1.3,
-    description: '{A} y {B} están muy unidos últimamente',
+    description: '{A} y {B} estÃ¡n muy unidos Ãºltimamente',
     detect: (thread) => {
       const socials = thread.beats.filter(beat => beat.type === 'romance' || beat.type === 'interaccion');
       const avgAffinity = thread.relationshipHistory?.length
@@ -1131,13 +1143,13 @@ const NARRATIVE_PATTERNS = {
   POLITICAL_RISE: {
     label: 'ASCENSO',
     scoreBoost: 1.2,
-    description: '{A} está ganando influencia en la ciudad',
+    description: '{A} estÃ¡ ganando influencia en la ciudad',
     detect: (thread) => thread.type === 'politica' && thread.totalScore > 160
   },
   COALITION_FORMING: {
     label: 'ALIANZA',
     scoreBoost: 1.4,
-    description: 'Se está formando una coalición',
+    description: 'Se estÃ¡ formando una coaliciÃ³n',
     detect: (thread) => thread.beats.length >= 4 && thread.participants.length >= 3
   }
 };
@@ -1198,12 +1210,12 @@ function updateShowModeUI() {
     }
     elements.sceneType.textContent = 'SIN ESCENA';
     elements.score.textContent = '0/100';
-    elements.title.textContent = 'Esperando interacción destacada...';
+    elements.title.textContent = 'Esperando interacciÃ³n destacada...';
     elements.meta.textContent = 'Sin participantes';
     elements.progressFill.style.width = '0%';
     elements.time.textContent = '0s';
     elements.captionSpeaker.textContent = '-';
-    elements.captionText.textContent = 'En espera de diálogo...';
+    elements.captionText.textContent = 'En espera de diÃ¡logo...';
     elements.threadList.innerHTML = '';
     elements.queue.innerHTML = '';
     if (elements.predictions) elements.predictions.innerHTML = '';
@@ -1238,7 +1250,7 @@ function updateShowModeUI() {
   elements.threadList.innerHTML = threads.map(thread => `
     <div class="show-mode-thread">
       <div class="show-mode-thread-title">${thread.title}</div>
-      <div class="show-mode-thread-meta">${thread.status} · ${thread.totalScore} pts · ${thread.beats.length} beats</div>
+      <div class="show-mode-thread-meta">${thread.status} Â· ${thread.totalScore} pts Â· ${thread.beats.length} beats</div>
     </div>
   `).join('');
 
@@ -1257,7 +1269,7 @@ function updateShowModeUI() {
         ? SHOW_MODE_STATE.predictions.map(item => `
           <div class="show-mode-prediction">
             <strong>${item.label}</strong>
-            <span>${item.type} · ${(item.probability * 100).toFixed(0)}% · ${item.eta}</span>
+            <span>${item.type} Â· ${(item.probability * 100).toFixed(0)}% Â· ${item.eta}</span>
           </div>
         `).join('')
         : '<div class="panel-row panel-muted">Sin predicciones activas</div>';
@@ -1330,7 +1342,7 @@ function updateThread(scene, relationshipSnapshot) {
     thread = {
       id: threadId,
       type: scene.type,
-      title: `${scene.participants?.join(' & ') || 'Interacción'}`,
+      title: `${scene.participants?.join(' & ') || 'InteracciÃ³n'}`,
       participants: scene.participants || [],
       beats: [],
       totalScore: 0,
@@ -1424,7 +1436,7 @@ function predictClimaxMoments() {
     if (thread.status === 'climax_building') {
       predictions.push({
         type: 'CONFRONTACION',
-        label: `Tensión en ${thread.title}`,
+        label: `TensiÃ³n en ${thread.title}`,
         probability: 0.75,
         eta: '2-5 min'
       });
@@ -1458,7 +1470,7 @@ function predictClimaxMoments() {
     if (remainingMs > 0 && remainingMs < 5 * 60 * 1000) {
       predictions.push({
         type: 'VOTACION',
-        label: 'Cierre de votación cercano',
+        label: 'Cierre de votaciÃ³n cercano',
         probability: 0.65,
         eta: `${Math.ceil(remainingMs / 60000)} min`
       });
@@ -1475,7 +1487,7 @@ function registerShowBeat({ type, participants, summary, dialogue }) {
     id: `${Date.now()}-${Math.random().toString(16).slice(2)}`,
     type: sceneType,
     participants: participants || [],
-    summary: summary || 'Interacción destacada',
+    summary: summary || 'InteracciÃ³n destacada',
     dialogue,
     showScore: 0,
     location: sceneLocation,
@@ -1531,7 +1543,7 @@ function registerConversationBeats(conversations = []) {
     registerShowBeat({
       type: 'interaccion',
       participants: [from, to],
-      summary: lastMsg.message || 'Conversación activa',
+      summary: lastMsg.message || 'ConversaciÃ³n activa',
       dialogue: lastMsg.message || ''
     });
   });
@@ -1555,12 +1567,12 @@ function setUiState(next) {
 
 function getWeatherLabel(weather) {
   const map = {
-    clear: { icon: '🌤️', label: 'Clear' },
-    rain: { icon: '🌧️', label: 'Rain' },
-    snow: { icon: '❄️', label: 'Snow' },
-    storm: { icon: '⛈️', label: 'Storm' }
+    clear: { icon: 'ðŸŒ¤ï¸', label: 'Clear' },
+    rain: { icon: 'ðŸŒ§ï¸', label: 'Rain' },
+    snow: { icon: 'â„ï¸', label: 'Snow' },
+    storm: { icon: 'â›ˆï¸', label: 'Storm' }
   };
-  return map[weather] || { icon: '🌤️', label: 'Clear' };
+  return map[weather] || { icon: 'ðŸŒ¤ï¸', label: 'Clear' };
 }
 
 function formatServerTime(worldTime) {
@@ -1571,10 +1583,10 @@ function formatServerTime(worldTime) {
   const ampm = hours >= 12 ? 'PM' : 'AM';
   const h12 = hours % 12 || 12;
   const timeStr = `${h12}:${String(mins).padStart(2,'0')} ${ampm}`;
-  let icon = '☀️';
-  if (worldTime.phase === 'night') icon = '🌙';
-  if (worldTime.phase === 'evening') icon = '🌆';
-  if (worldTime.phase === 'morning') icon = '🌅';
+  let icon = 'â˜€ï¸';
+  if (worldTime.phase === 'night') icon = 'ðŸŒ™';
+  if (worldTime.phase === 'evening') icon = 'ðŸŒ†';
+  if (worldTime.phase === 'morning') icon = 'ðŸŒ…';
   return `${icon} ${timeStr}`;
 }
 
@@ -1722,7 +1734,7 @@ function updateVotePanel(vote) {
   const actionsLabel = uiState.voteActionsOpen ? 'Cerrar acciones' : 'Votar';
   const proposalLabel = uiState.voteProposalOpen ? 'Cerrar propuesta' : 'Proponer edificio';
   const catalogOptions = (WORLD_CONTEXT.voteCatalog || [])
-    .map(entry => `<option value="${entry.id}">${entry.name} · ${entry.type}</option>`)
+    .map(entry => `<option value="${entry.id}">${entry.name} Â· ${entry.type}</option>`)
     .join('');
   const proposalTypes = Array.from(new Set((WORLD_CONTEXT.voteCatalog || []).map(entry => entry.type)))
     .sort()
@@ -1730,16 +1742,16 @@ function updateVotePanel(vote) {
     .join('');
   const historyRows = (WORLD_CONTEXT.voteHistory || [])
     .slice(0, 3)
-    .map(entry => `<div class="panel-row">🏗️ ${entry.winner?.name || entry.winner?.type || 'Edificio'} <span class="panel-muted">(${entry.totalVotes || 0})</span></div>`)
+    .map(entry => `<div class="panel-row">ðŸ—ï¸ ${entry.winner?.name || entry.winner?.type || 'Edificio'} <span class="panel-muted">(${entry.totalVotes || 0})</span></div>`)
     .join('');
   panel.innerHTML = `
-    <div class="panel-title">Votación diaria</div>
+    <div class="panel-title">VotaciÃ³n diaria</div>
     ${hasVote
       ? `<div class="panel-row panel-muted">Lote: ${vote.lotId}</div>
          <div class="panel-row panel-meta">Opciones disponibles: ${vote.options?.length || 0}</div>
          ${options || '<div class="panel-row panel-muted">Sin opciones</div>'}
          <div class="panel-row panel-muted">Cierra en ~${remainingMin} min</div>`
-      : '<div class="panel-row panel-muted">Sin votación activa</div>'}
+      : '<div class="panel-row panel-muted">Sin votaciÃ³n activa</div>'}
     <div class="panel-divider"></div>
     <button id="vote-toggle" class="secondary">${actionsLabel}</button>
     <div class="panel-actions ${uiState.voteActionsOpen ? '' : 'is-collapsed'}">
@@ -1751,28 +1763,28 @@ function updateVotePanel(vote) {
           ? (vote.options || []).map(option => (
             `<option value="${option.id}">${option.name}</option>`
           )).join('')
-          : '<option value="">Sin votación activa</option>'}
+          : '<option value="">Sin votaciÃ³n activa</option>'}
       </select>
       <button id="vote-submit" ${hasVote ? '' : 'disabled'}>Confirmar voto</button>
       <div class="panel-feedback" id="vote-feedback"></div>
     </div>
     <div class="panel-divider"></div>
-    <div class="panel-row panel-meta">Últimas construcciones</div>
+    <div class="panel-row panel-meta">Ãšltimas construcciones</div>
     ${historyRows || '<div class="panel-row panel-muted">Sin historial</div>'}
     <div class="panel-divider"></div>
     <button id="vote-proposal-toggle" class="secondary">${proposalLabel}</button>
     <div class="panel-actions ${uiState.voteProposalOpen ? '' : 'is-collapsed'}">
       <label>Modo de propuesta</label>
       <div class="panel-row">
-        <button id="proposal-mode-catalog" class="${uiState.voteProposalMode === 'catalog' ? '' : 'secondary'}">Catálogo</button>
+        <button id="proposal-mode-catalog" class="${uiState.voteProposalMode === 'catalog' ? '' : 'secondary'}">CatÃ¡logo</button>
         <button id="proposal-mode-custom" class="${uiState.voteProposalMode === 'custom' ? '' : 'secondary'}">Libre</button>
       </div>
       <label for="proposal-agent-id">ID Moltbot</label>
       <input id="proposal-agent-id" type="text" placeholder="moltbot-001" value="${getStoredAgentId()}">
       <div id="proposal-catalog-fields" class="${uiState.voteProposalMode === 'catalog' ? '' : 'is-collapsed'}">
-        <label for="proposal-template">Catálogo de edificios</label>
+        <label for="proposal-template">CatÃ¡logo de edificios</label>
         <select id="proposal-template">
-          ${catalogOptions || '<option value="">Catálogo no disponible</option>'}
+          ${catalogOptions || '<option value="">CatÃ¡logo no disponible</option>'}
         </select>
         <label for="proposal-name">Nombre personalizado (opcional)</label>
         <input id="proposal-name" type="text" placeholder="Nombre del edificio">
@@ -1783,7 +1795,7 @@ function updateVotePanel(vote) {
           ${proposalTypes || '<option value="">Sin tipos disponibles</option>'}
         </select>
         <label for="proposal-custom-name">Nombre del edificio</label>
-        <input id="proposal-custom-name" type="text" placeholder="Nombre único">
+        <input id="proposal-custom-name" type="text" placeholder="Nombre Ãºnico">
       </div>
       <button id="proposal-submit">Enviar propuesta</button>
       <div class="panel-feedback" id="proposal-feedback"></div>
@@ -1808,7 +1820,7 @@ function updateVotePanel(vote) {
       feedback.textContent = '';
       feedback.className = 'panel-feedback';
       if (!agentId || !optionId) {
-        feedback.textContent = 'Necesitas tu ID y una opción para votar.';
+        feedback.textContent = 'Necesitas tu ID y una opciÃ³n para votar.';
         feedback.classList.add('error');
         return;
       }
@@ -1823,7 +1835,7 @@ function updateVotePanel(vote) {
         if (!response.ok || !result.success) {
           throw new Error(result.error || 'No se pudo votar.');
         }
-        feedback.textContent = '✅ Voto registrado. Gracias por participar.';
+        feedback.textContent = 'âœ… Voto registrado. Gracias por participar.';
         feedback.classList.add('success');
         WORLD_CONTEXT.vote = result.vote || WORLD_CONTEXT.vote;
         updateVotePanel(WORLD_CONTEXT.vote);
@@ -1876,7 +1888,7 @@ function updateVotePanel(vote) {
         return;
       }
       if (mode === 'catalog' && !templateId) {
-        feedback.textContent = 'Selecciona un edificio del catálogo.';
+        feedback.textContent = 'Selecciona un edificio del catÃ¡logo.';
         feedback.classList.add('error');
         return;
       }
@@ -1896,7 +1908,7 @@ function updateVotePanel(vote) {
         if (!response.ok || !result.success) {
           throw new Error(result.error || 'No se pudo enviar la propuesta.');
         }
-        feedback.textContent = '✅ Propuesta enviada para la próxima votación.';
+        feedback.textContent = 'âœ… Propuesta enviada para la prÃ³xima votaciÃ³n.';
         feedback.classList.add('success');
       } catch (error) {
         feedback.textContent = error.message;
@@ -1916,17 +1928,17 @@ function updateGovernancePanel(governance) {
   const president = governance.president;
   const election = governance.election;
   const presidentRow = president
-    ? `<div class="panel-row">👑 ${president.name}</div>`
+    ? `<div class="panel-row">ðŸ‘‘ ${president.name}</div>`
     : '<div class="panel-row panel-muted">Sin presidente actual</div>';
   const electionRow = election
-    ? `<div class="panel-row panel-muted">Elección activa (${election.candidates.length} candidatos)</div>`
-    : '<div class="panel-row panel-muted">Sin elección activa</div>';
+    ? `<div class="panel-row panel-muted">ElecciÃ³n activa (${election.candidates.length} candidatos)</div>`
+    : '<div class="panel-row panel-muted">Sin elecciÃ³n activa</div>';
   const policies = governance.policies || [];
   const policyRows = policies.length
     ? policies.slice(0, 3).map(policy => (
-      `<div class="panel-row">📜 ${formatPolicyLabel(policy)}</div>`
+      `<div class="panel-row">ðŸ“œ ${formatPolicyLabel(policy)}</div>`
     )).join('')
-    : '<div class="panel-row panel-muted">Sin políticas activas</div>';
+    : '<div class="panel-row panel-muted">Sin polÃ­ticas activas</div>';
   const actionsLabel = uiState.governanceActionsOpen ? 'Cerrar acciones' : 'Participar';
   panel.innerHTML = `
     <div class="panel-title">Presidencia</div>
@@ -1955,10 +1967,10 @@ function updateGovernancePanel(governance) {
           <button id="gov-vote-submit">Confirmar voto</button>
         </div>
         <div id="gov-candidate-fields" class="${uiState.governanceMode === 'candidate' ? '' : 'is-collapsed'}">
-          <label for="gov-name">Nombre público</label>
-          <input id="gov-name" type="text" placeholder="Nombre público">
+          <label for="gov-name">Nombre pÃºblico</label>
+          <input id="gov-name" type="text" placeholder="Nombre pÃºblico">
           <label for="gov-platform">Tu plataforma</label>
-          <textarea id="gov-platform" placeholder="Tu visión para la ciudad"></textarea>
+          <textarea id="gov-platform" placeholder="Tu visiÃ³n para la ciudad"></textarea>
           <button id="gov-candidate-submit">Registrar candidatura</button>
         </div>
         <div class="panel-feedback" id="gov-feedback"></div>
@@ -2017,7 +2029,7 @@ function updateGovernancePanel(governance) {
           if (!response.ok || !result.success) {
             throw new Error(result.error || 'No se pudo postular.');
           }
-          updateFeedback('✅ Candidatura registrada. ¡Suerte en campaña!', false);
+          updateFeedback('âœ… Candidatura registrada. Â¡Suerte en campaÃ±a!', false);
           WORLD_CONTEXT.governance = { ...WORLD_CONTEXT.governance, election: result.election };
           updateGovernancePanel(WORLD_CONTEXT.governance);
         } catch (error) {
@@ -2045,7 +2057,7 @@ function updateGovernancePanel(governance) {
           if (!response.ok || !result.success) {
             throw new Error(result.error || 'No se pudo votar.');
           }
-          updateFeedback('✅ Voto registrado.', false);
+          updateFeedback('âœ… Voto registrado.', false);
           WORLD_CONTEXT.governance = { ...WORLD_CONTEXT.governance, election: result.election };
           updateGovernancePanel(WORLD_CONTEXT.governance);
         } catch (error) {
@@ -2070,7 +2082,7 @@ function updateRelationshipsPanel(network) {
       const to = network.nodes.find(n => n.id === edge.to);
       const fromName = from ? from.name : edge.from;
       const toName = to ? to.name : edge.to;
-      return `<div class="panel-row">${fromName} → ${toName} <span class="panel-muted">A:${edge.affinity} T:${edge.trust} R:${edge.respect}</span></div>`;
+      return `<div class="panel-row">${fromName} â†’ ${toName} <span class="panel-muted">A:${edge.affinity} T:${edge.trust} R:${edge.respect}</span></div>`;
     })
     .join('');
   panel.innerHTML = `<div class="panel-title">Relaciones</div>${edges}`;
@@ -2114,25 +2126,25 @@ function updateDistrictsPanel(districts, agentCount) {
     : '';
   const remainingMs = hasVote ? Math.max(0, vote.endsAt - Date.now()) : 0;
   const remainingMin = hasVote ? Math.ceil(remainingMs / 60000) : 0;
-  const actionsLabel = uiState.aestheticsActionsOpen ? 'Cerrar voto' : 'Votar estética';
+  const actionsLabel = uiState.aestheticsActionsOpen ? 'Cerrar voto' : 'Votar estÃ©tica';
   const aestheticsHistory = (WORLD_CONTEXT.aestheticsHistory || [])
-    .map(entry => `<div class="panel-row">🎨 ${entry.districtName}: ${entry.winner?.name || entry.winner?.id}</div>`)
+    .map(entry => `<div class="panel-row">ðŸŽ¨ ${entry.districtName}: ${entry.winner?.name || entry.winner?.id}</div>`)
     .join('');
 
   panel.innerHTML = `
     <div class="panel-title">Distritos</div>
     ${rows}
     <div class="panel-divider"></div>
-    <div class="panel-row panel-meta">Estética urbana</div>
+    <div class="panel-row panel-meta">EstÃ©tica urbana</div>
     ${hasVote
       ? `<div class="panel-row">Distrito: ${vote.districtName}</div>
          <div class="panel-row panel-muted">Cierra en ~${remainingMin} min</div>
          ${voteOptions || '<div class="panel-row panel-muted">Sin opciones</div>'}
-         <div class="panel-row panel-meta">Quórum: ${vote.quorum} · Costo voto: $${vote.voteCost}</div>`
-      : '<div class="panel-row panel-muted">Sin votación estética activa</div>'}
+         <div class="panel-row panel-meta">QuÃ³rum: ${vote.quorum} Â· Costo voto: $${vote.voteCost}</div>`
+      : '<div class="panel-row panel-muted">Sin votaciÃ³n estÃ©tica activa</div>'}
     ${aestheticsHistory
-      ? `<div class="panel-row panel-meta">Últimos cambios</div>${aestheticsHistory}`
-      : '<div class="panel-row panel-muted">Sin historial estético</div>'}
+      ? `<div class="panel-row panel-meta">Ãšltimos cambios</div>${aestheticsHistory}`
+      : '<div class="panel-row panel-muted">Sin historial estÃ©tico</div>'}
     <button id="aesthetic-toggle" class="secondary">${actionsLabel}</button>
     <div class="panel-actions ${uiState.aestheticsActionsOpen ? '' : 'is-collapsed'}">
       <label for="aesthetic-agent-id">ID Moltbot</label>
@@ -2143,7 +2155,7 @@ function updateDistrictsPanel(districts, agentCount) {
           ? vote.options.map(option => (
             `<option value="${option.id}">${option.name}</option>`
           )).join('')
-          : '<option value="">Sin votación activa</option>'}
+          : '<option value="">Sin votaciÃ³n activa</option>'}
       </select>
       <button id="aesthetic-submit" ${hasVote ? '' : 'disabled'}>Confirmar voto</button>
       <div class="panel-feedback" id="aesthetic-feedback"></div>
@@ -2185,7 +2197,7 @@ function updateDistrictsPanel(districts, agentCount) {
         if (!response.ok || !result.success) {
           throw new Error(result.error || 'No se pudo votar.');
         }
-        feedback.textContent = '✅ Voto registrado.';
+        feedback.textContent = 'âœ… Voto registrado.';
         feedback.classList.add('success');
         WORLD_CONTEXT.aestheticsVote = result.vote || WORLD_CONTEXT.aestheticsVote;
         updateDistrictsPanel(districts, agentCount);
@@ -2214,7 +2226,7 @@ function updateEconomyPanel(economy) {
   )).join('') || '<div class="panel-row panel-muted">Sin propiedades en venta</div>';
 
   panel.innerHTML = `
-    <div class="panel-title">Economía</div>
+    <div class="panel-title">EconomÃ­a</div>
     <div class="panel-row">Saldo: <span class="panel-pill">${balanceLabel}</span></div>
     <div class="panel-row panel-meta">Vacantes abiertas: ${openJobs.length}</div>
     ${jobRows}
@@ -2225,7 +2237,7 @@ function updateEconomyPanel(economy) {
     <div class="panel-actions ${uiState.economyActionsOpen ? '' : 'is-collapsed'}">
       <label for="economy-agent-id">ID Moltbot</label>
       <input id="economy-agent-id" type="text" placeholder="moltbot-001" value="${getStoredAgentId()}">
-      <div class="panel-row panel-meta">Elige una acción</div>
+      <div class="panel-row panel-meta">Elige una acciÃ³n</div>
       <div style="display:flex; gap:6px;">
         <button id="economy-mode-jobs" class="${uiState.economyMode === 'jobs' ? '' : 'secondary'}">Trabajo</button>
         <button id="economy-mode-review" class="${uiState.economyMode === 'review' ? '' : 'secondary'}">Review</button>
@@ -2353,7 +2365,7 @@ function updateEconomyPanel(economy) {
         if (!response.ok || !data.success) {
           throw new Error(data.error || 'No se pudo postular.');
         }
-        setFeedback('✅ Postulación enviada.', false);
+        setFeedback('âœ… PostulaciÃ³n enviada.', false);
         WORLD_CONTEXT.economy.jobs = WORLD_CONTEXT.economy.jobs.map(job =>
           job.id === data.job.id ? data.job : job
         );
@@ -2392,7 +2404,7 @@ function updateEconomyPanel(economy) {
         if (!response.ok || !data.success) {
           throw new Error(data.error || 'No se pudo enviar review.');
         }
-        setFeedback('✅ Review enviada.', false);
+        setFeedback('âœ… Review enviada.', false);
       } catch (error) {
         setFeedback(error.message, true);
       }
@@ -2419,7 +2431,7 @@ function updateEconomyPanel(economy) {
         if (!response.ok || !data.success) {
           throw new Error(data.error || 'No se pudo comprar.');
         }
-        setFeedback('✅ Propiedad comprada.', false);
+        setFeedback('âœ… Propiedad comprada.', false);
       } catch (error) {
         setFeedback(error.message, true);
       }
@@ -2447,7 +2459,7 @@ function updateEconomyPanel(economy) {
         if (!response.ok || !data.success) {
           throw new Error(data.error || 'No se pudo listar.');
         }
-        setFeedback('✅ Propiedad publicada.', false);
+        setFeedback('âœ… Propiedad publicada.', false);
       } catch (error) {
         setFeedback(error.message, true);
       }
@@ -2456,13 +2468,13 @@ function updateEconomyPanel(economy) {
 }
 
 function formatMoodLabel(mood) {
-  if (!mood) return '🌿 Calm';
+  if (!mood) return 'ðŸŒ¿ Calm';
   const { prosperity = 0, cohesion = 0, stability = 0 } = mood;
   const score = (prosperity + cohesion + stability) / 3;
-  if (score > 0.75) return '🌟 Flourishing';
-  if (score > 0.55) return '🌿 Calm';
-  if (score > 0.35) return '🌥️ Unsteady';
-  return '🌧️ Tense';
+  if (score > 0.75) return 'ðŸŒŸ Flourishing';
+  if (score > 0.55) return 'ðŸŒ¿ Calm';
+  if (score > 0.35) return 'ðŸŒ¥ï¸ Unsteady';
+  return 'ðŸŒ§ï¸ Tense';
 }
 
 function formatPolicyLabel(policy) {
@@ -2476,7 +2488,7 @@ function formatPolicyLabel(policy) {
     case 'housing_tax':
       return `Impuesto vivienda ${Number(policy.value || 0) * 100}%`;
     case 'urban_design_program':
-      return 'Programa de diseño urbano';
+      return 'Programa de diseÃ±o urbano';
     default:
       return `${policy.type}: ${policy.value}`;
   }
@@ -2663,12 +2675,12 @@ async function refreshWorldData(scene) {
     document.getElementById('mood-display').textContent = formatMoodLabel(WORLD_CONTEXT.mood);
     const presidentName = WORLD_CONTEXT.governance?.president?.name || 'Sin presidente';
     const presidentEl = document.getElementById('president-display');
-    if (presidentEl) presidentEl.textContent = `🏛️ ${presidentName}`;
-    const activeEvent = (WORLD_CONTEXT.events || []).find(e => e.status === 'active');
+    if (presidentEl) presidentEl.textContent = `Presidente: ${presidentName}`;
+    const displayEvent = pickDisplayEvent(WORLD_CONTEXT.events || []);
     const currentScene = SHOW_MODE_STATE.currentScene;
-    const eventLabel = activeEvent?.name || currentScene?.summary || currentScene?.title || 'Sin evento';
+    const eventLabel = displayEvent?.name || currentScene?.summary || currentScene?.title || 'Sin evento';
     const eventEl = document.getElementById('event-display');
-    if (eventEl) eventEl.textContent = `🎭 ${eventLabel}`;
+    if (eventEl) eventEl.textContent = `Evento: ${eventLabel}`;
     updateVotePanel(WORLD_CONTEXT.vote);
     updateGovernancePanel(WORLD_CONTEXT.governance);
     updateRelationshipsPanel(WORLD_CONTEXT.socialNetwork);
@@ -2685,7 +2697,7 @@ async function refreshWorldData(scene) {
       const lastSuccessAt = WORLD_CONTEXT.lastRefreshSuccessAt || 0;
       const staleFor = Date.now() - lastSuccessAt;
       if (staleFor > REFRESH_PERSIST_MS || WORLD_CONTEXT.refreshFailureCount >= REFRESH_MODAL_FAILURE_THRESHOLD) {
-        showStatusBanner('Sin conexión estable. Reintentando…', true, { persistent: true });
+        showStatusBanner('Sin conexiÃ³n estable. Reintentandoâ€¦', true, { persistent: true });
         const shouldAutoOpen = !WORLD_CONTEXT.lastModalAutoOpenAt
           || Date.now() - WORLD_CONTEXT.lastModalAutoOpenAt > REFRESH_MODAL_AUTO_OPEN_MS;
         if (shouldAutoOpen) {
@@ -2737,7 +2749,7 @@ function setupStatusBannerControls() {
   if (retryButton) {
     retryButton.addEventListener('click', () => {
       setPollingActive(true);
-      showStatusBanner('Reintentando conexión…', false);
+      showStatusBanner('Reintentando conexiÃ³nâ€¦', false);
     });
   }
   if (detailsButton) {
@@ -2757,20 +2769,20 @@ function openStatusModal() {
   const failuresEl = document.getElementById('status-modal-failures');
   const lastSectionEl = document.getElementById('status-modal-last-section');
   const lastErrorEl = document.getElementById('status-modal-last-error');
-  if (lastSuccessEl) lastSuccessEl.textContent = `Último refresh: ${lastSuccess}`;
+  if (lastSuccessEl) lastSuccessEl.textContent = `Ãšltimo refresh: ${lastSuccess}`;
   if (lastDurationEl) {
     const duration = WORLD_CONTEXT.lastRefreshDurationMs;
     lastDurationEl.textContent = duration !== null
-      ? `Duración último refresh: ${duration} ms`
-      : 'Duración último refresh: -';
+      ? `DuraciÃ³n Ãºltimo refresh: ${duration} ms`
+      : 'DuraciÃ³n Ãºltimo refresh: -';
   }
   if (failuresEl) failuresEl.textContent = `Fallos seguidos: ${WORLD_CONTEXT.refreshFailureCount}`;
   if (lastSectionEl) {
     lastSectionEl.textContent = WORLD_CONTEXT.lastFailedSection
-      ? `Último módulo fallido: ${WORLD_CONTEXT.lastFailedSection}`
-      : 'Último módulo fallido: -';
+      ? `Ãšltimo mÃ³dulo fallido: ${WORLD_CONTEXT.lastFailedSection}`
+      : 'Ãšltimo mÃ³dulo fallido: -';
   }
-  if (lastErrorEl) lastErrorEl.textContent = `Último error: ${WORLD_CONTEXT.lastErrorMessage || '-'}`;
+  if (lastErrorEl) lastErrorEl.textContent = `Ãšltimo error: ${WORLD_CONTEXT.lastErrorMessage || '-'}`;
   modal.classList.add('is-open');
 }
 
@@ -2804,12 +2816,12 @@ function setPollingActive(isActive) {
 function getStatusMessage(error) {
   const message = typeof error?.message === 'string' ? error.message : '';
   if (message.includes('HTTP 401') || message.includes('HTTP 403')) {
-    return 'Sesión inválida o sin autorización.';
+    return 'SesiÃ³n invÃ¡lida o sin autorizaciÃ³n.';
   }
   if (message.includes('HTTP 404')) {
     return 'Recurso no disponible en el servidor.';
   }
-  return 'Conexión perdida con el servidor.';
+  return 'ConexiÃ³n perdida con el servidor.';
 }
 
 // Road network definition (tile coordinates that are roads)
@@ -3014,7 +3026,7 @@ class MoltivilleScene extends Phaser.Scene {
       modalRetry.addEventListener('click', () => {
         closeStatusModal();
         setPollingActive(true);
-        showStatusBanner('Reintentando conexión…', false);
+        showStatusBanner('Reintentando conexiÃ³nâ€¦', false);
       });
     }
     this.tileMap = generateTileMap();
@@ -3826,7 +3838,7 @@ class MoltivilleScene extends Phaser.Scene {
           const messages = [
             `Hi ${target.name}! How's your day?`,
             `Nice weather today, don't you think?`,
-            `Have you been to the café lately?`,
+            `Have you been to the cafÃ© lately?`,
             `I was just exploring the library...`,
             `Did you see the new flowers in the plaza?`,
             `Want to grab something at the market?`,
@@ -4270,10 +4282,10 @@ class MoltivilleScene extends Phaser.Scene {
     const h12 = hours % 12 || 12;
     const timeStr = `${h12}:${String(mins).padStart(2,'0')} ${ampm}`;
 
-    let icon = '☀️';
-    if (this.gameTime < 360 || this.gameTime > 1080) icon = '🌙';
-    else if (this.gameTime < 420) icon = '🌅';
-    else if (this.gameTime > 1020) icon = '🌆';
+    let icon = 'â˜€ï¸';
+    if (this.gameTime < 360 || this.gameTime > 1080) icon = 'ðŸŒ™';
+    else if (this.gameTime < 420) icon = 'ðŸŒ…';
+    else if (this.gameTime > 1020) icon = 'ðŸŒ†';
 
     document.getElementById('time-display').textContent = `${icon} ${timeStr}`;
   }
@@ -4282,7 +4294,7 @@ class MoltivilleScene extends Phaser.Scene {
   // HUD
   // ============================================================
   updateHUD() {
-    document.getElementById('agent-count').textContent = `👥 ${this.agents.length} Citizens`;
+    document.getElementById('agent-count').textContent = `ðŸ‘¥ ${this.agents.length} Citizens`;
 
     const panel = document.getElementById('agents-panel');
     panel.innerHTML = '<div style="color:#7faaee;font-size:11px;margin-bottom:6px;font-weight:600;">CITIZENS</div>' +
@@ -4298,7 +4310,7 @@ class MoltivilleScene extends Phaser.Scene {
       const chain = agent?.motivation?.chain || [];
       const pending = chain.find(step => step.status !== 'done');
       const label = pending?.label || agent?.plan?.primaryGoal || '-';
-      reasonEl.textContent = `Razón: ${label}`;
+      reasonEl.textContent = `RazÃ³n: ${label}`;
     }
 
     const feedEl = document.getElementById('telemetry-feed-body');
@@ -4313,7 +4325,7 @@ class MoltivilleScene extends Phaser.Scene {
           const name = AGENT_DIRECTORY.get(agentId)?.name || agentId?.slice(0, 4) || 'Agente';
           const reason = payload.reason ? String(payload.reason).replace(/_/g, ' ') : 'motivo';
           const action = payload.actionType || item.event;
-          return `<div class="feed-item">${name}: ${action} · ${reason}</div>`;
+          return `<div class="feed-item">${name}: ${action} Â· ${reason}</div>`;
         }).join('');
       }
     }
@@ -4331,8 +4343,8 @@ class MoltivilleScene extends Phaser.Scene {
 
     const conversations = WORLD_CONTEXT.activeConversations || [];
     if (!conversations.length) {
-      statusEl.textContent = 'Sin diálogo';
-      bodyEl.innerHTML = '<div class="conversation-card"><div class="participants">-</div><div class="last-line">Nadie está hablando ahora.</div></div>';
+      statusEl.textContent = 'Sin diÃ¡logo';
+      bodyEl.innerHTML = '<div class="conversation-card"><div class="participants">-</div><div class="last-line">Nadie estÃ¡ hablando ahora.</div></div>';
       return;
     }
 
@@ -4363,10 +4375,10 @@ class MoltivilleScene extends Phaser.Scene {
         || AGENT_DIRECTORY.get(speakerId)?.name
         || this.agents.find(x => x.id === speakerId)?.name
         || (speakerId ? `Agent ${speakerId.slice(0,4)}` : '-');
-      const lastLine = lastMsg?.message ? `${speakerName}: ${lastMsg.message}` : 'Conexión activa, esperando diálogo…';
+      const lastLine = lastMsg?.message ? `${speakerName}: ${lastMsg.message}` : 'ConexiÃ³n activa, esperando diÃ¡logoâ€¦';
       return `
         <div class="conversation-card">
-          <div class="participants">${safe(nameA)} ↔ ${safe(nameB)}</div>
+          <div class="participants">${safe(nameA)} â†” ${safe(nameB)}</div>
           <div class="last-line">${safe(lastLine)}</div>
         </div>
       `;

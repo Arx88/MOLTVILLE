@@ -686,6 +686,40 @@
   }
   .event-panel-item-meta { color: #cfd8ff; font-size: 11px; margin-top: 3px; }
   .event-panel-item-desc { color: #9fa7c7; font-size: 11px; margin-top: 4px; }
+
+  /* Unified scrollbar styling for HUD panels */
+  #chat-log,
+  #telemetry-feed-body,
+  #agents-panel,
+  .event-panel-list,
+  .conversation-focus-body {
+    scrollbar-width: thin;
+    scrollbar-color: rgba(255, 210, 125, 0.55) rgba(12, 18, 36, 0.6);
+  }
+  #chat-log::-webkit-scrollbar,
+  #telemetry-feed-body::-webkit-scrollbar,
+  #agents-panel::-webkit-scrollbar,
+  .event-panel-list::-webkit-scrollbar,
+  .conversation-focus-body::-webkit-scrollbar {
+    width: 8px;
+    height: 8px;
+  }
+  #chat-log::-webkit-scrollbar-track,
+  #telemetry-feed-body::-webkit-scrollbar-track,
+  #agents-panel::-webkit-scrollbar-track,
+  .event-panel-list::-webkit-scrollbar-track,
+  .conversation-focus-body::-webkit-scrollbar-track {
+    background: rgba(12, 18, 36, 0.6);
+    border-radius: 999px;
+  }
+  #chat-log::-webkit-scrollbar-thumb,
+  #telemetry-feed-body::-webkit-scrollbar-thumb,
+  #agents-panel::-webkit-scrollbar-thumb,
+  .event-panel-list::-webkit-scrollbar-thumb,
+  .conversation-focus-body::-webkit-scrollbar-thumb {
+    background: linear-gradient(180deg, rgba(255, 210, 125, 0.85), rgba(180, 132, 62, 0.8));
+    border-radius: 999px;
+  }
   .agent-profile-header {
     display: flex;
     align-items: center;
