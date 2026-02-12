@@ -14,7 +14,6 @@ from collections import deque
 import logging
 import random
 import time
-import hashlib
 
 # Setup logging
 logging.basicConfig(level=logging.INFO)
@@ -61,8 +60,6 @@ class MOLTVILLESkill:
         self._conversation_stale_seconds = 120
         self._relation_update_cooldown = 8
         self._last_relation_update: Dict[str, float] = {}
-        self._job_ask_cooldown_seconds = 900
-        self._last_job_support_ask: Dict[str, float] = self.long_memory.get("lastJobSupportAsk", {}) if isinstance(self.long_memory, dict) else {}
         self._plan_state = self.long_memory.get("planState", {}) if isinstance(self.long_memory, dict) else {}
         self._plan_ttl_seconds = 180
         self._plan_action_timeout = 45
@@ -94,56 +91,9 @@ class MOLTVILLESkill:
         self._health_metrics = self.long_memory.get("healthMetrics", {}) if isinstance(self.long_memory, dict) else {}
         self._action_queue: List[Dict[str, Any]] = self.long_memory.get("pendingActions", []) if isinstance(self.long_memory, dict) else []
         self._http_cfg = self.config.get("http", {}) if isinstance(self.config.get("http"), dict) else {}
-        self._inflight_action: Optional[Dict[str, Any]] = None
-        self._max_action_retries = 3
-        self._inflight_timeout_seconds = 20
-        self._llm_session: Optional[aiohttp.ClientSession] = None
-        self._llm_call_lock = asyncio.Lock()
-        self._llm_last_call_at = 0.0
-        self._llm_min_interval_sec = float((self.config.get("llm", {}) or {}).get("minIntervalSec", 0.2))
         
         # Setup event handlers
         self._setup_handlers()
-
-    def _server_language_code(self) -> str:
-        runtime_cfg = self.config.get("runtime", {}) if isinstance(self.config.get("runtime"), dict) else {}
-        lang = runtime_cfg.get("serverLanguage") or self.config.get("serverLanguage") or "es"
-        return str(lang).strip().lower() or "es"
-
-    def _server_language_rule(self) -> str:
-        lang = self._server_language_code()
-        names = {
-            "es": "español",
-            "en": "english",
-            "fr": "français",
-            "pt": "português",
-            "it": "italiano",
-            "de": "deutsch"
-        }
-        label = names.get(lang, lang)
-        return (
-            f"Idioma obligatorio del servidor: {label} ({lang}). "
-            f"Toda frase visible para otros agentes debe estar SOLO en {label}. "
-            "No mezcles idiomas y no uses traducciones parciales."
-        )
-
-    async def _normalize_message_to_server_language(self, message: str) -> Optional[str]:
-        if not isinstance(message, str) or not message.strip():
-            return None
-        prompt = (
-            "Reescribe el mensaje al idioma obligatorio del servidor, manteniendo intención, tono y contexto in-world. "
-            "No agregues ni elimines intención semántica. Devuelve SOLO JSON con {message}."
-        )
-        payload = {
-            "serverLanguage": self._server_language_code(),
-            "original": message[:280]
-        }
-        result = await self._call_llm_json(prompt, payload, sanitize_action=False)
-        fixed = result.get("message") if isinstance(result, dict) else None
-        if isinstance(fixed, str) and fixed.strip():
-            return fixed.strip()
-        # fallback conservador: enviar original para no truncar conversación
-        return message.strip()
 
     def _get_http_base_url(self) -> str:
         server_url = self.config.get('server', {}).get('url', '')
@@ -171,66 +121,30 @@ class MOLTVILLESkill:
             self.long_memory["pendingActions"] = self._action_queue[-40:]
             self._save_long_memory()
 
-    def _enqueue_action(self, action: Dict[str, Any], source: str = "plan", priority: float = 1.0, attempts: int = 0) -> None:
+    def _enqueue_action(self, action: Dict[str, Any], source: str = "plan", priority: float = 1.0) -> None:
         if not isinstance(action, dict):
             return
         item = {
-            "id": f"aq-{int(asyncio.get_event_loop().time() * 1000)}-{random.randint(1000,9999)}",
             "action": action,
             "priority": float(priority),
             "source": source,
-            "attempts": int(attempts),
-            "createdAt": int(asyncio.get_event_loop().time() * 1000),
-            "status": "queued"
+            "attempts": 0,
+            "createdAt": int(asyncio.get_event_loop().time() * 1000)
         }
         self._action_queue.append(item)
         self._action_queue.sort(key=lambda it: float(it.get("priority", 0.0)), reverse=True)
         self._action_queue = self._action_queue[:40]
         self._save_action_queue()
-        self._log_cycle("action_enqueued", source=source, action=action.get("type"), priority=round(float(priority), 3), attempts=int(attempts), queueDepth=len(self._action_queue))
-
-    def _recover_stale_inflight(self) -> None:
-        inflight = self._inflight_action if isinstance(self._inflight_action, dict) else None
-        if not inflight:
-            return
-        started = inflight.get("startedAt")
-        now = asyncio.get_event_loop().time()
-        if not isinstance(started, (int, float)) or (now - float(started)) < self._inflight_timeout_seconds:
-            return
-        self._log_cycle("action_inflight_timeout", action=(inflight.get("action") or {}).get("type"), attempts=inflight.get("attempts"))
-        self._finish_inflight(False, error="inflight_timeout")
+        self._log_cycle("action_enqueued", source=source, action=action.get("type"), priority=round(float(priority), 3), queueDepth=len(self._action_queue))
 
     def _dequeue_action(self) -> Optional[Dict[str, Any]]:
-        self._recover_stale_inflight()
-        if self._inflight_action:
-            return None
         if not self._action_queue:
             return None
         item = self._action_queue.pop(0)
-        item["status"] = "executing"
-        item["startedAt"] = asyncio.get_event_loop().time()
-        self._inflight_action = item
         self._save_action_queue()
         action = item.get("action") if isinstance(item, dict) else None
-        self._log_cycle("action_dequeued", source=item.get("source") if isinstance(item, dict) else None, action=(action.get("type") if isinstance(action, dict) else None), attempts=item.get("attempts", 0), queueDepth=len(self._action_queue))
+        self._log_cycle("action_dequeued", source=item.get("source") if isinstance(item, dict) else None, action=(action.get("type") if isinstance(action, dict) else None), queueDepth=len(self._action_queue))
         return item
-
-    def _finish_inflight(self, success: bool, error: Optional[str] = None) -> None:
-        item = self._inflight_action if isinstance(self._inflight_action, dict) else None
-        self._inflight_action = None
-        if not item:
-            return
-        action = item.get("action") if isinstance(item, dict) else None
-        if success:
-            self._log_cycle("action_acked", action=(action.get("type") if isinstance(action, dict) else None), attempts=item.get("attempts", 0))
-            return
-        attempts = int(item.get("attempts", 0)) + 1
-        if attempts < self._max_action_retries and isinstance(action, dict):
-            prio = float(item.get("priority", 1.0))
-            self._enqueue_action(action, source="retry", priority=prio, attempts=attempts)
-            self._log_cycle("action_requeued", action=action.get("type"), attempts=attempts, error=error)
-        else:
-            self._log_cycle("action_dropped", action=(action.get("type") if isinstance(action, dict) else None), attempts=attempts, error=error)
 
     async def _http_request(self, method: str, path: str, payload: Optional[Dict[str, Any]] = None) -> Dict[str, Any]:
         base_url = self._get_http_base_url().rstrip('/')
@@ -278,37 +192,6 @@ class MOLTVILLESkill:
                 return {"error": str(error), "status": 0}
         return {"error": "HTTP retry exhaustion", "status": 0}
     
-    async def _ensure_llm_session(self, timeout_sec: float) -> aiohttp.ClientSession:
-        session = self._llm_session
-        if session is None or session.closed:
-            timeout = aiohttp.ClientTimeout(total=timeout_sec)
-            self._llm_session = aiohttp.ClientSession(timeout=timeout)
-            return self._llm_session
-
-        current_timeout = getattr(session, "timeout", None)
-        total = getattr(current_timeout, "total", None)
-        if not isinstance(total, (int, float)) or abs(float(total) - float(timeout_sec)) > 0.01:
-            await session.close()
-            timeout = aiohttp.ClientTimeout(total=timeout_sec)
-            self._llm_session = aiohttp.ClientSession(timeout=timeout)
-        return self._llm_session
-
-    async def _post_llm(self, url: str, body: Dict[str, Any], headers: Dict[str, str], timeout_sec: float) -> (int, Dict[str, Any]):
-        async with self._llm_call_lock:
-            now = asyncio.get_event_loop().time()
-            wait_for = self._llm_min_interval_sec - (now - self._llm_last_call_at)
-            if wait_for > 0:
-                await asyncio.sleep(wait_for)
-            session = await self._ensure_llm_session(timeout_sec)
-            self._llm_last_call_at = asyncio.get_event_loop().time()
-            async with session.post(url, json=body, headers=headers) as response:
-                text = await response.text()
-                try:
-                    data = json.loads(text) if text else {}
-                except json.JSONDecodeError:
-                    data = {"raw": text}
-                return response.status, data
-
     def _load_config(self, config_path: Path) -> Dict:
         """Load configuration from file"""
         if not config_path.exists():
@@ -533,11 +416,8 @@ class MOLTVILLESkill:
         if step_id in ("build_support", "help_citizens", "build_relationship"):
             nearby = perception.get("nearbyAgents", []) or []
             if nearby:
-                target_id = self._pick_best_social_target(nearby)
-                message = await self._llm_social_message("help_citizens", {
-                    "target": target_id,
-                    "relationshipScore": self._relationship_score(target_id) if target_id else 0
-                })
+                target_id = nearby[0].get("id")
+                message = await self._llm_social_message("help_citizens", {"target": target_id})
                 if target_id and message:
                     return {"type": "start_conversation", "params": {"target_id": target_id, "message": message}}
             return {"type": "move_to", "params": self._pick_hotspot("social")}
@@ -552,27 +432,12 @@ class MOLTVILLESkill:
             if app and app.get("status") == "pending":
                 nearby = perception.get("nearbyAgents", []) or []
                 if nearby:
-                    target_id = self._pick_job_support_target(nearby)
+                    target_id = nearby[0].get("id")
                     if target_id:
-                        rel_score = self._relationship_score(target_id)
-                        # Primero relación, luego petición de voto cuando hay suficiente vínculo
-                        if self._can_ask_job_support(target_id):
-                            await self.propose_negotiation(target_id, app.get("jobId"))
-                            message = await self._llm_social_message("job_support", {
-                                "jobId": app.get("jobId"),
-                                "target": target_id,
-                                "relationshipScore": rel_score
-                            })
-                            if message:
-                                self._mark_job_support_ask(target_id)
-                                return {"type": "start_conversation", "params": {"target_id": target_id, "message": message}}
-                        warmup = await self._llm_social_message("build_relationship", {
-                            "target": target_id,
-                            "relationshipScore": rel_score,
-                            "context": "Aún no es buen momento para pedir apoyo laboral directo"
-                        })
-                        if warmup:
-                            return {"type": "start_conversation", "params": {"target_id": target_id, "message": warmup}}
+                        await self.propose_negotiation(target_id, app.get("jobId"))
+                        message = await self._llm_social_message("job_support", {"jobId": app.get("jobId"), "target": target_id})
+                        if message:
+                            return {"type": "start_conversation", "params": {"target_id": target_id, "message": message}}
                 return {"type": "move_to", "params": self._pick_hotspot("social")}
             return {"type": "move_to", "params": self._pick_hotspot("work")}
         if step_id in ("buy_house", "open_business"):
@@ -630,7 +495,7 @@ class MOLTVILLESkill:
             "name": self.config.get("agent", {}).get("name"),
             "personality_hint": self.config.get("agent", {}).get("personality")
         }
-        profile = await self._call_llm_json(prompt, payload, sanitize_action=False)
+        profile = await self._call_llm_json(prompt, payload)
         if isinstance(profile, dict):
             self.long_memory["profile"] = profile
             self._save_long_memory()
@@ -831,9 +696,7 @@ class MOLTVILLESkill:
             "platform": platform
         }
         result = await self._http_request('POST', '/api/governance/candidate', payload)
-        error_text = str(result.get('error') or '').lower()
-        # Avoid hammering this route every loop once backend already has the candidate.
-        if (not result.get('error')) or ('already registered' in error_text):
+        if not result.get('error'):
             self._political_candidate = True
 
     def _remember_utterance(self, speaker_id: str, message: str) -> None:
@@ -870,7 +733,7 @@ class MOLTVILLESkill:
             "otherId": speaker_id,
             "message": message
         }
-        result = await self._call_llm_json(prompt, payload, sanitize_action=False)
+        result = await self._call_llm_json(prompt, payload)
         if isinstance(result, dict):
             return result
         lowered = message.lower()
@@ -899,69 +762,10 @@ class MOLTVILLESkill:
             "affinity": affinity,
             "trust": trust,
             "respect": respect,
-            "interactions": int(current.get("interactions", 0) or 0) + 1,
             "lastNote": str(analysis.get("note", ""))[:80],
             "lastMessage": message[:160]
         }
         self._save_long_memory()
-
-    def _relationship_score(self, agent_id: str) -> float:
-        if not agent_id or not isinstance(self.long_memory, dict):
-            return 0.0
-        rels = self.long_memory.get("relationships", {})
-        rel = rels.get(agent_id, {}) if isinstance(rels, dict) else {}
-        if not isinstance(rel, dict):
-            return 0.0
-        affinity = float(rel.get("affinity", 0) or 0)
-        trust = float(rel.get("trust", 0) or 0)
-        respect = float(rel.get("respect", 0) or 0)
-        interactions = float(rel.get("interactions", 0) or 0)
-        return affinity + trust + (0.5 * respect) + min(2.0, interactions * 0.15)
-
-    def _can_ask_job_support(self, target_id: str) -> bool:
-        if not target_id:
-            return False
-        now = asyncio.get_event_loop().time()
-        last = float(self._last_job_support_ask.get(target_id, 0) or 0)
-        if now - last < self._job_ask_cooldown_seconds:
-            return False
-        return self._relationship_score(target_id) >= 2.0
-
-    def _mark_job_support_ask(self, target_id: str) -> None:
-        if not target_id:
-            return
-        self._last_job_support_ask[target_id] = asyncio.get_event_loop().time()
-        if isinstance(self.long_memory, dict):
-            self.long_memory["lastJobSupportAsk"] = self._last_job_support_ask
-            self._save_long_memory()
-
-    def _pick_best_social_target(self, nearby_agents: List[Dict[str, Any]]) -> Optional[str]:
-        ranked: List[Any] = []
-        for agent in nearby_agents or []:
-            aid = agent.get("id") if isinstance(agent, dict) else None
-            if aid:
-                ranked.append((self._relationship_score(aid), aid))
-        if not ranked:
-            return None
-        ranked.sort(key=lambda item: item[0], reverse=True)
-        return ranked[0][1]
-
-    def _pick_job_support_target(self, nearby_agents: List[Dict[str, Any]]) -> Optional[str]:
-        eligible: List[Any] = []
-        fallback: List[Any] = []
-        for agent in nearby_agents or []:
-            aid = agent.get("id") if isinstance(agent, dict) else None
-            if not aid:
-                continue
-            score = self._relationship_score(aid)
-            fallback.append((score, aid))
-            if self._can_ask_job_support(aid):
-                eligible.append((score, aid))
-        pool = eligible if eligible else fallback
-        if not pool:
-            return None
-        pool.sort(key=lambda item: item[0], reverse=True)
-        return pool[0][1]
 
     def _get_recent_context(self) -> Dict[str, Any]:
         cleaned = [u for u in self._recent_utterances if not self._is_meta_message(u.get("message", ""))]
@@ -1315,6 +1119,11 @@ class MOLTVILLESkill:
                 self._last_conversation_ts.pop(conv_id, None)
                 return
             if action.get("type") in ("conversation_message", "end_conversation"):
+                if action.get("type") == "conversation_message":
+                    params = action.get("params") if isinstance(action.get("params"), dict) else {}
+                    if not params.get("conversation_id"):
+                        params["conversation_id"] = conv_id
+                        action["params"] = params
                 await self._execute_action(action)
                 # Use loop-time seconds (same unit used for cooldown comparisons)
                 self._last_conversation_ts[conv_id] = asyncio.get_event_loop().time()
@@ -1327,6 +1136,44 @@ class MOLTVILLESkill:
         finally:
             if self._conversation_lock.locked():
                 self._conversation_lock.release()
+
+    def _fallback_conversation_action(self, perception: Dict[str, Any]) -> Optional[Dict[str, Any]]:
+        convs = perception.get("conversations", []) or []
+        if not isinstance(convs, list):
+            return None
+        own = [
+            c for c in convs
+            if isinstance(c, dict)
+            and self.agent_id in (c.get("participants") or [])
+            and c.get("active", True)
+        ]
+        if not own:
+            return None
+        own.sort(key=lambda c: c.get("lastActivity", c.get("startedAt", 0)), reverse=True)
+        conv = own[0]
+        conv_id = conv.get("id")
+        if not isinstance(conv_id, str) or not conv_id:
+            return None
+        messages = conv.get("messages", []) or []
+        incoming = [m for m in messages if isinstance(m, dict) and m.get("from") != self.agent_id]
+        if not incoming:
+            return None
+        incoming.sort(key=lambda m: m.get("timestamp", 0), reverse=True)
+        last = incoming[0]
+        last_text = str(last.get("message") or "").strip()
+        if not last_text:
+            return None
+        # Avoid duplicating the exact same fallback for the same incoming text.
+        if self._conversation_last_incoming.get(conv_id) == last_text and self._last_conversation_msg.get(conv_id) == last_text:
+            return None
+        reply = "Te escucho. Dame un minuto y te respondo bien, quiero seguir esta conversación contigo."
+        return {
+            "type": "conversation_message",
+            "params": {
+                "conversation_id": conv_id,
+                "message": reply
+            }
+        }
 
     def _plan_expired(self) -> bool:
         if not isinstance(self._plan_state, dict):
@@ -1393,18 +1240,9 @@ class MOLTVILLESkill:
         nearby_agents = perception.get("nearbyAgents", []) or []
         if not nearby_agents:
             return {"type": "move_to", "params": self._pick_hotspot("social")}
-        target_id = self._pick_job_support_target(nearby_agents)
+        target_id = nearby_agents[0].get("id")
         if not target_id:
             return None
-        if not self._can_ask_job_support(target_id):
-            warmup = await self._llm_social_message("build_relationship", {
-                "target": target_id,
-                "relationshipScore": self._relationship_score(target_id),
-                "context": "Construir relación antes de pedir apoyo laboral"
-            })
-            if warmup:
-                return {"type": "start_conversation", "params": {"target_id": target_id, "message": warmup}}
-            return {"type": "move_to", "params": self._pick_hotspot("social")}
         job_id = application.get("jobId")
         job_name = job_id
         jobs = await self.list_jobs()
@@ -1419,21 +1257,17 @@ class MOLTVILLESkill:
         payload = {
             "self": self.config.get("agent", {}).get("name"),
             "job": job_name,
-            "jobId": job_id,
-            "relationshipScore": self._relationship_score(target_id)
+            "jobId": job_id
         }
-        result = await self._call_llm_json(prompt, payload, sanitize_action=False)
+        result = await self._call_llm_json(prompt, payload)
         message = result.get("message") if isinstance(result, dict) else None
         if isinstance(message, str) and message.strip():
-            self._mark_job_support_ask(target_id)
             return {"type": "start_conversation", "params": {"target_id": target_id, "message": message.strip()}}
         return None
 
     async def _llm_social_message(self, kind: str, payload: Dict[str, Any]) -> Optional[str]:
         prompt = (
-            "Eres un ciudadano de MOLTVILLE. Genera un mensaje social breve, natural y variado. "
-            "Prioriza construir relación (empatía, contexto compartido, curiosidad) y evita sonar transaccional. "
-            "Si kind=job_support, haz la petición con tacto y solo como continuación natural del vínculo. "
+            "Eres un ciudadano de MOLTVILLE. Genera un mensaje social breve y natural. "
             "Responde SOLO JSON con {message}. Mantente 100% in-world."
         )
         data = {
@@ -1443,7 +1277,7 @@ class MOLTVILLESkill:
             "profile": self.long_memory.get("profile"),
             **(payload or {})
         }
-        result = await self._call_llm_json(prompt, data, sanitize_action=False)
+        result = await self._call_llm_json(prompt, data)
         message = result.get("message") if isinstance(result, dict) else None
         if isinstance(message, str) and message.strip():
             return message.strip()
@@ -1752,21 +1586,16 @@ class MOLTVILLESkill:
     async def _maybe_start_conversation(self, perception: Dict[str, Any]) -> Optional[Dict[str, Any]]:
         plan = self.long_memory.get("planState", {}) if isinstance(self.long_memory, dict) else {}
         primary = str(plan.get("primaryGoal", "")).lower()
+        if not primary or not any(token in primary for token in ("convers", "alian", "negoci", "inform", "persu")):
+            return None
         nearby_agents = perception.get("nearbyAgents", []) or []
         if not nearby_agents:
             return None
-
-        social_tokens = ("convers", "alian", "negoci", "inform", "persu", "social", "relac")
-        social_context = any(token in primary for token in social_tokens)
-        if not social_context and self._current_intent not in ("social", "work"):
-            return None
-
-        target_id = self._pick_best_social_target(nearby_agents)
+        target_id = nearby_agents[0].get("id")
         if not target_id:
             return None
         prompt = (
-            "Eres un ciudadano de MOLTVILLE. Genera un saludo breve y natural para iniciar conversación. "
-            "Evita pedidos directos de trabajo en la primera frase. "
+            "Eres un ciudadano de MOLTVILLE. Genera un saludo breve y natural para iniciar conversaciÃ³n. "
             "Devuelve SOLO JSON con {message}."
         )
         payload = {
@@ -1774,11 +1603,10 @@ class MOLTVILLESkill:
             "other": target_id,
             "plan": plan
         }
-        result = await self._call_llm_json(prompt, payload, sanitize_action=False)
+        result = await self._call_llm_json(prompt, payload)
         message = result.get("message") if isinstance(result, dict) else None
         if isinstance(message, str) and message.strip():
             return {"type": "start_conversation", "params": {"target_id": target_id, "message": message.strip()}}
-
         return None
 
     def _build_heuristic_plan(self, perception: Dict[str, Any]) -> Dict[str, Any]:
@@ -1859,17 +1687,6 @@ class MOLTVILLESkill:
         return motivation_action
 
     async def _work_action_candidate(self, perception: Dict[str, Any]) -> Optional[Dict[str, Any]]:
-        # Prioridad 1: economía completa (votar candidaturas abiertas > postularse > comprar propiedad)
-        economy_action = await self._economy_action(perception)
-        if isinstance(economy_action, dict):
-            return economy_action
-
-        # Prioridad 2: si no hay acción económica clara, intentar conversación útil
-        convo_action = await self._maybe_start_conversation(perception)
-        if isinstance(convo_action, dict):
-            return convo_action
-
-        # Prioridad 3: fallback mínimo a aplicar trabajo disponible
         context = perception.get("context", {}) or {}
         economy = context.get("economy", {}) or {}
         if economy.get("job"):
@@ -1986,9 +1803,13 @@ class MOLTVILLESkill:
             if has_conversation:
                 # Single LLM call for active conversations â€” no double call
                 action = await self._decide_with_llm(perception, force_conversation=True)
-                if action:
+                if action and action.get("type") in ("conversation_message", "end_conversation"):
                     return action
-                # LLM failed on active conversation: try heuristic, never dead-end with wait
+                # Hard fallback: keep the same conversation alive with a deterministic reply.
+                fallback = self._fallback_conversation_action(perception)
+                if fallback:
+                    return fallback
+                # If we cannot resolve an active thread, then continue with heuristic.
                 return await self._heuristic_decision(perception)
 
             action = await self._decide_with_llm(perception)
@@ -2195,10 +2016,8 @@ class MOLTVILLESkill:
             return {"type": "wait", "params": {}}
         return None
 
-    async def _call_llm_json(self, prompt: str, payload: Dict[str, Any], sanitize_action: bool = True) -> Optional[Dict[str, Any]]:
+    async def _call_llm_json(self, prompt: str, payload: Dict[str, Any]) -> Optional[Dict[str, Any]]:
         llm_config = self.config.get("llm", {})
-        prompt = f"{prompt}\n\n{self._server_language_rule()}"
-        payload = {**(payload or {}), "serverLanguage": self._server_language_code()}
         provider = llm_config.get("provider", "")
         api_key = llm_config.get("apiKey", "")
         model = llm_config.get("model", "")
@@ -2279,15 +2098,12 @@ class MOLTVILLESkill:
             else:
                 return None
 
-            status, data = await self._post_llm(
-                url,
-                body,
-                headers,
-                float(llm_config.get("timeoutSec", 20))
-            )
-            if status >= 400:
-                logger.warning(f"LLM error: {data}")
-                return None
+            async with aiohttp.ClientSession(timeout=aiohttp.ClientTimeout(total=float(llm_config.get("timeoutSec", 20)))) as session:
+                async with session.post(url, json=body, headers=headers) as response:
+                    data = await response.json()
+                    if response.status >= 400:
+                        logger.warning(f"LLM error: {data}")
+                        return None
             content = None
             if provider in ("openai", "ollama", "qwen-oauth"):
                 content = data.get("choices", [{}])[0].get("message", {}).get("content")
@@ -2300,8 +2116,6 @@ class MOLTVILLESkill:
             parsed = json.loads(content)
             if not isinstance(parsed, dict):
                 return None
-            if not sanitize_action:
-                return parsed
             sanitized = self._sanitize_llm_action(parsed)
             if not sanitized:
                 return None
@@ -2340,7 +2154,6 @@ class MOLTVILLESkill:
                 "name": self.config.get("agent", {}).get("name"),
                 "personality": self.config.get("agent", {}).get("personality")
             },
-            "serverLanguage": self._server_language_code(),
             "perception": perception,
             "events": perception.get("events", []),
             "goals": self._active_goals[-5:],
@@ -2359,16 +2172,16 @@ class MOLTVILLESkill:
             "Eres un ciudadano de MOLTVILLE. ActÃºas solo dentro del mundo, en primera persona. "
             "Nunca menciones IA, modelos, sistemas, pruebas, servidores ni infraestructura. "
             "Usa relaciones, memoria y conversaciÃ³n previa si existen. "
-            "Tu respuesta debe avanzar currentStep, pero con ritmo humano y natural. "
-            "requiredOutcome guía la dirección, no obliga a pedir algo en cada mensaje. "
+            "Tu respuesta debe AVANZAR el prÃ³ximo paso del motivo actual (motivation.chain) usando currentStep. "
+            "Debes cumplir requiredOutcome (si existe). "
             "Si hay una conversaciÃ³n activa donde tÃº participas, RESPONDE con conversation_message alineado a currentStep. "
             "Si no hay conversaciÃ³n y ves a alguien cerca, inicia start_conversation con propÃ³sito del currentStep. "
             "Si estÃ¡s solo, muÃ©vete hacia un lugar relevante segÃºn tu intenciÃ³n. "
-            "Evita repetir frases recientes y busca variedad expresiva. "
+            "No repitas mensajes recientes. "
             "Devuelve SOLO JSON vÃ¡lido con la acciÃ³n a ejecutar. "
             "Formato: {\"type\": \"move_to|enter_building|speak|apply_job|buy_property|vote_job|create_event|join_event|wait|start_conversation|conversation_message|end_conversation\", "
             "\"params\": { ... }, \"nextStep\": {\"type\": \"move_to|enter_building|join_event|wait\", \"params\": {...}} }. "
-            "Prioriza construir relación antes de solicitudes instrumentales (trabajo/voto/favor), salvo vínculo previo suficiente. "
+            "Si currentStep es social, tu respuesta debe mencionar el objetivo y proponer un paso concreto. "
             "Si surge una asamblea o reuniÃ³n, usa create_event y elige una ubicaciÃ³n." 
         )
         if force_conversation:
@@ -2380,8 +2193,6 @@ class MOLTVILLESkill:
                 "Si ves forcedConversationId Ãºsalo como conversation_id. "
                 "Devuelve SOLO JSON vÃ¡lido con: {\"type\": \"conversation_message|end_conversation\", \"params\": {\"conversation_id\": \"...\", \"message\": \"...\"}, \"nextStep\": {\"type\": \"move_to|enter_building|wait\", \"params\": {...}}}."
             )
-
-        prompt = f"{prompt} {self._server_language_rule()}"
 
         try:
             if provider == "openai":
@@ -2454,15 +2265,12 @@ class MOLTVILLESkill:
             else:
                 return None
 
-            status, data = await self._post_llm(
-                url,
-                body,
-                headers,
-                float(llm_config.get("timeoutSec", 20))
-            )
-            if status >= 400:
-                logger.warning(f"LLM error: {data}")
-                return None
+            async with aiohttp.ClientSession(timeout=aiohttp.ClientTimeout(total=float(llm_config.get("timeoutSec", 20)))) as session:
+                async with session.post(url, json=body, headers=headers) as response:
+                    data = await response.json()
+                    if response.status >= 400:
+                        logger.warning(f"LLM error: {data}")
+                        return None
             content = None
             if provider == "openai" or provider == "ollama" or provider == "qwen-oauth":
                 content = data.get("choices", [{}])[0].get("message", {}).get("content")
@@ -2472,29 +2280,15 @@ class MOLTVILLESkill:
                     content = parts[0].get("text")
             if not content:
                 return None
-            parsed = None
             try:
                 parsed = json.loads(content)
             except json.JSONDecodeError:
-                # Try to extract JSON object from noisy responses / fenced blocks
+                # Try to extract JSON object from noisy responses
                 start = content.find('{')
                 end = content.rfind('}')
                 if start != -1 and end != -1 and end > start:
                     snippet = content[start:end + 1]
                     parsed = json.loads(snippet)
-                elif force_conversation:
-                    # For active conversations, accept plain natural text and wrap it
-                    text_fallback = str(content).strip().strip('`').strip()
-                    if text_fallback:
-                        parsed = {
-                            "type": "conversation_message",
-                            "params": {
-                                "conversation_id": forced_conversation_id,
-                                "message": text_fallback[:220]
-                            }
-                        }
-                    else:
-                        raise
                 else:
                     raise
             if force_conversation and isinstance(parsed, dict) and parsed.get("type") == "conversation_message":
@@ -2553,7 +2347,7 @@ class MOLTVILLESkill:
             "contextoPrevio": [u.get("message", "") for u in self._recent_utterances[-2:]],
         }
         try:
-            result = await self._call_llm_json(prompt, payload, sanitize_action=False)
+            result = await self._call_llm_json(prompt, payload)
             message = result.get("message") if isinstance(result, dict) else None
             if isinstance(message, str) and message.strip() and not self._is_meta_message(message):
                 self._last_conversation_ts[f"initiation_{target_id}"] = now
@@ -2680,44 +2474,18 @@ class MOLTVILLESkill:
             "y": int(position.get("y", 0) + max(height, 1))
         }
 
-    def _message_fingerprint(self, kind: str, target: Optional[str], text: str) -> str:
-        basis = f"{kind}|{target or ''}|{(text or '').strip().lower()}"
-        return hashlib.sha1(basis.encode("utf-8")).hexdigest()
-
-    def _is_duplicate_message(self, kind: str, target: Optional[str], text: str) -> bool:
-        if not isinstance(text, str) or not text.strip():
-            return False
-        fp = self._message_fingerprint(kind, target, text)
-        if fp in self._recent_message_hashes:
-            return True
-        self._recent_message_hashes.append(fp)
-        return False
-
-    def _result_ok(self, result: Any) -> bool:
-        if result is None:
-            return True
-        if isinstance(result, dict):
-            if result.get("error"):
-                return False
-            status = str(result.get("status", "")).lower()
-            if status in ("error", "failed", "failure"):
-                return False
-            return True
-        return True
-
     async def _execute_action(self, action: Dict[str, Any]) -> None:
         if not action or not isinstance(action, dict):
             return
         try:
             await asyncio.wait_for(self._action_lock.acquire(), timeout=self._action_lock_timeout)
         except asyncio.TimeoutError:
+            self._enqueue_action(action, source="action_lock_timeout", priority=1.8)
             self._log_cycle("action_skip", reason="action_lock_timeout", action=action.get("type"))
-            self._finish_inflight(False, error="action_lock_timeout")
             return
 
         action_type = action.get("type")
         params = action.get("params", {}) or {}
-        success = True
         try:
             self._update_cognition(
                 internal=self._infer_internal_thought(str(action_type or ""), params),
@@ -2742,100 +2510,38 @@ class MOLTVILLESkill:
             elif action_type == "enter_building":
                 await self.enter_building(params.get("building_id"))
             elif action_type == "speak":
-                msg = params.get("message", "")
-                normalized = await self._normalize_message_to_server_language(msg)
-                if not normalized:
-                    success = False
-                    self._log_cycle("language_guard_drop", kind="speak")
-                elif self._is_duplicate_message("speak", None, normalized):
-                    self._log_cycle("message_dedup_drop", kind="speak")
-                else:
-                    result = await self.speak(normalized)
-                    success = self._result_ok(result)
+                await self.speak(params.get("message", ""))
             elif action_type == "start_conversation":
                 target_id = params.get("target_id")
                 message = params.get("message", "")
-                normalized = await self._normalize_message_to_server_language(message)
-                if not normalized:
-                    success = False
-                    self._log_cycle("language_guard_drop", kind="start_conversation", target=target_id)
-                elif self._is_duplicate_message("start_conversation", target_id, normalized):
-                    self._log_cycle("message_dedup_drop", kind="start_conversation", target=target_id)
-                else:
-                    result = await self.start_conversation(target_id, normalized)
-                    success = self._result_ok(result)
-                    self._log_cycle(
-                        "start_conversation_result",
-                        target=target_id,
-                        status=result.get("status") if isinstance(result, dict) else None,
-                        error=result.get("error") if isinstance(result, dict) else None,
-                        conversationId=((result.get("conversation") or {}).get("id") if isinstance(result, dict) else None)
-                    )
+                result = await self.start_conversation(target_id, message)
+                self._log_cycle(
+                    "start_conversation_result",
+                    target=target_id,
+                    status=result.get("status"),
+                    error=result.get("error"),
+                    conversationId=(result.get("conversation") or {}).get("id")
+                )
             elif action_type == "conversation_message":
                 cid = params.get("conversation_id")
-                msg = params.get("message", "")
                 if cid:
-                    normalized = await self._normalize_message_to_server_language(msg)
-                    if not normalized:
-                        success = False
-                        self._log_cycle("language_guard_drop", kind="conversation_message", target=cid)
-                    elif self._is_duplicate_message("conversation_message", cid, normalized):
-                        self._log_cycle("message_dedup_drop", kind="conversation_message", target=cid)
-                    else:
-                        result = await self.send_conversation_message(cid, normalized)
-                        success = self._result_ok(result)
-                        self._log_cycle(
-                            "conversation_message_result",
-                            conversationId=cid,
-                            status=result.get("status") if isinstance(result, dict) else None,
-                            error=result.get("error") if isinstance(result, dict) else None
-                        )
+                    result = await self.send_conversation_message(cid, params.get("message", ""))
+                    self._log_cycle(
+                        "conversation_message_result",
+                        conversationId=cid,
+                        status=result.get("status"),
+                        error=result.get("error")
+                    )
             elif action_type == "end_conversation":
                 cid = params.get("conversation_id")
                 if cid:
                     await self._http_request("POST", f"/api/moltbot/{self.agent_id}/conversations/{cid}/end")
             elif action_type == "apply_job":
-                result = await self.apply_job(params.get("job_id"))
-                success = self._result_ok(result)
-                app = None
-                if isinstance(result, dict):
-                    app = result.get("job") if isinstance(result.get("job"), dict) else result
-                if isinstance(app, dict) and str(app.get("status", "")).lower() == "pending":
-                    perception_now = self.current_state.get("perception", {}) if isinstance(self.current_state, dict) else {}
-                    follow_action = await self._request_job_vote(perception_now if isinstance(perception_now, dict) else {}, app)
-                    if isinstance(follow_action, dict):
-                        self._enqueue_action(follow_action, source="job_followup", priority=0.92)
+                await self.apply_job(params.get("job_id"))
             elif action_type == "buy_property":
-                result = await self.buy_property(params.get("property_id"))
-                success = self._result_ok(result)
+                await self.buy_property(params.get("property_id"))
             elif action_type == "vote_job":
-                applicant_id = params.get("applicant_id")
-                result = await self.vote_job(applicant_id, params.get("job_id"))
-                success = self._result_ok(result)
-                error_text = str((result or {}).get("error", "")).lower() if isinstance(result, dict) else ""
-                if (not success) and ("not enough trust" in error_text):
-                    if isinstance(applicant_id, str) and applicant_id.strip():
-                        self._mark_job_support_ask(applicant_id.strip())
-                    perception_now = self.current_state.get("perception", {}) if isinstance(self.current_state, dict) else {}
-                    nearby = (perception_now.get("nearbyAgents", []) if isinstance(perception_now, dict) else []) or []
-                    target_id = self._pick_job_support_target(nearby) or (applicant_id if isinstance(applicant_id, str) else None)
-                    warmup = await self._llm_social_message("build_relationship", {
-                        "target": target_id,
-                        "relationshipScore": self._relationship_score(target_id) if isinstance(target_id, str) else 0,
-                        "context": "Fortalecer relación antes de volver a pedir apoyo laboral"
-                    })
-                    if isinstance(target_id, str) and target_id and isinstance(warmup, str) and warmup.strip():
-                        self._enqueue_action(
-                            {"type": "start_conversation", "params": {"target_id": target_id, "message": warmup.strip()}},
-                            source="trust_recovery",
-                            priority=0.97
-                        )
-                    else:
-                        self._enqueue_action(
-                            {"type": "move_to", "params": self._pick_hotspot("social")},
-                            source="trust_recovery",
-                            priority=0.9
-                        )
+                await self.vote_job(params.get("applicant_id"), params.get("job_id"))
             elif action_type == "coord_create_proposal":
                 await self.create_coordination_proposal(params.get("title"), params.get("description", ""), params.get("category", "community"), params.get("required_roles") or [])
             elif action_type == "coord_join":
@@ -2857,12 +2563,12 @@ class MOLTVILLESkill:
                     self.long_memory["planState"] = self._plan_state
                     self._save_long_memory()
             await self._send_profile_update()
-            self._update_health_metric("execute_action", ok=success)
-            self._finish_inflight(success, error=(None if success else "action_result_not_ok"))
+            self._update_health_metric("execute_action", ok=True)
         except Exception as error:
             self._update_health_metric("execute_action", ok=False)
             self._log_cycle("action_error", action=action_type, error=str(error))
-            self._finish_inflight(False, error=str(error))
+            prio = 2.4 if action_type in ("apply_job", "buy_property", "vote_job", "coord_commit", "coord_update_commit") else 1.2
+            self._enqueue_action(action, source="execute_error", priority=prio)
         finally:
             if self._action_lock.locked():
                 self._action_lock.release()
@@ -3012,9 +2718,7 @@ class MOLTVILLESkill:
             "endAt": params.get("endAt"),
             "location": params.get("location"),
             "description": params.get("description"),
-            "goalScope": params.get("goalScope"),
-            "capacity": params.get("capacity"),
-            "entryPrice": params.get("entryPrice", params.get("entry_price", 0))
+            "goalScope": params.get("goalScope")
         }
         return await self._http_request('POST', "/api/events", payload)
 
@@ -3349,9 +3053,7 @@ Be social, explore the city, and build relationships with other agents.
         if self.connected:
             await self.sio.disconnect()
             self.connected = False
-        if self._llm_session and not self._llm_session.closed:
-            await self._llm_session.close()
-        logger.info("Disconnected from MOLTVILLE")
+            logger.info("Disconnected from MOLTVILLE")
 
 
 # Skill interface for OpenClaw
@@ -3428,5 +3130,4 @@ if __name__ == "__main__":
         asyncio.run(main())
     except KeyboardInterrupt:
         pass
-
 

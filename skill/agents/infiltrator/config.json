@@ -11,10 +11,10 @@
     "llm":  {
                 "baseUrl":  "http://localhost:11434",
                 "provider":  "ollama",
-                "temperature":  0.4,
+                "temperature":  0.35,
                 "model":  "qwen3:8b",
                 "apiKey":  "",
-                "timeoutSec":  35
+                "timeoutSec":  60
             },
     "behavior":  {
                      "conversationInitiation":  "high",
@@ -25,5 +25,8 @@
                                           "intervalMs":  15000,
                                           "enabled":  true
                                       }
-                 }
+                 },
+    "runtime":  {
+                    "serverLanguage":  "es"
+                }
 }

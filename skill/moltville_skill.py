@@ -1119,6 +1119,11 @@ class MOLTVILLESkill:
                 self._last_conversation_ts.pop(conv_id, None)
                 return
             if action.get("type") in ("conversation_message", "end_conversation"):
+                if action.get("type") == "conversation_message":
+                    params = action.get("params") if isinstance(action.get("params"), dict) else {}
+                    if not params.get("conversation_id"):
+                        params["conversation_id"] = conv_id
+                        action["params"] = params
                 await self._execute_action(action)
                 # Use loop-time seconds (same unit used for cooldown comparisons)
                 self._last_conversation_ts[conv_id] = asyncio.get_event_loop().time()
@@ -1131,6 +1136,44 @@ class MOLTVILLESkill:
         finally:
             if self._conversation_lock.locked():
                 self._conversation_lock.release()
+
+    def _fallback_conversation_action(self, perception: Dict[str, Any]) -> Optional[Dict[str, Any]]:
+        convs = perception.get("conversations", []) or []
+        if not isinstance(convs, list):
+            return None
+        own = [
+            c for c in convs
+            if isinstance(c, dict)
+            and self.agent_id in (c.get("participants") or [])
+            and c.get("active", True)
+        ]
+        if not own:
+            return None
+        own.sort(key=lambda c: c.get("lastActivity", c.get("startedAt", 0)), reverse=True)
+        conv = own[0]
+        conv_id = conv.get("id")
+        if not isinstance(conv_id, str) or not conv_id:
+            return None
+        messages = conv.get("messages", []) or []
+        incoming = [m for m in messages if isinstance(m, dict) and m.get("from") != self.agent_id]
+        if not incoming:
+            return None
+        incoming.sort(key=lambda m: m.get("timestamp", 0), reverse=True)
+        last = incoming[0]
+        last_text = str(last.get("message") or "").strip()
+        if not last_text:
+            return None
+        # Avoid duplicating the exact same fallback for the same incoming text.
+        if self._conversation_last_incoming.get(conv_id) == last_text and self._last_conversation_msg.get(conv_id) == last_text:
+            return None
+        reply = "Te escucho. Dame un minuto y te respondo bien, quiero seguir esta conversación contigo."
+        return {
+            "type": "conversation_message",
+            "params": {
+                "conversation_id": conv_id,
+                "message": reply
+            }
+        }
 
     def _plan_expired(self) -> bool:
         if not isinstance(self._plan_state, dict):
@@ -1760,9 +1803,13 @@ class MOLTVILLESkill:
             if has_conversation:
                 # Single LLM call for active conversations â€” no double call
                 action = await self._decide_with_llm(perception, force_conversation=True)
-                if action:
+                if action and action.get("type") in ("conversation_message", "end_conversation"):
                     return action
-                # LLM failed on active conversation: try heuristic, never dead-end with wait
+                # Hard fallback: keep the same conversation alive with a deterministic reply.
+                fallback = self._fallback_conversation_action(perception)
+                if fallback:
+                    return fallback
+                # If we cannot resolve an active thread, then continue with heuristic.
                 return await self._heuristic_decision(perception)
 
             action = await self._decide_with_llm(perception)

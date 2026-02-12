@@ -27,7 +27,10 @@
                 "model":  "qwen3:8b",
                 "apiKey":  "",
                 "baseUrl":  "http://localhost:11434",
-                "temperature":  0.4,
-                "timeoutSec":  35
-            }
+                "temperature":  0.35,
+                "timeoutSec":  60
+            },
+    "runtime":  {
+                    "serverLanguage":  "es"
+                }
 }
