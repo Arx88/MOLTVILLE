@@ -1687,10 +1687,22 @@ class MOLTVILLESkill:
                 return {"type": "apply_job", "params": {"job_id": available[0].get("id")}}
 
         if has_job and not properties and balance >= 90:
-            props = self.current_state.get("properties", []) or []
-            for_sale = [p for p in props if isinstance(p, dict) and p.get("forSale")]
-            if for_sale:
-                cheapest = sorted(for_sale, key=lambda p: float(p.get("price", 999999)))[0]
+            # Refresh market each cycle; avoid stale property cache blocking purchases.
+            props = []
+            listed = await self.list_properties()
+            if isinstance(listed, dict):
+                props = listed.get("properties", []) or []
+                self.current_state["properties"] = props
+            else:
+                props = self.current_state.get("properties", []) or []
+            affordable = [
+                p for p in props
+                if isinstance(p, dict)
+                and p.get("forSale")
+                and float(p.get("price", 999999)) <= balance
+            ]
+            if affordable:
+                cheapest = sorted(affordable, key=lambda p: float(p.get("price", 999999)))[0]
                 return {"type": "buy_property", "params": {"property_id": cheapest.get("id")}}
 
         return None
