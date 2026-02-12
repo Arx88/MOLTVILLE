@@ -589,12 +589,28 @@ function prettifyAgentText(value) {
   if (value == null) return '-';
   const str = String(value).trim();
   if (!str) return '-';
-  const normalized = str
+
+  const clean = str
+    .replace(/^['"“”]+|['"“”]+$/g, '')
     .replace(/[_-]+/g, ' ')
     .replace(/\s+/g, ' ')
-    .trim()
-    .toLowerCase();
-  return normalized.replace(/\b\w/g, (char) => char.toUpperCase());
+    .trim();
+
+  const lookup = clean.toLowerCase();
+  const friendlyMap = {
+    'buy house': 'Comprar una casa propia 🏠',
+    'start business': 'Iniciar un negocio 💼',
+    'get job': 'Conseguir trabajo',
+    'find job': 'Conseguir trabajo',
+    'socialize': 'Socializar',
+    'earn money': 'Ganar dinero'
+  };
+
+  if (friendlyMap[lookup]) {
+    return friendlyMap[lookup];
+  }
+
+  return clean.charAt(0).toUpperCase() + clean.slice(1);
 }
 
 function makePanelDraggable(panel, handle) {

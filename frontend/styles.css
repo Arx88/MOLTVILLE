@@ -1,6 +1,6 @@
-  @import url('https://fonts.googleapis.com/css2?family=Space+Grotesk:wght@400;600;700&family=Sora:wght@400;600;700&display=swap');
+  @import url('https://fonts.googleapis.com/css2?family=Nunito:wght@400;600;700;800&family=Noto+Sans:wght@400;600;700&display=swap');
   * { margin: 0; padding: 0; box-sizing: border-box; }
-  body { background: radial-gradient(circle at 20% 0%, #223158 0%, #171c33 45%, #0f1326 100%); overflow: hidden; font-family: 'Sora', sans-serif; }
+  body { background: radial-gradient(circle at 20% 0%, #223158 0%, #171c33 45%, #0f1326 100%); overflow: hidden; font-family: 'Noto Sans', 'Nunito', sans-serif; }
   body.show-mode-active #chat-log,
   body.show-mode-active #agents-panel,
   body.show-mode-active #vote-panel,
@@ -60,7 +60,7 @@
     font-weight: 700;
     letter-spacing: 2px;
     text-transform: uppercase;
-    font-family: 'Space Grotesk', sans-serif;
+    font-family: 'Nunito', 'Noto Sans', sans-serif;
     background: rgba(24, 40, 72, 0.8);
     border-color: rgba(160, 210, 255, 0.35);
   }
