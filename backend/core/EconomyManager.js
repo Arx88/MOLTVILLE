@@ -587,13 +587,14 @@ export class EconomyManager {
 
   computeApplicationWeight(application, reputationManager = null) {
     if (!application) return 0;
-    const voters = application.votes instanceof Map
-      ? Array.from(application.votes.keys())
-      : application.votes instanceof Set
-        ? Array.from(application.votes)
-        : Array.isArray(application.votes)
-          ? application.votes
-          : [];
+    if (application.votes instanceof Map) {
+      return Array.from(application.votes.values()).reduce((sum, weight) => sum + Number(weight || 0), 0);
+    }
+    const voters = application.votes instanceof Set
+      ? Array.from(application.votes)
+      : Array.isArray(application.votes)
+        ? application.votes
+        : [];
     return voters.reduce((sum, voterId) => sum + this.getVoteWeight(voterId, reputationManager), 0);
   }
 
@@ -781,11 +782,13 @@ export class EconomyManager {
     }
 
     const relation = this.getRelationshipVoteWeight(voterId, applicantId, moltbotRegistry);
-    if (!relation.eligible) {
-      throw new Error('Not enough trust to vote for this applicant yet');
-    }
     const repWeight = this.getVoteWeight(voterId, reputationManager);
-    const voterWeight = Number(((relation.weight * 0.7) + (repWeight * 0.3)).toFixed(3));
+    // Even low-trust voters can support candidates, but with low impact.
+    // This avoids deadlocks where nobody can ever cross the initial trust barrier.
+    const baseWeight = relation.eligible
+      ? ((relation.weight * 0.7) + (repWeight * 0.3))
+      : Math.max(0.4, ((relation.weight * 0.45) + (repWeight * 0.15)));
+    const voterWeight = Number(baseWeight.toFixed(3));
     application.votes.set(voterId, voterWeight);
 
     const votes = application.votes.size;
