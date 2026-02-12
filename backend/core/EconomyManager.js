@@ -701,6 +701,24 @@ export class EconomyManager {
   }
 
   listProperties() {
+    // Market normalization (policy-driven): keep entry housing reachable relative
+    // to current wages/liquidity so the earn->spend loop can actually occur.
+    const salaries = Array.from(this.jobs.values()).map(j => Number(j.salary || 0)).filter(v => Number.isFinite(v) && v > 0);
+    const avgSalary = salaries.length ? (salaries.reduce((s, v) => s + v, 0) / salaries.length) : 8;
+    const balances = Array.from(this.balances.values()).map(v => Number(v || 0)).filter(v => Number.isFinite(v));
+    const avgBalance = balances.length ? (balances.reduce((s, v) => s + v, 0) / balances.length) : 0;
+    const targetStarterCap = Math.max(60, Math.round(Math.max(avgSalary * 18, avgBalance * 2.5)));
+
+    this.properties.forEach((property) => {
+      if (!property || property.ownerId || property.forSale !== true) return;
+      const price = Number(property.price || 0);
+      if (!Number.isFinite(price) || price <= 0) return;
+      if (price > targetStarterCap) {
+        property.price = targetStarterCap;
+        this.persistProperty(property);
+      }
+    });
+
     return Array.from(this.properties.values());
   }
 

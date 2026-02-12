@@ -177,8 +177,20 @@ class MOLTVILLESkill:
     def _register_job_feedback(self, action: str, result: Dict[str, Any], target_job_id: Optional[str] = None) -> None:
         if not isinstance(result, dict):
             return
-        status = int(result.get("status", 0) or 0)
-        error = str(result.get("error") or "").lower()
+
+        # Normalize payloads: success can come as top-level dict or wrapped under {success,result}.
+        payload = result
+        nested = result.get("result")
+        if isinstance(nested, dict):
+            payload = {**nested, **{k: v for k, v in result.items() if k not in ("result",)}}
+
+        status_raw = payload.get("status", result.get("status"))
+        status = int(status_raw) if isinstance(status_raw, (int, float)) else None
+        error_msg = payload.get("error") or result.get("error")
+        error = str(error_msg or "").lower()
+        ok_flag = bool(result.get("success")) if "success" in result else None
+        has_error = bool(error_msg)
+
         now_ms = int(asyncio.get_event_loop().time() * 1000)
         if not isinstance(self._job_strategy_state, dict):
             self._job_strategy_state = {}
@@ -187,7 +199,18 @@ class MOLTVILLESkill:
         if action == "vote_job":
             self._job_strategy_state["lastVoteAtMs"] = now_ms
 
-        if status and status < 400 and not result.get("error"):
+        success = False
+        if has_error:
+            success = False
+        elif ok_flag is True:
+            success = True
+        elif isinstance(status, int):
+            success = status < 400
+        else:
+            # No explicit status + no error -> treat as success (common for _http_request happy path)
+            success = True
+
+        if success:
             if action == "apply_job":
                 self._job_strategy_state["targetJobId"] = target_job_id
             self._clear_job_block()
@@ -212,9 +235,8 @@ class MOLTVILLESkill:
             code = "INVALID_JOB_TRANSITION"
             retry_ms = 120000
 
-        self._set_job_block(code, result.get("error") or "job progression blocked", retry_after_ms=retry_ms, target_job_id=target_job_id)
-        self._log_cycle("job_blocked", code=code, status=status, message=result.get("error"), retryAfterMs=retry_ms)
-
+        self._set_job_block(code, error_msg or "job progression blocked", retry_after_ms=retry_ms, target_job_id=target_job_id)
+        self._log_cycle("job_blocked", code=code, status=status or 0, message=error_msg, retryAfterMs=retry_ms)
     def _dequeue_action(self) -> Optional[Dict[str, Any]]:
         if not self._action_queue:
             return None
@@ -1854,6 +1876,23 @@ class MOLTVILLESkill:
         if isinstance(mine, dict) and mine.get("jobId"):
             self._job_strategy_state["targetJobId"] = mine.get("jobId")
             self._save_job_strategy()
+            # Keep progressing the labor market: while our own application is pending,
+            # cast votes for other open applications to help the market converge.
+            open_with_app = [
+                j for j in jobs
+                if isinstance(j, dict)
+                and not j.get("assignedTo")
+                and isinstance(j.get("application"), dict)
+                and j.get("application", {}).get("applicantId")
+                and j.get("application", {}).get("applicantId") != self.agent_id
+            ]
+            if open_with_app:
+                target = sorted(open_with_app, key=lambda j: int((j.get("application") or {}).get("votes", 0)), reverse=True)[0]
+                app = target.get("application") or {}
+                return {
+                    "type": "vote_job",
+                    "params": {"applicant_id": app.get("applicantId"), "job_id": target.get("id")}
+                }
             return await self._job_recovery_action(perception)
 
         available = [
@@ -1952,6 +1991,13 @@ class MOLTVILLESkill:
         self._log_cycle("pre_interaction_decision", mode=pre.get("mode"), reason=pre.get("reason"), intent=self._current_intent)
         if pre.get("mode") == "act" and isinstance(pre.get("action"), dict):
             return pre.get("action")
+
+        # Priority gate: unblock economy pipeline first when work-critical actions exist.
+        # This is policy-based (state-driven), not scripted dialogue/behavior.
+        econ_priority = await self._economy_action(perception)
+        if isinstance(econ_priority, dict) and econ_priority.get("type") in ("vote_job", "apply_job", "buy_property"):
+            self._log_cycle("economy_priority_action", action=econ_priority.get("type"))
+            return econ_priority
 
         decision_config = self.config.get("behavior", {}).get("decisionLoop", {})
         mode = decision_config.get("mode", "heuristic")
@@ -3311,5 +3357,6 @@ if __name__ == "__main__":
         asyncio.run(main())
     except KeyboardInterrupt:
         pass
+
 
 
