@@ -54,17 +54,28 @@ export class GovernanceManager {
     return this.currentElection;
   }
 
-  registerCandidate(agentId, name, platform = '') {
+  registerCandidate(agentId, name, platform = '', reputationManager = null) {
     if (!this.currentElection) {
       throw new Error('No active election');
     }
     if (this.currentElection.candidates.has(agentId)) {
       throw new Error('Already registered');
     }
+
+    const minReputation = Number(process.env.PRESIDENT_MIN_REPUTATION || 8);
+    let reputationScore = null;
+    if (reputationManager) {
+      reputationScore = Number(reputationManager.getSnapshot(agentId)?.score || 0);
+      if (reputationScore < minReputation) {
+        throw new Error(`Insufficient reputation to run for president (${reputationScore.toFixed(2)} < ${minReputation})`);
+      }
+    }
+
     this.currentElection.candidates.set(agentId, {
       agentId,
       name,
-      platform
+      platform,
+      reputationScore
     });
     this.persistElection('open');
     return this.getElectionSummary();

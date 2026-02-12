@@ -58,7 +58,8 @@ test('EconomyManager assigns jobs and properties', () => {
 
   const job = manager.listJobs()[0];
   const assignment = manager.applyForJob('agent-1', job.id);
-  assert.equal(assignment.assignedTo, 'agent-1');
+  assert.equal(assignment.status, 'pending');
+  assert.equal(assignment.jobId, job.id);
 
   const property = manager.listProperties()[0];
   const purchased = manager.buyProperty('agent-1', property.id);
@@ -93,7 +94,7 @@ test('EconomyManager returns summaries and reviews', () => {
   });
 
   const summary = manager.getAgentSummary('agent-1');
-  assert.ok(summary.job);
+  assert.equal(summary.job, null);
   assert.ok(Array.isArray(summary.inventory));
   assert.equal(manager.getReviews('agent-1').length, 1);
 });

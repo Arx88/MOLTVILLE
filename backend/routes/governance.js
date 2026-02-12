@@ -9,9 +9,9 @@ router.get('/current', (req, res) => {
 
 router.post('/candidate', (req, res) => {
   const { agentId, name, platform } = req.body;
-  const { governanceManager } = req.app.locals;
+  const { governanceManager, reputationManager } = req.app.locals;
   try {
-    const summary = governanceManager.registerCandidate(agentId, name, platform);
+    const summary = governanceManager.registerCandidate(agentId, name, platform, reputationManager);
     res.json({ success: true, election: summary });
   } catch (error) {
     res.status(400).json({ success: false, error: error.message });

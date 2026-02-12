@@ -341,7 +341,7 @@ const coordinationManager = new CoordinationManager();
 const commitmentManager = new CommitmentManager();
 const cityMoodManager = new CityMoodManager(economyManager, interactionEngine);
 const aestheticsManager = new AestheticsManager({ worldStateManager: worldState, economyManager, governanceManager, io });
-const eventManager = new EventManager({ io });
+const eventManager = new EventManager({ io, economyManager, reputationManager, interactionEngine });
 const npcSpawner = new NPCSpawner({
   registry: moltbotRegistry,
   worldState,

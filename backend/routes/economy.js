@@ -97,8 +97,10 @@ router.post('/jobs/vote', requireAgentKey({
 }), validateBody(jobVoteSchema), (req, res) => {
   const { applicantId, voterId, jobId } = req.body;
   const economy = req.app.locals.economyManager;
+  const reputationManager = req.app.locals.reputationManager;
+  const moltbotRegistry = req.app.locals.moltbotRegistry;
   try {
-    const result = economy.voteForJob({ applicantId, voterId, jobId });
+    const result = economy.voteForJob({ applicantId, voterId, jobId, reputationManager, moltbotRegistry });
     res.json({ success: true, result });
   } catch (error) {
     res.status(400).json({ success: false, error: error.message });

@@ -15,10 +15,11 @@ const router = express.Router();
 // Get full world state
 router.get('/state', requireViewerKey, async (req, res) => {
   try {
-    const { worldState, cityMoodManager } = req.app.locals;
+    const { worldState, cityMoodManager, eventManager } = req.app.locals;
     res.json({
       ...worldState.getFullState(),
-      mood: cityMoodManager.getSummary()
+      mood: cityMoodManager.getSummary(),
+      events: eventManager?.getSummary?.() || []
     });
   } catch (error) {
     res.status(500).json({ error: error.message });

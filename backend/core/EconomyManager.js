@@ -537,12 +537,73 @@ export class EconomyManager {
     this.persistTransaction(agentId, amount, reason);
   }
 
+  getApplicationVoteCount(application) {
+    if (!application) return 0;
+    if (application.votes instanceof Set || application.votes instanceof Map) {
+      return application.votes.size;
+    }
+    if (Array.isArray(application.votes)) {
+      return application.votes.length;
+    }
+    return 0;
+  }
+
+  getVoteWeight(voterId, reputationManager = null) {
+    if (!reputationManager || !voterId) return 1;
+    const rep = reputationManager.getSnapshot(voterId);
+    const score = Number(rep?.score || 0);
+    return Math.max(0.5, 1 + (score / 100));
+  }
+
+  getRelationshipVoteWeight(voterId, applicantId, moltbotRegistry = null) {
+    if (!moltbotRegistry || !voterId || !applicantId) {
+      // Compatibility path (tests/offline flows): keep voting functional when relationship graph is unavailable.
+      return { weight: 1, trust: 0, affinity: 0, interactions: 0, eligible: true };
+    }
+    const rel = moltbotRegistry.getRelationship(voterId, applicantId) || {};
+    const trust = Number(rel.trust || 0);
+    const affinity = Number(rel.affinity || 0);
+    const interactions = Number(rel.interactions || 0);
+
+    const trustNorm = Math.max(0, Math.min(1, trust / 40));
+    const affinityNorm = Math.max(0, Math.min(1, affinity / 50));
+    const interactionNorm = Math.max(0, Math.min(1, interactions / 6));
+    const relationScore = (trustNorm * 0.55) + (affinityNorm * 0.30) + (interactionNorm * 0.15);
+
+    const eligible = (trust >= 8 && interactions >= 2) || (trust >= 14) || (affinity >= 22 && interactions >= 3);
+    return {
+      weight: Math.max(0.2, 0.6 + (relationScore * 1.4)),
+      trust,
+      affinity,
+      interactions,
+      eligible
+    };
+  }
+
+  getApplicantBonus(applicantId, reputationManager = null) {
+    // Job approvals are relation-first; reputation should not dominate hiring.
+    return 0;
+  }
+
+  computeApplicationWeight(application, reputationManager = null) {
+    if (!application) return 0;
+    const voters = application.votes instanceof Map
+      ? Array.from(application.votes.keys())
+      : application.votes instanceof Set
+        ? Array.from(application.votes)
+        : Array.isArray(application.votes)
+          ? application.votes
+          : [];
+    return voters.reduce((sum, voterId) => sum + this.getVoteWeight(voterId, reputationManager), 0);
+  }
+
   listJobs() {
     const applications = new Map();
     this.jobApplications.forEach((app, jobId) => {
       applications.set(jobId, {
         applicantId: app.applicantId,
-        votes: app.votes.size,
+        votes: this.getApplicationVoteCount(app),
+        weightedVotes: Number(this.computeApplicationWeight(app).toFixed(2)),
         createdAt: app.createdAt
       });
     });
@@ -556,7 +617,8 @@ export class EconomyManager {
     return Array.from(this.jobApplications.entries()).map(([jobId, app]) => ({
       jobId,
       applicantId: app.applicantId,
-      votes: Array.from(app.votes),
+      votes: app.votes instanceof Map ? Array.from(app.votes.keys()) : Array.from(app.votes || []),
+      weightedVotes: Number(this.computeApplicationWeight(app).toFixed(2)),
       createdAt: app.createdAt,
       required: this.getRequiredVotes(app)
     }));
@@ -575,7 +637,13 @@ export class EconomyManager {
   getApplicationForAgent(agentId) {
     for (const [jobId, app] of this.jobApplications.entries()) {
       if (app.applicantId === agentId) {
-        return { jobId, ...app, votes: Array.from(app.votes), required: this.getRequiredVotes(app) };
+        return {
+          jobId,
+          ...app,
+          votes: app.votes instanceof Map ? Array.from(app.votes.keys()) : Array.from(app.votes || []),
+          weightedVotes: Number(this.computeApplicationWeight(app).toFixed(2)),
+          required: this.getRequiredVotes(app)
+        };
       }
     }
     return null;
@@ -686,14 +754,14 @@ export class EconomyManager {
     if (job.assignedTo) throw new Error('Job already filled');
     const application = {
       applicantId: agentId,
-      votes: new Set(),
+      votes: new Map(),
       createdAt: Date.now()
     };
     this.jobApplications.set(jobId, application);
     return { status: 'pending', jobId, votes: 0, required: this.getRequiredVotes(application) };
   }
 
-  voteForJob({ applicantId, voterId, jobId }) {
+  voteForJob({ applicantId, voterId, jobId, reputationManager = null, moltbotRegistry = null }) {
     this.registerAgent(applicantId);
     this.registerAgent(voterId);
     this.cleanupExpiredApplications();
@@ -707,10 +775,39 @@ export class EconomyManager {
     if (!application || application.applicantId !== applicantId) {
       throw new Error('Application not found');
     }
-    application.votes.add(voterId);
+    if (!(application.votes instanceof Map)) {
+      const prevVotes = application.votes instanceof Set ? Array.from(application.votes) : Array.from(application.votes || []);
+      application.votes = new Map(prevVotes.map(voter => [voter, 1]));
+    }
+
+    const relation = this.getRelationshipVoteWeight(voterId, applicantId, moltbotRegistry);
+    if (!relation.eligible) {
+      throw new Error('Not enough trust to vote for this applicant yet');
+    }
+    const repWeight = this.getVoteWeight(voterId, reputationManager);
+    const voterWeight = Number(((relation.weight * 0.7) + (repWeight * 0.3)).toFixed(3));
+    application.votes.set(voterId, voterWeight);
+
     const votes = application.votes.size;
+    const weightedVotes = this.computeApplicationWeight(application, reputationManager);
+    const applicantBonus = this.getApplicantBonus(applicantId, reputationManager);
+    const finalScore = weightedVotes + applicantBonus;
     const requiredVotes = this.getRequiredVotes(application);
-    if (votes >= requiredVotes) {
+
+    if (reputationManager) {
+      reputationManager.adjust(voterId, 0.35, {
+        reason: 'job_vote_cast',
+        jobId,
+        applicantId,
+        weight: voterWeight,
+        relationTrust: relation.trust,
+        relationAffinity: relation.affinity,
+        relationInteractions: relation.interactions
+      });
+      reputationManager.adjust(applicantId, 0.15, { reason: 'job_vote_received', jobId, voterId });
+    }
+
+    if (finalScore >= requiredVotes) {
       const job = this.jobs.get(jobId);
       if (!job) throw new Error('Job not found');
       if (job.assignedTo) throw new Error('Job already filled');
@@ -718,9 +815,31 @@ export class EconomyManager {
       this.jobAssignments.set(applicantId, jobId);
       this.persistJobAssignment(applicantId, jobId);
       this.jobApplications.delete(jobId);
-      return { status: 'approved', job, votes };
+
+      if (reputationManager) {
+        reputationManager.adjust(applicantId, 0.8, { reason: 'job_assignment_approved', jobId, weightedVotes, applicantBonus });
+      }
+
+      return {
+        status: 'approved',
+        job,
+        votes,
+        weightedVotes: Number(weightedVotes.toFixed(2)),
+        applicantBonus: Number(applicantBonus.toFixed(2)),
+        score: Number(finalScore.toFixed(2)),
+        required: requiredVotes
+      };
     }
-    return { status: 'pending', jobId, votes, required: requiredVotes };
+
+    return {
+      status: 'pending',
+      jobId,
+      votes,
+      weightedVotes: Number(weightedVotes.toFixed(2)),
+      applicantBonus: Number(applicantBonus.toFixed(2)),
+      score: Number(finalScore.toFixed(2)),
+      required: requiredVotes
+    };
   }
 
   submitReview({ agentId, reviewerId, score, tags = [], reason = '' }) {
@@ -874,7 +993,17 @@ export class EconomyManager {
       balances: Array.from(this.balances.entries()),
       jobs: Array.from(this.jobs.entries()),
       jobAssignments: Array.from(this.jobAssignments.entries()),
-      jobApplications: Array.from(this.jobApplications.entries()).map(([jobId, app]) => [jobId, { ...app, votes: Array.from(app.votes) }]),
+      jobApplications: Array.from(this.jobApplications.entries()).map(([jobId, app]) => [
+        jobId,
+        {
+          ...app,
+          votes: app.votes instanceof Map
+            ? Array.from(app.votes.entries())
+            : app.votes instanceof Set
+              ? Array.from(app.votes).map(voterId => [voterId, 1])
+              : []
+        }
+      ]),
       reviews: Array.from(this.reviews.entries()),
       properties: Array.from(this.properties.entries()),
       transactions: Array.from(this.transactions.entries()),
@@ -911,10 +1040,16 @@ export class EconomyManager {
       }
     });
 
-    this.jobApplications = new Map((snapshot.jobApplications || []).map(([jobId, app]) => [
-      jobId,
-      { ...app, votes: new Set(app?.votes || []) }
-    ]));
+    this.jobApplications = new Map((snapshot.jobApplications || []).map(([jobId, app]) => {
+      const rawVotes = app?.votes || [];
+      const votesMap = new Map(
+        rawVotes.map((entry) => {
+          if (Array.isArray(entry)) return [entry[0], Number(entry[1]) || 1];
+          return [entry, 1];
+        })
+      );
+      return [jobId, { ...app, votes: votesMap }];
+    }));
 
     this.reviews = new Map(snapshot.reviews || []);
 

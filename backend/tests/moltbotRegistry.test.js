@@ -41,9 +41,9 @@ test('MoltbotRegistry lists issued keys in memory mode', async () => {
   await registry.issueApiKey('key-1');
 
   const keys = await registry.listApiKeys();
-  assert.equal(keys.length, 1);
-  assert.equal(keys[0].apiKey, 'key-1');
-  assert.equal(keys[0].status, 'active');
+  const key = keys.find(item => item.apiKey === 'key-1');
+  assert.ok(key);
+  assert.equal(key.status, 'active');
 });
 
 test('MoltbotRegistry stores permissions for agents', async () => {

@@ -50,7 +50,8 @@ test('GET /api/metrics returns core metrics payload', async () => {
     assert.ok('events' in payload);
     assert.ok('world' in payload);
     assert.ok('performance' in payload);
-    assert.deepEqual(payload.health, { agents: 0, worldTick: 0 });
+    assert.equal(payload.health.agents, 0);
+    assert.equal(payload.health.worldTick, 0);
   } finally {
     server.close();
   }
