@@ -1,5 +1,12 @@
 $ErrorActionPreference = 'SilentlyContinue'
 
+# Singleton guard: prevent multiple supervisor instances fighting each other.
+$global:MoltvilleSupervisorMutex = New-Object System.Threading.Mutex($false, 'Global\MOLTVILLE_OBSERVABILITY_SUPERVISOR')
+if (-not $global:MoltvilleSupervisorMutex.WaitOne(0, $false)) {
+  Write-Output 'observability_supervisor already running; exiting duplicate instance.'
+  exit 0
+}
+
 $root = 'C:\Users\juanp\Documents\Moltville\MOLTVILLE'
 $backendDir = Join-Path $root 'backend'
 $agentsRoot = Join-Path $root 'skill\agents'
