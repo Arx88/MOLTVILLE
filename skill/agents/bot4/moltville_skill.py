@@ -8,7 +8,7 @@ import json
 import asyncio
 import socketio
 import aiohttp
-from typing import Dict, List, Optional, Any
+from typing import Dict, List, Optional, Any, Tuple
 from pathlib import Path
 from collections import deque
 import logging
@@ -1538,10 +1538,13 @@ class MOLTVILLESkill:
             return 0.0
         return min(1.8, 0.45 * (repeats - 1))
 
-    def _action_base_utility(self, action: Dict[str, Any], perception: Dict[str, Any]) -> float:
+    def _action_vector_score(self, action: Dict[str, Any], perception: Dict[str, Any]) -> Tuple[float, Dict[str, float]]:
         if not isinstance(action, dict):
-            return -999.0
+            return -999.0, {"invalid": 1.0}
         action_type = str(action.get("type") or "")
+        if not action_type:
+            return -999.0, {"invalid": 1.0}
+
         needs = (perception.get("needs") or {}) if isinstance(perception, dict) else {}
         social_need = float(needs.get("social", 100) or 100)
         hunger = float(needs.get("hunger", 0) or 0)
@@ -1555,35 +1558,73 @@ class MOLTVILLESkill:
         coord_active = int(self._coord_state.get("activeCount", 0)) if isinstance(self._coord_state, dict) else 0
         my_coord_open = int(self._coord_state.get("myOpenCommitments", 0)) if isinstance(self._coord_state, dict) else 0
 
-        if action_type == "coord_update_commit":
-            return 1.35 - (0.25 * max(0, my_coord_open - 1))
-        if action_type == "coord_commit":
-            return 1.2 - (0.2 * my_coord_open)
-        if action_type == "coord_join":
-            return 1.05 - (0.15 * max(0, coord_active - 1))
-        if action_type == "coord_create_proposal":
-            return 0.9 if coord_active == 0 else 0.35
-        if action_type == "apply_job":
-            return 2.05 if not has_job else 0.45
-        if action_type == "buy_property":
-            return 2.25 if (has_job and not has_property and balance >= 90) else 0.55
-        if action_type == "vote_job":
-            return 2.45
-        if action_type in ("join_event", "create_event"):
-            return 1.25 + (0.3 if active_events else 0.0)
-        if action_type in ("start_conversation", "conversation_message"):
-            return 1.05 + ((100.0 - social_need) / 110.0)
-        if action_type == "move_to":
-            base = 1.0
-            if hunger > 65:
-                base += 0.15
-            if energy < 35:
-                base -= 0.2
-            return base
-        if action_type == "wait":
-            return 0.25 if energy < 30 else 0.05
-        return 0.8
+        # Vector components (higher is better except risk).
+        comp = {
+            "econ_progress": 0.0,
+            "social_progress": 0.0,
+            "coord_progress": 0.0,
+            "survival": 0.0,
+            "event_progress": 0.0,
+            "risk": 0.0,
+        }
 
+        if action_type == "apply_job":
+            comp["econ_progress"] = 1.2 if not has_job else -0.3
+            comp["risk"] = 0.2 if has_job else 0.05
+        elif action_type == "buy_property":
+            comp["econ_progress"] = 1.1 if (has_job and not has_property and balance >= 90) else -0.2
+            comp["risk"] = 0.35 if balance < 110 else 0.15
+        elif action_type == "vote_job":
+            comp["econ_progress"] = 0.95
+            comp["social_progress"] = 0.25
+            comp["risk"] = 0.05
+        elif action_type in ("start_conversation", "conversation_message"):
+            comp["social_progress"] = 0.75 + ((100.0 - social_need) / 120.0)
+            comp["risk"] = 0.1
+        elif action_type in ("coord_update_commit", "coord_commit", "coord_join", "coord_create_proposal"):
+            comp["coord_progress"] = 0.9
+            if action_type == "coord_update_commit":
+                comp["coord_progress"] += 0.35 - (0.2 * max(0, my_coord_open - 1))
+            elif action_type == "coord_commit":
+                comp["coord_progress"] += 0.2 - (0.15 * my_coord_open)
+            elif action_type == "coord_join":
+                comp["coord_progress"] += 0.1 - (0.1 * max(0, coord_active - 1))
+            else:
+                comp["coord_progress"] += 0.15 if coord_active == 0 else -0.15
+            comp["risk"] = 0.1
+        elif action_type in ("join_event", "create_event"):
+            comp["event_progress"] = 0.75 + (0.25 if active_events else 0.0)
+            comp["social_progress"] = 0.2
+            comp["risk"] = 0.1
+        elif action_type == "move_to":
+            comp["survival"] = 0.45 + (0.2 if hunger > 65 else 0.0) - (0.2 if energy < 35 else 0.0)
+            comp["risk"] = 0.05
+        elif action_type == "wait":
+            comp["survival"] = 0.35 if energy < 30 else 0.05
+            comp["risk"] = 0.0
+        else:
+            comp["social_progress"] = 0.2
+            comp["risk"] = 0.1
+
+        # Dynamic policy weights: shift priorities by state instead of hardcoded branch forcing.
+        weights = {
+            "econ_progress": 1.15 if not has_job else (0.95 if not has_property else 0.7),
+            "social_progress": 0.9 if social_need < 55 else 0.65,
+            "coord_progress": 0.85,
+            "survival": 0.7 if (hunger > 60 or energy < 40) else 0.45,
+            "event_progress": 0.55,
+            "risk": 0.9,
+        }
+
+        utility = (
+            weights["econ_progress"] * comp["econ_progress"]
+            + weights["social_progress"] * comp["social_progress"]
+            + weights["coord_progress"] * comp["coord_progress"]
+            + weights["survival"] * comp["survival"]
+            + weights["event_progress"] * comp["event_progress"]
+            - weights["risk"] * comp["risk"]
+        )
+        return float(utility), comp
     async def _economy_action(self, perception: Dict[str, Any]) -> Optional[Dict[str, Any]]:
         context = (perception.get("context") or {}) if isinstance(perception, dict) else {}
         econ = (context.get("economy") or {}) if isinstance(context, dict) else {}
@@ -1653,13 +1694,23 @@ class MOLTVILLESkill:
 
         scored = []
         for candidate in candidates:
-            utility = self._action_base_utility(candidate, perception)
+            utility, vector = self._action_vector_score(candidate, perception)
             penalty = self._action_repeat_penalty(candidate)
-            scored.append((utility - penalty, candidate))
+            final_score = utility - penalty
+            scored.append((final_score, candidate, vector, penalty))
 
         scored.sort(key=lambda item: item[0], reverse=True)
+        self._log_cycle("goal_vector_scores", top=[
+            {
+                "type": item[1].get("type"),
+                "score": round(float(item[0]), 4),
+                "penalty": round(float(item[3]), 4),
+                "vector": {k: round(float(v), 4) for k, v in (item[2] or {}).items()}
+            }
+            for item in scored[:3]
+        ])
         if len(scored) > 1:
-            for score, candidate in scored[1:3]:
+            for score, candidate, _, _ in scored[1:3]:
                 self._enqueue_action(candidate, source="goal_buffer", priority=max(0.1, score))
         return scored[0][1]
 
@@ -3258,4 +3309,5 @@ if __name__ == "__main__":
         asyncio.run(main())
     except KeyboardInterrupt:
         pass
+
 
