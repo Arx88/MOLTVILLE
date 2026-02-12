@@ -1935,9 +1935,9 @@ class MOLTVILLESkill:
         if has_active_conversation:
             return {"mode": "talk", "reason": "active_conversation"}
 
-        # Objective-first gate: if employable action exists, execute regardless of social intent.
+        # Balanced gate: keep work progress, but do not suppress social dynamics when intent is social.
         work_action = await self._work_action_candidate(perception)
-        if work_action:
+        if work_action and self._current_intent == "work":
             return {"mode": "act", "reason": "work_ready", "action": work_action}
 
         return {"mode": "defer", "reason": "default"}
@@ -2006,12 +2006,12 @@ class MOLTVILLESkill:
         if pre.get("mode") == "act" and isinstance(pre.get("action"), dict):
             return pre.get("action")
 
-        # Priority gate: unblock economy pipeline first when work-critical actions exist.
-        # This is policy-based (state-driven), not scripted dialogue/behavior.
-        econ_priority = await self._economy_action(perception)
-        if isinstance(econ_priority, dict) and econ_priority.get("type") in ("vote_job", "apply_job", "buy_property"):
-            self._log_cycle("economy_priority_action", action=econ_priority.get("type"))
-            return econ_priority
+        # Economy priority only when intent is work; otherwise let vector/planning preserve social dynamism.
+        if self._current_intent == "work":
+            econ_priority = await self._economy_action(perception)
+            if isinstance(econ_priority, dict) and econ_priority.get("type") in ("vote_job", "apply_job", "buy_property"):
+                self._log_cycle("economy_priority_action", action=econ_priority.get("type"))
+                return econ_priority
 
         decision_config = self.config.get("behavior", {}).get("decisionLoop", {})
         mode = decision_config.get("mode", "heuristic")
