@@ -598,18 +598,27 @@
   .agent-name-hud { color: #d7e2ff; font-size: 12px; }
 
   .agent-profile {
-    position: absolute; right: 210px; top: 90px; width: 280px;
-    background: rgba(6, 8, 18, 0.95);
-    border: 1px solid rgba(120, 150, 255, 0.4);
-    border-radius: 16px;
-    padding: 14px;
-    color: #e6ecff;
+    position: absolute; right: 210px; top: 90px; width: 360px;
+    max-width: min(92vw, 360px);
+    max-height: min(78vh, 760px);
+    overflow: auto;
+    background: linear-gradient(180deg, rgba(18, 22, 38, 0.95), rgba(11, 14, 26, 0.95));
+    border: 1px solid rgba(255, 193, 119, 0.35);
+    border-radius: 18px;
+    padding: 16px;
+    color: #f2f5ff;
     backdrop-filter: blur(14px);
-    box-shadow: 0 20px 44px rgba(4, 6, 15, 0.55);
+    box-shadow: 0 22px 44px rgba(4, 6, 15, 0.55);
     pointer-events: auto;
     display: none;
+    z-index: 27;
   }
   .agent-profile.is-open { display: block; }
+  .agent-profile.is-dragging {
+    user-select: none;
+    cursor: grabbing;
+    box-shadow: 0 28px 56px rgba(4, 6, 15, 0.65);
+  }
   .event-panel {
     position: absolute; right: 20px; top: 90px; width: 280px;
     background: rgba(6, 8, 18, 0.95);
@@ -659,12 +668,15 @@
     display: flex;
     align-items: center;
     justify-content: space-between;
-    margin-bottom: 6px;
+    margin-bottom: 10px;
+    padding-bottom: 10px;
+    border-bottom: 1px solid rgba(255, 193, 119, 0.2);
+    cursor: grab;
   }
   .agent-profile-title {
-    font-size: 14px;
+    font-size: 16px;
     font-weight: 700;
-    color: #a8c4ff;
+    color: #ffd9a5;
   }
   .agent-profile-close {
     background: transparent;
@@ -675,31 +687,45 @@
     cursor: pointer;
   }
   .agent-profile-sub {
-    font-size: 11px;
-    color: #9bb0f5;
-    margin-bottom: 10px;
+    font-size: 12px;
+    color: #c9b6ff;
+    margin-bottom: 12px;
   }
   .agent-profile-body {
     display: grid;
-    gap: 6px;
-    font-size: 12px;
+    gap: 10px;
+    font-size: 13px;
   }
   .agent-profile-row {
-    display: flex;
-    justify-content: space-between;
-    color: #cfd8ff;
+    display: grid;
+    grid-template-columns: 132px 1fr;
+    gap: 10px;
+    align-items: start;
+    color: #d9e2ff;
+    line-height: 1.45;
+    padding: 8px 10px;
+    border-radius: 10px;
+    background: rgba(255, 255, 255, 0.03);
+    border: 1px solid rgba(255, 193, 119, 0.09);
   }
   .agent-profile-row span:first-child {
-    color: #7a85a9;
+    color: #f7c989;
+    font-weight: 600;
+  }
+  .agent-profile-row span:last-child {
+    color: #e9eeff;
+    white-space: normal;
+    word-break: break-word;
   }
   .agent-profile-speech {
-    margin-top: 10px;
-    font-size: 12px;
+    margin-top: 12px;
+    font-size: 13px;
+    line-height: 1.45;
     color: #f7f3e8;
-    background: rgba(120, 150, 255, 0.12);
-    border: 1px solid rgba(120, 150, 255, 0.2);
-    padding: 8px;
-    border-radius: 10px;
+    background: rgba(255, 193, 119, 0.12);
+    border: 1px solid rgba(255, 193, 119, 0.28);
+    padding: 10px;
+    border-radius: 12px;
   }
 
   #vote-panel, #governance-panel, #relationships-panel, #districts-panel, #economy-panel {

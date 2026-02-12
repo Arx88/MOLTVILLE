@@ -561,6 +561,10 @@ function setupAgentUiControls(scene) {
   if (elements.eventPanelClose) {
     elements.eventPanelClose.addEventListener('click', closeEventPanel);
   }
+  if (elements.profile) {
+    const header = elements.profile.querySelector('.agent-profile-header');
+    makePanelDraggable(elements.profile, header);
+  }
   const eventDisplay = document.getElementById('event-display');
   if (eventDisplay) {
     eventDisplay.addEventListener('click', () => {
@@ -581,6 +585,61 @@ function resolveAgentLocationLabel(agent) {
   return building ? building.name : `(${agent.x}, ${agent.y})`;
 }
 
+function prettifyAgentText(value) {
+  if (value == null) return '-';
+  const str = String(value).trim();
+  if (!str) return '-';
+  const normalized = str
+    .replace(/[_-]+/g, ' ')
+    .replace(/\s+/g, ' ')
+    .trim()
+    .toLowerCase();
+  return normalized.replace(/\b\w/g, (char) => char.toUpperCase());
+}
+
+function makePanelDraggable(panel, handle) {
+  if (!panel || !handle) return;
+  let dragging = false;
+  let offsetX = 0;
+  let offsetY = 0;
+
+  const onMouseMove = (event) => {
+    if (!dragging) return;
+    const maxLeft = Math.max(0, window.innerWidth - panel.offsetWidth);
+    const maxTop = Math.max(0, window.innerHeight - panel.offsetHeight);
+    const nextLeft = Math.min(maxLeft, Math.max(0, event.clientX - offsetX));
+    const nextTop = Math.min(maxTop, Math.max(0, event.clientY - offsetY));
+    panel.style.left = `${nextLeft}px`;
+    panel.style.top = `${nextTop}px`;
+    panel.style.right = 'auto';
+  };
+
+  const stopDrag = () => {
+    if (!dragging) return;
+    dragging = false;
+    panel.classList.remove('is-dragging');
+    document.removeEventListener('mousemove', onMouseMove);
+    document.removeEventListener('mouseup', stopDrag);
+  };
+
+  handle.addEventListener('mousedown', (event) => {
+    if (event.button !== 0) return;
+    const targetTag = event.target?.tagName?.toLowerCase();
+    if (targetTag === 'button') return;
+    const rect = panel.getBoundingClientRect();
+    dragging = true;
+    offsetX = event.clientX - rect.left;
+    offsetY = event.clientY - rect.top;
+    panel.classList.add('is-dragging');
+    panel.style.left = `${rect.left}px`;
+    panel.style.top = `${rect.top}px`;
+    panel.style.right = 'auto';
+    document.addEventListener('mousemove', onMouseMove);
+    document.addEventListener('mouseup', stopDrag);
+    event.preventDefault();
+  });
+}
+
 function updateAgentProfilePanel(agent) {
   const elements = getAgentUiElements();
   if (!elements.profile || !agent) return;
@@ -592,11 +651,11 @@ function updateAgentProfilePanel(agent) {
   const relations = agent.relationships?.length ?? agent.relationshipCount ?? 0;
   elements.profileRelations.textContent = relations.toString();
   if (elements.profileMotivation) {
-    const desire = agent.motivation?.desire ? String(agent.motivation.desire).replace(/_/g, ' ') : '-';
+    const desire = agent.motivation?.desire ? prettifyAgentText(agent.motivation.desire) : '-';
     elements.profileMotivation.textContent = desire;
   }
   if (elements.profilePlan) {
-    const plan = agent.plan?.primaryGoal || '-';
+    const plan = prettifyAgentText(agent.plan?.primaryGoal || '-');
     elements.profilePlan.textContent = plan;
   }
   if (elements.profileReputation) {
@@ -613,10 +672,10 @@ function updateAgentProfilePanel(agent) {
   }
   elements.profileSpeech.textContent = agent.lastSpeech || agent.cognition?.externalSpeech || 'Sin diálogo reciente';
   if (elements.profileThoughtInternal) {
-    elements.profileThoughtInternal.textContent = agent.cognition?.internalThought || '-';
+    elements.profileThoughtInternal.textContent = prettifyAgentText(agent.cognition?.internalThought || '-');
   }
   if (elements.profileThoughtExternal) {
-    elements.profileThoughtExternal.textContent = agent.cognition?.externalIntent || '-';
+    elements.profileThoughtExternal.textContent = prettifyAgentText(agent.cognition?.externalIntent || '-');
   }
 }
 
