@@ -1,4 +1,4 @@
-import express from 'express';
+﻿import express from 'express';
 import { createServer } from 'http';
 import { Server } from 'socket.io';
 import cors from 'cors';
@@ -45,8 +45,9 @@ import { NPCSpawner } from './core/NPCSpawner.js';
 import { EventScheduler } from './core/EventScheduler.js';
 import { HealthMonitor } from './core/HealthMonitor.js';
 import { MicroEventEngine } from './core/MicroEventEngine.js';
-import { hasPermission } from './utils/permissions.js';
 import { AnalyticsStore, buildDramaScore } from './utils/analyticsStore.js';
+import { createContainer } from './src/shared/container.js';
+import { registerSocketServer } from './src/infrastructure/websocket/SocketServer.js';
 
 import authRoutes from './routes/auth.js';
 import moltbotRoutes from './routes/moltbot.js';
@@ -442,6 +443,48 @@ app.locals.featureFlags = featureFlags;
 app.locals.io = io;
 app.locals.db = db;
 
+const container = createContainer({
+  io,
+  worldState,
+  moltbotRegistry,
+  actionQueue,
+  interactionEngine,
+  economyManager,
+  votingManager,
+  governanceManager,
+  cityMoodManager,
+  eventManager,
+  aestheticsManager,
+  reputationManager,
+  favorLedger,
+  recordIntentSignal
+});
+
+const socketContext = {
+  ...container,
+  services: container.services,
+  config,
+  logger,
+  metrics,
+  telemetryService,
+  trackSocketEvent,
+  trackSocketRateLimit,
+  recordSocketError,
+  recordSocketDuration,
+  sanitizeText,
+  sanitizeId,
+  isSocketRateLimited,
+  applySocketBackoff,
+  shouldBlockSocket,
+  ensureActiveApiKey,
+  emitViewerEvent,
+  disconnectTimers,
+  socketRateState,
+  AGENT_DISCONNECT_GRACE_MS,
+  SOCKET_RATE_LIMIT_MS,
+  SOCKET_SPEAK_LIMIT_MS
+};
+
 const __filename = fileURLToPath(import.meta.url);
 const __dirname = path.dirname(__filename);
 const frontendPath = path.resolve(__dirname, '../frontend');
@@ -611,650 +654,10 @@ app.get(/^\/(?!api|socket\.io).*/, (req, res) => {
   res.sendFile(path.join(frontendPath, 'index.html'));
 });
 
-// ── WebSocket Handling ──
-io.on('connection', (socket) => {
-  metrics.socket.connections += 1;
-  logger.info(`Client connected: ${socket.id}`);
+// â”€â”€ WebSocket Handling â”€â”€
+registerSocketServer(io, socketContext);
 
-  // Viewer joins
-  socket.on('viewer:join', (payload = {}) => {
-    const eventStart = Date.now();
-    trackSocketEvent('viewer:join');
-    try {
-      if (socket.role && socket.role !== 'viewer') {
-        socket.emit('error', { message: 'Viewer access denied' });
-        return;
-      }
-      if (config.viewerApiKey) {
-        const hasViewerKey = payload.apiKey && payload.apiKey === config.viewerApiKey;
-        const hasAdminKey = config.adminApiKey && payload.adminKey === config.adminApiKey;
-        if (!hasViewerKey && !hasAdminKey) {
-          socket.emit('error', { message: 'Viewer API key required' });
-          return;
-        }
-      }
-      socket.role = 'viewer';
-      socket.join('viewers');
-      socket.emit('world:state', {
-        ...worldState.getFullState(),
-        governance: governanceManager.getSummary(),
-        mood: cityMoodManager.getSummary(),
-        events: eventManager.getSummary(),
-        conversations: interactionEngine.getActiveConversations(),
-        economy: {
-          inventorySummary: economyManager.getInventoryStats(),
-          itemTransactionCount: economyManager.getItemTransactions(500).length
-        }
-      });
-      const baseAgents = moltbotRegistry.getAllAgents();
-      const enriched = baseAgents.map(agent => ({
-        ...agent,
-        reputation: reputationManager.getSnapshot(agent.id),
-        favors: favorLedger.getSummary(agent.id)
-      }));
-      socket.emit('agents:list', enriched);
-      logger.info(`Viewer joined: ${socket.id}`);
-    } finally {
-      recordSocketDuration('viewer:join', Date.now() - eventStart);
-    }
-  });
-
-  // Moltbot agent connection
-  socket.on('agent:connect', async (data) => {
-    const eventStart = Date.now();
-    trackSocketEvent('agent:connect');
-    try {
-      if (socket.role && socket.role !== 'agent') {
-        socket.emit('error', { message: 'Agent access denied' });
-        return;
-      }
-      const { apiKey, agentId, agentName, avatar } = data;
-      const permissions = Array.isArray(data?.permissions) ? data.permissions : undefined;
-
-      if (typeof apiKey !== 'string' || apiKey.trim().length < 32) {
-        socket.emit('error', { message: 'Invalid API key' });
-        return;
-      }
-      if (typeof agentName !== 'string' || agentName.trim().length === 0) {
-        socket.emit('error', { message: 'Agent name is required' });
-        return;
-      }
-      const normalizedApiKey = apiKey.trim();
-      const existingAgent = agentId ? moltbotRegistry.getAgent(agentId) : null;
-      if (!existingAgent && !moltbotRegistry.isApiKeyIssued(normalizedApiKey)) {
-        socket.emit('error', { message: 'API key not issued' });
-        return;
-      }
-      if (existingAgent && existingAgent.apiKey && existingAgent.apiKey !== normalizedApiKey) {
-        socket.emit('error', { message: 'API key mismatch' });
-        return;
-      }
-      if (existingAgent && existingAgent.connected && existingAgent.socketId && existingAgent.socketId !== socket.id) {
-        const previousSocket = io.sockets.sockets.get(existingAgent.socketId);
-        if (previousSocket) {
-          previousSocket.emit('error', { message: 'Session replaced by new connection' });
-          previousSocket.disconnect(true);
-        }
-      }
-
-      const agent = await moltbotRegistry.registerAgent({
-        id: agentId, name: agentName.trim(),
-        avatar: avatar || 'char1',
-        permissions,
-        socketId: socket.id, apiKey: normalizedApiKey
-      });
-      const existingTimer = disconnectTimers.get(agent.id);
-      if (existingTimer) {
-        clearTimeout(existingTimer);
-        disconnectTimers.delete(agent.id);
-      }
-      economyManager.registerAgent(agent.id);
-
-      const existingPosition = worldState.getAgentPosition(agent.id);
-      const spawnPosition = existingPosition || worldState.getRandomSpawnPosition();
-      if (!existingPosition) {
-        worldState.addAgent(agent.id, spawnPosition);
-      }
-
-      socket.role = 'agent';
-      socket.agentId = agent.id;
-      socket.join('agents');
-
-      socket.emit('agent:registered', {
-        agentId: agent.id,
-        position: spawnPosition,
-        movement: worldState.getAgentMovementState(agent.id),
-        inventory: economyManager.getInventory(agent.id),
-        balance: economyManager.getBalance(agent.id),
-        context: buildAgentContext(agent.id),
-        permissions: agent.permissions,
-        worldState: {
-          ...worldState.getAgentView(agent.id),
-          governance: governanceManager.getSummary(),
-          mood: cityMoodManager.getSummary()
-        }
-      });
-
-      if (!existingPosition) {
-        io.emit('agent:spawned', {
-          id: agent.id, name: agent.name,
-          avatar: agent.avatar, position: spawnPosition
-        });
-      }
-
-      logger.info(`Agent connected: ${agentName} (${agent.id})`);
-    } catch (error) {
-      logger.error('Agent connection error:', error);
-      recordSocketError('agent:connect', error);
-      socket.emit('error', { message: error.message });
-    } finally {
-      recordSocketDuration('agent:connect', Date.now() - eventStart);
-    }
-  });
-
-  socket.on('agent:profile', (data = {}) => {
-    if (!socket.agentId) return;
-    recordIntentSignal('profile_update', { agentId: socket.agentId });
-    const updated = moltbotRegistry.updateAgentProfile(socket.agentId, data);
-    if (updated) {
-      const baseAgents = moltbotRegistry.getAllAgents();
-      const enriched = baseAgents.map(agent => ({
-        ...agent,
-        reputation: reputationManager.getSnapshot(agent.id),
-        favors: favorLedger.getSummary(agent.id)
-      }));
-      io.to('viewers').emit('agents:list', enriched);
-    }
-  });
-
-  socket.on('telemetry:action', (data = {}) => {
-    if (!socket.agentId) return;
-    recordIntentSignal('telemetry_action', { agentId: socket.agentId });
-    const entry = telemetryService.track(data.event || 'agent_action', {
-      agentId: socket.agentId,
-      ...data
-    });
-    io.to('viewers').emit('telemetry:action', entry);
-  });
-
-  // ── Single-step move (legacy) ──
-  socket.on('agent:move', async (data) => {
-    const eventStart = Date.now();
-    trackSocketEvent('agent:move');
-    try {
-      if (!socket.agentId) { socket.emit('error', { message: 'Not authenticated' }); return; }
-      if (!hasPermission(moltbotRegistry.getAgent(socket.agentId)?.permissions, 'move')) {
-        socket.emit('error', { message: 'Permission denied' });
-        return;
-      }
-      if (!ensureActiveApiKey(socket, moltbotRegistry)) { return; }
-      if (shouldBlockSocket(socket)) {
-        socket.emit('error', { message: 'Move rate limit blocked' });
-        return;
-      }
-      if (isSocketRateLimited(socket, 'agent:move', SOCKET_RATE_LIMIT_MS)) {
-        trackSocketRateLimit('agent:move');
-        const blockDuration = applySocketBackoff(socket);
-        if (blockDuration) {
-          socket.emit('error', { message: `Move rate limit blocked for ${Math.ceil(blockDuration / 1000)}s` });
-          return;
-        }
-        socket.emit('error', { message: 'Move rate limit exceeded' });
-        return;
-      }
-      const { targetX, targetY } = data;
-      if (!Number.isFinite(targetX) || !Number.isFinite(targetY)) {
-        socket.emit('error', { message: 'Invalid move target' });
-        return;
-      }
-      await actionQueue.enqueue({
-        type: 'MOVE', agentId: socket.agentId,
-        targetX, targetY, timestamp: Date.now()
-      });
-    } catch (error) {
-      logger.error('Move error:', error);
-      recordSocketError('agent:move', error);
-      socket.emit('error', { message: error.message });
-    } finally {
-      recordSocketDuration('agent:move', Date.now() - eventStart);
-    }
-  });
-
-  // ── Full pathfinding move: "go to this tile" ──
-  socket.on('agent:moveTo', async (data) => {
-    const eventStart = Date.now();
-    trackSocketEvent('agent:moveTo');
-    try {
-      if (!socket.agentId) { socket.emit('error', { message: 'Not authenticated' }); return; }
-      if (!hasPermission(moltbotRegistry.getAgent(socket.agentId)?.permissions, 'move')) {
-        socket.emit('error', { message: 'Permission denied' });
-        return;
-      }
-      if (!ensureActiveApiKey(socket, moltbotRegistry)) { return; }
-      if (shouldBlockSocket(socket)) {
-        socket.emit('error', { message: 'Move rate limit blocked' });
-        return;
-      }
-      if (isSocketRateLimited(socket, 'agent:moveTo', SOCKET_RATE_LIMIT_MS)) {
-        trackSocketRateLimit('agent:moveTo');
-        const blockDuration = applySocketBackoff(socket);
-        if (blockDuration) {
-          socket.emit('error', { message: `Move rate limit blocked for ${Math.ceil(blockDuration / 1000)}s` });
-          return;
-        }
-        socket.emit('error', { message: 'Move rate limit exceeded' });
-        return;
-      }
-      const { targetX, targetY } = data;
-      if (!Number.isFinite(targetX) || !Number.isFinite(targetY)) {
-        socket.emit('error', { message: 'Invalid move target' });
-        return;
-      }
-      await actionQueue.enqueue({
-        type: 'MOVE_TO', agentId: socket.agentId,
-        targetX, targetY, timestamp: Date.now()
-      });
-    } catch (error) {
-      logger.error('MoveTo error:', error);
-      recordSocketError('agent:moveTo', error);
-      socket.emit('error', { message: error.message });
-    } finally {
-      recordSocketDuration('agent:moveTo', Date.now() - eventStart);
-    }
-  });
-
-  socket.on('agent:speak', async (data) => {
-    const eventStart = Date.now();
-    trackSocketEvent('agent:speak');
-    try {
-      if (!socket.agentId) { socket.emit('error', { message: 'Not authenticated' }); return; }
-      if (!hasPermission(moltbotRegistry.getAgent(socket.agentId)?.permissions, 'speak')) {
-        socket.emit('error', { message: 'Permission denied' });
-        return;
-      }
-      if (!ensureActiveApiKey(socket, moltbotRegistry)) { return; }
-      if (shouldBlockSocket(socket)) {
-        socket.emit('error', { message: 'Speak rate limit blocked' });
-        return;
-      }
-      if (isSocketRateLimited(socket, 'agent:speak', SOCKET_SPEAK_LIMIT_MS)) {
-        trackSocketRateLimit('agent:speak');
-        const blockDuration = applySocketBackoff(socket);
-        if (blockDuration) {
-          socket.emit('error', { message: `Speak rate limit blocked for ${Math.ceil(blockDuration / 1000)}s` });
-          return;
-        }
-        socket.emit('error', { message: 'Speak rate limit exceeded' });
-        return;
-      }
-      const message = sanitizeText(data?.message, 500);
-      if (!message) {
-        socket.emit('error', { message: 'Message required' });
-        return;
-      }
-      const agent = moltbotRegistry.getAgent(socket.agentId);
-      const position = worldState.getAgentPosition(socket.agentId);
-
-      io.emit('agent:spoke', {
-        agentId: socket.agentId, agentName: agent.name,
-        message, position, timestamp: Date.now()
-      });
-
-      const nearbyAgents = worldState.getAgentsInRadius(position, 5);
-      for (const nearbyId of nearbyAgents) {
-        if (nearbyId !== socket.agentId) {
-          const nearbySocket = moltbotRegistry.getAgentSocket(nearbyId);
-          if (nearbySocket) {
-            io.to(nearbySocket).emit('perception:speech', {
-              from: agent.name, fromId: socket.agentId, message,
-              distance: worldState.getDistance(position, worldState.getAgentPosition(nearbyId))
-            });
-          }
-        }
-      }
-      logger.info(`${agent.name} spoke: "${message}"`);
-    } catch (error) {
-      logger.error('Speak error:', error);
-      recordSocketError('agent:speak', error);
-      socket.emit('error', { message: error.message });
-    } finally {
-      recordSocketDuration('agent:speak', Date.now() - eventStart);
-    }
-  });
-
-  socket.on('agent:conversation:start', async (data = {}) => {
-    const eventStart = Date.now();
-    trackSocketEvent('agent:conversation:start');
-    try {
-      if (!socket.agentId) { socket.emit('error', { message: 'Not authenticated' }); return; }
-      if (!hasPermission(moltbotRegistry.getAgent(socket.agentId)?.permissions, 'converse')) {
-        socket.emit('error', { message: 'Permission denied' });
-        return;
-      }
-      if (!ensureActiveApiKey(socket, moltbotRegistry)) { return; }
-      if (shouldBlockSocket(socket)) {
-        socket.emit('error', { message: 'Conversation rate limit blocked' });
-        return;
-      }
-      if (isSocketRateLimited(socket, 'agent:conversation:start', SOCKET_SPEAK_LIMIT_MS)) {
-        trackSocketRateLimit('agent:conversation:start');
-        const blockDuration = applySocketBackoff(socket);
-        if (blockDuration) {
-          socket.emit('error', { message: `Conversation rate limit blocked for ${Math.ceil(blockDuration / 1000)}s` });
-          return;
-        }
-        socket.emit('error', { message: 'Conversation rate limit exceeded' });
-        return;
-      }
-      const targetId = sanitizeId(data?.targetId);
-      const message = sanitizeText(data?.message, 500);
-      if (!targetId) {
-        socket.emit('error', { message: 'targetId is required' });
-        return;
-      }
-      if (!message) {
-        socket.emit('error', { message: 'message is required' });
-        return;
-      }
-      const conversation = await interactionEngine.initiateConversation(socket.agentId, targetId, message.trim());
-      recordIntentSignal('conversation_start', { agentId: socket.agentId });
-      const recipients = conversation.participants;
-      recipients.forEach(participantId => {
-        const socketId = moltbotRegistry.getAgentSocket(participantId);
-        if (socketId) {
-          io.to(socketId).emit('conversation:started', conversation);
-        }
-      });
-      emitViewerEvent('conversation:started', {
-        conversationId: conversation.id,
-        fromId: conversation.messages[0]?.from,
-        fromName: conversation.messages[0]?.fromName,
-        toId: conversation.messages[0]?.to,
-        toName: conversation.messages[0]?.toName,
-        message: conversation.messages[0]?.message,
-        timestamp: conversation.messages[0]?.timestamp
-      });
-    } catch (error) {
-      logger.error('Conversation start error:', error);
-      recordSocketError('agent:conversation:start', error);
-      socket.emit('error', { message: error.message });
-    } finally {
-      recordSocketDuration('agent:conversation:start', Date.now() - eventStart);
-    }
-  });
-
-  socket.on('agent:conversation:message', async (data = {}) => {
-    const eventStart = Date.now();
-    trackSocketEvent('agent:conversation:message');
-    try {
-      if (!socket.agentId) { socket.emit('error', { message: 'Not authenticated' }); return; }
-      if (!hasPermission(moltbotRegistry.getAgent(socket.agentId)?.permissions, 'converse')) {
-        socket.emit('error', { message: 'Permission denied' });
-        return;
-      }
-      if (!ensureActiveApiKey(socket, moltbotRegistry)) { return; }
-      if (shouldBlockSocket(socket)) {
-        socket.emit('error', { message: 'Conversation rate limit blocked' });
-        return;
-      }
-      if (isSocketRateLimited(socket, 'agent:conversation:message', SOCKET_SPEAK_LIMIT_MS)) {
-        trackSocketRateLimit('agent:conversation:message');
-        const blockDuration = applySocketBackoff(socket);
-        if (blockDuration) {
-          socket.emit('error', { message: `Conversation rate limit blocked for ${Math.ceil(blockDuration / 1000)}s` });
-          return;
-        }
-        socket.emit('error', { message: 'Conversation rate limit exceeded' });
-        return;
-      }
-      const conversationId = sanitizeId(data?.conversationId);
-      const message = sanitizeText(data?.message, 500);
-      if (!conversationId) {
-        socket.emit('error', { message: 'conversationId is required' });
-        return;
-      }
-      if (!message) {
-        socket.emit('error', { message: 'message is required' });
-        return;
-      }
-      const conversation = await interactionEngine.addMessageToConversation(conversationId, socket.agentId, message.trim());
-      recordIntentSignal('conversation_message', { agentId: socket.agentId });
-      conversation.participants.forEach(participantId => {
-        const socketId = moltbotRegistry.getAgentSocket(participantId);
-        if (socketId) {
-          io.to(socketId).emit('conversation:message', {
-            conversationId,
-            message: conversation.messages[conversation.messages.length - 1]
-          });
-        }
-      });
-      const lastMessage = conversation.messages[conversation.messages.length - 1];
-      emitViewerEvent('conversation:message', {
-        conversationId,
-        message: lastMessage
-      });
-    } catch (error) {
-      logger.error('Conversation message error:', error);
-      recordSocketError('agent:conversation:message', error);
-      socket.emit('error', { message: error.message });
-    } finally {
-      recordSocketDuration('agent:conversation:message', Date.now() - eventStart);
-    }
-  });
-
-  socket.on('agent:conversation:end', async (data = {}) => {
-    const eventStart = Date.now();
-    trackSocketEvent('agent:conversation:end');
-    try {
-      if (!socket.agentId) { socket.emit('error', { message: 'Not authenticated' }); return; }
-      if (!hasPermission(moltbotRegistry.getAgent(socket.agentId)?.permissions, 'converse')) {
-        socket.emit('error', { message: 'Permission denied' });
-        return;
-      }
-      if (!ensureActiveApiKey(socket, moltbotRegistry)) { return; }
-      const conversationId = sanitizeId(data?.conversationId);
-      if (!conversationId) {
-        socket.emit('error', { message: 'conversationId is required' });
-        return;
-      }
-      const conversation = await interactionEngine.endConversation(conversationId);
-      recordIntentSignal('conversation_end', { agentId: socket.agentId });
-      conversation.participants.forEach(participantId => {
-        const socketId = moltbotRegistry.getAgentSocket(participantId);
-        if (socketId) {
-          io.to(socketId).emit('conversation:ended', {
-            conversationId,
-            endedAt: conversation.endedAt
-          });
-        }
-      });
-      emitViewerEvent('conversation:ended', {
-        conversationId,
-        endedAt: conversation.endedAt
-      });
-    } catch (error) {
-      logger.error('Conversation end error:', error);
-      recordSocketError('agent:conversation:end', error);
-      socket.emit('error', { message: error.message });
-    } finally {
-      recordSocketDuration('agent:conversation:end', Date.now() - eventStart);
-    }
-  });
-
-  socket.on('agent:social', async (data = {}) => {
-    const eventStart = Date.now();
-    trackSocketEvent('agent:social');
-    try {
-      if (!socket.agentId) { socket.emit('error', { message: 'Not authenticated' }); return; }
-      if (!hasPermission(moltbotRegistry.getAgent(socket.agentId)?.permissions, 'social')) {
-        socket.emit('error', { message: 'Permission denied' });
-        return;
-      }
-      if (!ensureActiveApiKey(socket, moltbotRegistry)) { return; }
-      if (shouldBlockSocket(socket)) {
-        socket.emit('error', { message: 'Social rate limit blocked' });
-        return;
-      }
-      if (isSocketRateLimited(socket, 'agent:social', SOCKET_RATE_LIMIT_MS)) {
-        trackSocketRateLimit('agent:social');
-        const blockDuration = applySocketBackoff(socket);
-        if (blockDuration) {
-          socket.emit('error', { message: `Social rate limit blocked for ${Math.ceil(blockDuration / 1000)}s` });
-          return;
-        }
-        socket.emit('error', { message: 'Social rate limit exceeded' });
-        return;
-      }
-      const actionType = sanitizeId(data?.actionType);
-      const targetId = sanitizeId(data?.targetId);
-      const payload = data?.data;
-      if (!actionType) {
-        socket.emit('error', { message: 'actionType is required' });
-        return;
-      }
-      if (!targetId) {
-        socket.emit('error', { message: 'targetId is required' });
-        return;
-      }
-      const result = await interactionEngine.performSocialAction(socket.agentId, actionType, targetId, payload || {});
-      socket.emit('agent:social:result', result);
-      emitViewerEvent('agent:social', {
-        ...result,
-        agentId: socket.agentId,
-        targetId
-      });
-    } catch (error) {
-      logger.error('Social action error:', error);
-      recordSocketError('agent:social', error);
-      socket.emit('error', { message: error.message });
-    } finally {
-      recordSocketDuration('agent:social', Date.now() - eventStart);
-    }
-  });
-
-  socket.on('agent:action', async (data) => {
-    const eventStart = Date.now();
-    trackSocketEvent('agent:action');
-    try {
-      if (!socket.agentId) { socket.emit('error', { message: 'Not authenticated' }); return; }
-      if (!hasPermission(moltbotRegistry.getAgent(socket.agentId)?.permissions, 'action')) {
-        socket.emit('error', { message: 'Permission denied' });
-        return;
-      }
-      if (!ensureActiveApiKey(socket, moltbotRegistry)) { return; }
-      if (shouldBlockSocket(socket)) {
-        socket.emit('error', { message: 'Action rate limit blocked' });
-        return;
-      }
-      if (isSocketRateLimited(socket, 'agent:action', SOCKET_RATE_LIMIT_MS)) {
-        trackSocketRateLimit('agent:action');
-        const blockDuration = applySocketBackoff(socket);
-        if (blockDuration) {
-          socket.emit('error', { message: `Action rate limit blocked for ${Math.ceil(blockDuration / 1000)}s` });
-          return;
-        }
-        socket.emit('error', { message: 'Action rate limit exceeded' });
-        return;
-      }
-      const actionType = sanitizeId(data?.actionType);
-      const target = data?.target;
-      const params = data?.params;
-      if (!actionType) {
-        socket.emit('error', { message: 'actionType is required' });
-        return;
-      }
-      await actionQueue.enqueue({
-        type: 'ACTION', agentId: socket.agentId,
-        actionType, target, params, timestamp: Date.now()
-      });
-      recordIntentSignal('action_enqueued', {
-        agentId: socket.agentId,
-        actionType,
-        queueDepth: actionQueue.getQueueLength ? actionQueue.getQueueLength() : undefined
-      });
-      emitViewerEvent('agent:action', {
-        agentId: socket.agentId,
-        actionType,
-        target,
-        params
-      });
-    } catch (error) {
-      logger.error('Action error:', error);
-      recordSocketError('agent:action', error);
-      socket.emit('error', { message: error.message });
-    } finally {
-      recordSocketDuration('agent:action', Date.now() - eventStart);
-    }
-  });
-
-  socket.on('agent:perceive', (data) => {
-    const eventStart = Date.now();
-    trackSocketEvent('agent:perceive');
-    try {
-      if (!socket.agentId) { socket.emit('error', { message: 'Not authenticated' }); return; }
-      if (!hasPermission(moltbotRegistry.getAgent(socket.agentId)?.permissions, 'perceive')) {
-        socket.emit('error', { message: 'Permission denied' });
-        return;
-      }
-      if (!ensureActiveApiKey(socket, moltbotRegistry)) { return; }
-      if (shouldBlockSocket(socket)) {
-        socket.emit('error', { message: 'Perceive rate limit blocked' });
-        return;
-      }
-      if (isSocketRateLimited(socket, 'agent:perceive', SOCKET_PERCEIVE_LIMIT_MS)) {
-        trackSocketRateLimit('agent:perceive');
-        const blockDuration = applySocketBackoff(socket);
-        if (blockDuration) {
-          socket.emit('error', { message: `Perceive rate limit blocked for ${Math.ceil(blockDuration / 1000)}s` });
-          return;
-        }
-        return;
-      }
-      recordIntentSignal('perceive', { agentId: socket.agentId });
-      socket.emit('perception:update', {
-        ...worldState.getAgentView(socket.agentId),
-        governance: governanceManager.getSummary(),
-        mood: cityMoodManager.getSummary(),
-        events: eventManager.getSummary(),
-        context: buildAgentContext(socket.agentId),
-        conversations: interactionEngine.getAgentConversations(socket.agentId)
-      });
-    } catch (error) {
-      logger.error('Perceive error:', error);
-      recordSocketError('agent:perceive', error);
-      socket.emit('error', { message: error.message });
-    } finally {
-      recordSocketDuration('agent:perceive', Date.now() - eventStart);
-    }
-  });
-
-  socket.on('disconnect', () => {
-    if (socket.agentId) {
-      const agent = moltbotRegistry.getAgent(socket.agentId);
-      if (agent) {
-        moltbotRegistry.setAgentConnection(socket.agentId, false);
-        const existingTimer = disconnectTimers.get(socket.agentId);
-        if (existingTimer) clearTimeout(existingTimer);
-        const timeoutId = setTimeout(() => {
-          const currentAgent = moltbotRegistry.getAgent(socket.agentId);
-          if (currentAgent && !currentAgent.connected) {
-            worldState.removeAgent(socket.agentId);
-            moltbotRegistry.unregisterAgent(socket.agentId);
-            io.emit('agent:disconnected', { agentId: socket.agentId, agentName: currentAgent.name });
-            logger.info(`Agent disconnected after grace: ${currentAgent.name} (${socket.agentId})`);
-          }
-          disconnectTimers.delete(socket.agentId);
-        }, AGENT_DISCONNECT_GRACE_MS);
-        disconnectTimers.set(socket.agentId, timeoutId);
-      }
-      socketRateState.delete(socket.agentId);
-    }
-    metrics.socket.disconnections += 1;
-    logger.info(`Client disconnected: ${socket.id}`);
-  });
-});
-
-// ── World Update Loop ──
+// â”€â”€ World Update Loop â”€â”€
 // Now broadcasts interpolated positions for smooth client rendering
 setInterval(() => {
   const tickStart = Date.now();
@@ -1276,7 +679,7 @@ setInterval(() => {
   if (eventTransitions?.length) {
     emitEventGoals(eventTransitions);
   }
-  applyEventIncentives(eventTransitions);
+  container.services.eventService.applyIncentives(eventTransitions);
 
   const now = Date.now();
   if (now - lastAnalyticsRecord >= analyticsIntervalMs) {
@@ -1295,18 +698,7 @@ setInterval(() => {
   if (worldState.tickCount % 100 === 0) {
     logger.info(`World tick ${worldState.tickCount} - Agents: ${Object.keys(worldState.getAllAgentPositions()).length}`);
   }
-  io.to('viewers').emit('world:tick', {
-    tick: worldState.getCurrentTick(),
-    agents: worldState.getAllAgentPositions(), // includes interpolated x,y
-    worldTime: worldState.getTimeState(),
-    weather: worldState.getWeatherState(),
-    vote: votingManager.getVoteSummary(),
-    governance: governanceManager.getSummary(),
-    mood: cityMoodManager.getSummary(),
-    events: eventManager.getSummary(),
-    aesthetics: aestheticsManager.getVoteSummary(),
-    conversations: interactionEngine.getActiveConversations()
-  });
+  io.to('viewers').emit('world:tick', container.services.worldService.buildTickPayload());
   recordTickDuration(Date.now() - tickStart);
 }, config.worldTickRate);
 
@@ -1323,9 +715,9 @@ app.use((err, req, res, next) => {
 // Start server
 const PORT = config.port;
 httpServer.listen(PORT, () => {
-  logger.info(`🏙️  MOLTVILLE Server running on port ${config.port}`);
-  logger.info(`📡 WebSocket ready for Moltbot connections`);
-  logger.info(`🌍 World tick rate: ${config.worldTickRate}ms`);
+  logger.info(`ðŸ™ï¸  MOLTVILLE Server running on port ${config.port}`);
+  logger.info(`ðŸ“¡ WebSocket ready for Moltbot connections`);
+  logger.info(`ðŸŒ World tick rate: ${config.worldTickRate}ms`);
 });
 
 process.on('SIGTERM', () => {
@@ -1334,3 +726,5 @@ process.on('SIGTERM', () => {
 });
 
 export { io, worldState, moltbotRegistry, actionQueue, interactionEngine };
+
+

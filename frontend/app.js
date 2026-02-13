@@ -88,6 +88,11 @@ const WORLD_CONTEXT = {
 const AGENT_DIRECTORY = new Map();
 const LIVE_AGENT_COLORS = new Map();
 let viewerSocket = null;
+const uiFeedback = window.MoltvilleUI || {
+  toast: () => {},
+  setLoading: () => {},
+  setError: () => {}
+};
 const REFRESH_PERSIST_MS = 15000;
 const REFRESH_MODAL_AUTO_OPEN_MS = 60000;
 const REFRESH_MODAL_FAILURE_THRESHOLD = 3;
@@ -273,8 +278,12 @@ function handleWorldTick(scene, payload) {
 function setupViewerSocket(scene) {
   if (!window.io) return;
   if (viewerSocket) return;
-  viewerSocket = window.io(API_BASE, { transports: ['websocket'] });
+  viewerSocket = (window.MoltvilleSocket && window.MoltvilleSocket.createViewerSocket)
+    ? window.MoltvilleSocket.createViewerSocket(API_BASE)
+    : window.io(API_BASE, { transports: ['websocket'] });
   viewerSocket.on('connect', () => {
+    uiFeedback.setError('');
+    uiFeedback.toast('Viewer conectado', 'success', 1400);
     const viewerKey = getViewerKey();
     viewerSocket.emit('viewer:join', viewerKey ? { apiKey: viewerKey } : {});
   });
@@ -416,10 +425,13 @@ function setupViewerSocket(scene) {
   });
   viewerSocket.on('connect_error', () => {
     WORLD_CONTEXT.useLiveData = false;
+    uiFeedback.setError('Sin conexión al viewer en vivo');
+    uiFeedback.toast('Conexión en vivo no disponible', 'error');
     showStatusBanner('No se pudo conectar al viewer en vivo. Usando refresco.', true);
   });
   viewerSocket.on('disconnect', () => {
     WORLD_CONTEXT.useLiveData = false;
+    uiFeedback.setError('Viewer desconectado');
   });
 }
 
@@ -2605,6 +2617,7 @@ function showStatusBanner(message, isError, options = {}) {
     messageEl.textContent = message;
   }
   WORLD_CONTEXT.lastErrorMessage = message;
+  uiFeedback.setError(isError ? message : '');
   banner.classList.toggle('success', !isError);
   banner.style.display = 'block';
   if (options.persistent) {
@@ -2679,8 +2692,8 @@ function closeStatusModal() {
 
 function setRefreshState(isActive) {
   const indicator = document.getElementById('refresh-indicator');
-  if (!indicator) return;
-  indicator.classList.toggle('is-active', isActive);
+  if (indicator) indicator.classList.toggle('is-active', isActive);
+  uiFeedback.setLoading(isActive, 'Actualizando mundo…');
 }
 
 function setPollingActive(isActive) {
