@@ -14,15 +14,15 @@
                 "temperature":  0.35,
                 "model":  "qwen3:8b",
                 "apiKey":  "",
-                "timeoutSec":  60
+                "timeoutSec":  12
             },
     "behavior":  {
                      "conversationInitiation":  "high",
                      "decisionInterval":  45000,
                      "autoExplore":  true,
                      "decisionLoop":  {
-                                          "mode":  "llm",
-                                          "intervalMs":  15000,
+                                          "mode":  "heuristic",
+                                          "intervalMs":  12000,
                                           "enabled":  true
                                       }
                  },

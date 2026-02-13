@@ -2003,6 +2003,11 @@ class MOLTVILLESkill:
 
         pre = await self._pre_interaction_decision(perception)
         self._log_cycle("pre_interaction_decision", mode=pre.get("mode"), reason=pre.get("reason"), intent=self._current_intent)
+        if pre.get("mode") == "talk":
+            convo_fallback = self._fallback_conversation_action(perception)
+            if convo_fallback:
+                self._log_cycle("conversation_fallback_reply", action=convo_fallback.get("type"))
+                return convo_fallback
         if pre.get("mode") == "act" and isinstance(pre.get("action"), dict):
             return pre.get("action")
 
@@ -2532,33 +2537,29 @@ class MOLTVILLESkill:
             logger.debug("LLM decision traceback", exc_info=True)
             return None
 
+    def _fallback_social_opener(self, target_name: str, desire: Optional[str], step_label: Optional[str]) -> str:
+        desire_text = (desire or "conectar mejor con la ciudad").strip()
+        step_text = (step_label or "compartir ideas").strip()
+        return f"Hola {target_name}, estoy enfocada en {desire_text}. ¿Te va si hablamos un momento sobre {step_text}?"
+
     async def _social_initiation_action(self, target_id: str, target_name: str, step: Optional[Dict]) -> Optional[Dict[str, Any]]:
-        """
-        Attempts to generate a conversation-start action driven entirely by the agent's
-        current motivational state. No hardcoded text. If the LLM fails, returns None â€”
-        the caller falls back to moving toward a social hotspot.
-        """
         if not target_id:
             return None
-        # Rate-limit: don't try the same target more than once per 60s
         now = asyncio.get_event_loop().time()
         last_attempt = self._last_conversation_ts.get(f"initiation_{target_id}", 0)
-        if now - last_attempt < 60:
+        if now - last_attempt < 30:
             return None
 
-        step_id = step.get("id") if isinstance(step, dict) else None
         step_label = step.get("label") if isinstance(step, dict) else None
         desire = self._motivation_state.get("desire") if isinstance(self._motivation_state, dict) else None
         agent_name = self.config.get("agent", {}).get("name", "ciudadano")
 
-        # Slim payload â€” only what the LLM needs to generate a natural opener
         prompt = (
             "Eres un ciudadano de MOLTVILLE. Genera UN mensaje de apertura breve (1-2 frases) "
-            "para iniciar una conversaciÃ³n con otra persona. El mensaje debe ser natural, "
+            "para iniciar una conversacion con otra persona. El mensaje debe ser natural, "
             "surgir de tu estado actual (deseo, paso motivacional, rasgos) y no mencionar "
             "IA, modelos, sistemas ni infraestructura. "
-            "Responde ÃšNICAMENTE con JSON vÃ¡lido: {\"message\": \"...\"}. "
-            "Sin explicaciones, sin texto fuera del JSON."
+            "Responde unicamente JSON valido: {\"message\": \"...\"}."
         )
         payload = {
             "yo": agent_name,
@@ -2568,26 +2569,27 @@ class MOLTVILLESkill:
             "otraCiudadana": target_name,
             "contextoPrevio": [u.get("message", "") for u in self._recent_utterances[-2:]],
         }
-        try:
-            result = await self._call_llm_json(prompt, payload)
-            message = result.get("message") if isinstance(result, dict) else None
-            if isinstance(message, str) and message.strip() and not self._is_meta_message(message):
-                self._last_conversation_ts[f"initiation_{target_id}"] = now
-                self._log_cycle("social_initiation_ok", target=target_id)
-                return {
-                    "type": "start_conversation",
-                    "params": {"target_id": target_id, "message": message.strip()}
-                }
 
-            # LLM failed/unusable content: do not send empty message (backend 400).
-            # Return None so caller falls back to another non-broken action.
-            self._last_conversation_ts[f"initiation_{target_id}"] = now
-            self._log_cycle("social_initiation_skipped", target=target_id, reason="llm_empty_or_meta")
-            return None
+        message = None
+        try:
+            result = await asyncio.wait_for(self._call_llm_json(prompt, payload), timeout=8)
+            candidate = result.get("message") if isinstance(result, dict) else None
+            if isinstance(candidate, str) and candidate.strip() and not self._is_meta_message(candidate):
+                message = candidate.strip()
         except Exception as err:
-            self._last_conversation_ts[f"initiation_{target_id}"] = now
-            self._log_cycle("social_initiation_skipped", target=target_id, reason="llm_error", error=str(err))
-            return None
+            self._log_cycle("social_initiation_llm_timeout_or_error", target=target_id, error=str(err))
+
+        if not message:
+            message = self._fallback_social_opener(target_name, desire, step_label)
+            self._log_cycle("social_initiation_fallback", target=target_id)
+        else:
+            self._log_cycle("social_initiation_ok", target=target_id)
+
+        self._last_conversation_ts[f"initiation_{target_id}"] = now
+        return {
+            "type": "start_conversation",
+            "params": {"target_id": target_id, "message": message}
+        }
 
     async def _heuristic_decision(self, perception: Dict[str, Any]) -> Optional[Dict[str, Any]]:
         self._prune_goals()

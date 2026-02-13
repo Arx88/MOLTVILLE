@@ -1,30 +1,30 @@
 {
-  "server": {
-    "url": "ws://localhost:3001",
-    "apiKey": "moltville_1bf9c62681cf4ad0a405b297cfa42696"
-  },
-  "agent": {
-    "name": "RebelBot",
-    "avatar": "char1",
-    "personality": "proactive and technical"
-  },
-  "behavior": {
-    "autoExplore": true,
-    "conversationInitiation": "moderate",
-    "decisionInterval": 30000,
-    "decisionLoop": {
-      "enabled": true,
-      "intervalMs": 20000,
-      "mode": "llm"
-    }
-  },
-  "llm": {
-    "provider": "ollama",
-    "model": "qwen3:8b",
-    "apiKey": "",
-    "timeoutSec": 35
-  },
-  "runtime": {
-    "serverLanguage": "es"
-  }
+    "server":  {
+                   "url":  "ws://localhost:3001",
+                   "apiKey":  "moltville_1bf9c62681cf4ad0a405b297cfa42696"
+               },
+    "agent":  {
+                  "name":  "RebelBot",
+                  "avatar":  "char1",
+                  "personality":  "proactive and technical"
+              },
+    "behavior":  {
+                     "autoExplore":  true,
+                     "conversationInitiation":  "moderate",
+                     "decisionInterval":  30000,
+                     "decisionLoop":  {
+                                          "enabled":  true,
+                                          "intervalMs":  12000,
+                                          "mode":  "heuristic"
+                                      }
+                 },
+    "llm":  {
+                "provider":  "ollama",
+                "model":  "qwen3:8b",
+                "apiKey":  "",
+                "timeoutSec":  12
+            },
+    "runtime":  {
+                    "serverLanguage":  "es"
+                }
 }
