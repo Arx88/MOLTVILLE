@@ -91,6 +91,7 @@
 
 - [x] `1b65e3e` - fix(ui): serve frontend from backend root and restore proper UTF-8 text rendering
 - [x] `195e001` - fix(agents): unblock social loop with conversation fallback and faster initiation
+- [x] `2cbce4d` - docs(todo): actualizar avance del plan y evidencias de pruebas funcionales
 
 ---
 
