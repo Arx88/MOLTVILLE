@@ -5,6 +5,8 @@ import cors from 'cors';
 import helmet from 'helmet';
 import rateLimit from 'express-rate-limit';
 import { randomUUID } from 'crypto';
+import path from 'path';
+import { fileURLToPath } from 'url';
 import { loadSnapshotFile, resolveSnapshotPath, saveSnapshotFile } from './utils/snapshot.js';
 import { loadLatestSnapshotDb, saveSnapshotDb } from './utils/snapshotDb.js';
 
@@ -440,6 +442,10 @@ app.locals.featureFlags = featureFlags;
 app.locals.io = io;
 app.locals.db = db;
 
+const __filename = fileURLToPath(import.meta.url);
+const __dirname = path.dirname(__filename);
+const frontendPath = path.resolve(__dirname, '../frontend');
+
 const snapshotPath = resolveSnapshotPath(config.worldSnapshotPath);
 const saveWorldSnapshot = async () => {
   const startedAt = Date.now();
@@ -547,6 +553,12 @@ if (config.worldSnapshotIntervalMs) {
   }, config.worldSnapshotIntervalMs);
 }
 
+// Frontend static UI
+app.use(express.static(frontendPath));
+app.get('/', (req, res) => {
+  res.sendFile(path.join(frontendPath, 'index.html'));
+});
+
 // Routes
 app.use('/api/auth', authRoutes);
 app.use('/api/moltbot', moltbotRoutes);
@@ -594,6 +606,10 @@ app.use('/api/metrics', createMetricsRouter({
   reputationManager,
   featureFlags
 }));
+
+app.get(/^\/(?!api|socket\.io).*/, (req, res) => {
+  res.sendFile(path.join(frontendPath, 'index.html'));
+});
 
 // ── WebSocket Handling ──
 io.on('connection', (socket) => {
