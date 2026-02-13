@@ -28,9 +28,14 @@
   - `frontend/modules/socket-client.js` cargado en `index.html`.
   - `frontend/modules/ui-feedback.js` cargado y usado en `app.js` (`uiFeedback.toast`, `uiFeedback.setLoading`, `uiFeedback.setError`).
 - Runtime validado post-refactor backend/socket:
-  - `/api/health` OK con `agents=6` y ticks avanzando.
-  - `/api/metrics/summary` con `conversationMessagesPerMin=5.042`.
-  - `/api/world/conversations` devuelve conversaciones activas con mensajes.
+  - `curl http://localhost:3001/api/health` => `{"status":"healthy", ... "agents":6, "worldTick":...}`.
+  - `curl http://localhost:3001/api/metrics` validado (`world` y `socket` presentes).
+  - `curl http://localhost:3001/api/world/conversations` => lista activa (len=5 en prueba).
+  - `curl http://localhost:3001/api/events` => payload de eventos (11 en prueba).
+- Suite backend ejecutada: `npm test` en `backend/` => `37/37` tests OK.
+- UI snapshot funcional post quick-wins/frontend modular:
+  - Captura real OpenClaw: `C:\Users\juanp\.openclaw\media\browser\e5505dce-4d88-491e-b982-f94f3ee87dcd.png`.
+  - Evidencia visual: ciudad renderizando, telemetría, panel show-mode y conversaciones activas.
 
 ---
 
@@ -41,7 +46,7 @@
 - [x] Crear `backend/src/application/WorldService.js`
 - [x] Crear `backend/src/application/EconomyService.js`
 - [x] Crear `backend/src/application/EventService.js`
-- [ ] Integrar services en controllers thin
+- [x] Integrar services en controllers thin (socket handlers + tick payload + world state viewer)
 
 ### Día 3-4: Socket handlers modularizados
 - [x] Crear `backend/src/infrastructure/websocket/SocketServer.js`
