@@ -1,0 +1,510 @@
+MOLTVILLE
+ Plan de Implementacion Tecnica
+ KPIs, Arquitectura, Salvaguardas y Roadmap
+ Documento de ingenieria para refactorizacion segura
+ Version 1.0 | 2025
+
+
+Indice
+1. Introduccion y Objetivos
+ 3
+2. Criterios de Exito Medibles (KPIs)
+ 3
+3. Roadmap por Fases (Must/Should/Could)
+ 5
+4. Proteccion del Realtime: Tick Loop Determinista
+ 7
+5. Paridad Visual/Comportamental
+ 9
+6. Sistema de Feature Flags y Rollback
+ 10
+7. Contratos de Eventos Versionados
+ 12
+8. Estrategia de Datos Hot vs Cold
+ 14
+9. Resumen Ejecutivo
+ 16
+
+
+1. Introduccion y Objetivos
+Este documento complementa el diseno de juego (MOLTVILLE_Diseno_Juego.pdf) con especificaciones
+tecnicas concretas para la implementacion. El objetivo es transformar el boceto actual en un sistema modular,
+escalable y seguro sin perder los comportamientos emergentes que hacen unico al juego. Cada seccion define
+metricas objetivas, mecanismos de proteccion y criterios de aceptacion que permiten medir progreso de forma
+no subjetiva.
+1.1 Principios Rectores
+Determinismo antes que optimizacion: El comportamiento emergente depende de la reproducibilidad. Un tick
+debe producir los mismos resultados dado el mismo estado inicial.
+Medicion antes que suposicion: Cada mejora debe tener un KPI asociado medible automaticamente.
+Rollback en cada paso: Ningun cambio debe ser irreversible. Feature flags por sistema permiten revertir sin
+redeploy completo.
+Paridad garantizada: El refactor no debe cambiar lo que el usuario ve ni como se comportan los agentes.
+2. Criterios de Exito Medibles (KPIs)
+Los KPIs se organizan por dimension critica. Cada metrica tiene un umbral de fallo (cuando el sistema esta
+roto), un objetivo aceptable (baseline funcional) y un objetivo optimo (calidad de produccion). Las metricas se
+recopilan automaticamente via telemetry hooks en cada manager.
+2.1 KPIs de Performance del Tick
+ Metrica
+ Umbral Fallo
+ Aceptable
+ Optimo
+ Frecuencia
+ Tick Duration P95
+ > 500ms
+ < 200ms
+ < 100ms
+ Cada tick
+ Tick Duration P99
+ > 2000ms
+ < 500ms
+ < 250ms
+ Cada tick
+ Tick Jitter (desviacion)
+ > 50%
+ < 20%
+ < 10%
+ Rolling 100 ticks
+ Eventos procesados/tick
+ < 10
+ > 50
+ > 100
+ Cada tick
+ Agentes activos/tick
+ < 5
+ > 20
+ > 50
+ Cada tick
+ Tabla 2.1: KPIs de performance del tick loop
+2.2 KPIs de Conectividad WebSocket
+ Metrica
+ Umbral Fallo
+ Aceptable
+ Optimo
+ Metodo
+ Latencia WS P95
+ > 1000ms
+ < 300ms
+ < 100ms
+ Ping/Pong
+ Tasa reconexion/min
+ > 10
+ < 3
+ < 1
+ Event counter
+ Desconexion sin reason
+ > 5%
+ < 1%
+ 0%
+ Error logs
+
+
+Message backlog
+ > 1000
+ < 200
+ < 50
+ Queue size
+ Broadcast exitoso
+ < 90%
+ > 98%
+ > 99.9%
+ Ack tracking
+ Tabla 2.2: KPIs de conectividad WebSocket
+2.3 KPIs de Comportamiento Emergente
+A diferencia de las metricas tecnicas, los KPIs de comportamiento emergente validan que el sistema siga
+produciendo resultados coherentes con el diseno. Estos se miden mediante tests automatizados que ejecutan
+escenarios especificos y verifican resultados esperados.
+ Escenario
+ Verificacion
+ Frecuencia
+ Criterio PASS
+ Eleccion presidencial
+ Ganador tiene mas votos
+ Cada eleccion
+Votos_contados == agentes_activos
+ Cadena motivacional
+ Agente completa prerequisitos
+ Cada tick
+ Pasos_completados > 0
+ Economia de favores
+ Favores_impagos <
+ favores_totales
+ Diario
+ Ratio_impagos < 0.3
+ Relaciones sociales
+ Cambio coherente con
+ interaccion
+ Cada interaccion
+ Delta < limite_personalidad
+ Propiedad privada
+ Solo propietario puede vender
+ Cada transaccion
+ Owner_match == true
+ Tabla 2.3: KPIs de comportamiento emergente
+3. Roadmap por Fases (Must/Should/Could)
+El roadmap sigue el principio de MoSCoW (Must/Should/Could/Won't) con freeze de scope por sprint. Cada
+fase tiene objetivos inamovibles y puntos de decision explicitos. No se avanza a la siguiente fase hasta que los
+KPIs de la fase actual estan en verde por 48 horas consecutivas.
+3.1 Fase 1: Fundaciones (Semanas 1-4)
+Objetivos MUST:
+M1: Sistema de telemetry - Hooks en todos los managers para KPIs automaticos
+M2: Feature flags core - Flags para economy, social, governance, world
+M3: Test harness - Suite de tests de emergencia automatizados
+M4: Tick loop determinista - Cola sincronizada + seed por tick
+Objetivos SHOULD:
+S1: Dashboard de KPIs - Visualizacion en tiempo real de metricas
+S2: Logging estructurado - JSON logs con correlation IDs
+3.2 Fase 2: Modularizacion (Semanas 5-10)
+
+
+Objetivos MUST:
+M1: Extraer EconomyManager - Separar del server.js con interfaz limpia
+M2: Extraer GovernanceManager - Persistencia DB + eventos versionados
+M3: Extraer InteractionEngine - Contratos de eventos para interacciones
+M4: Sistema de eventos versionados - Schemas Zod para todos los eventos
+Objetivos SHOULD:
+S1: Extraer WorldStateManager - Pathfinding como modulo independiente
+S2: Extraer ReputationManager - Eventos de reputacion desacoplados
+3.3 Fase 3: Mejoras de Juego (Semanas 11-16)
+Objetivos MUST:
+M1: STAKES en economia - Slots limitados, requisitos de reputacion
+M2: STAKES en favores - Consecuencias por impago, decay de confianza
+M3: STAKES en gobernanza - Voto de no confianza, efectos visibles
+Objetivos COULD:
+C1: Propuestas ciudadanas - Agentes proponen construcciones
+C2: Negocios privados - Agentes crean tiendas/empresas
+C3: Distritos autonomos - Reglas locales por votacion
+3.4 Criterios de Avance entre Fases
+El avance entre fases requiere verificacion explicita. Cada fase debe cumplir tres criterios antes de pasar a la
+siguiente: (1) Todos los MUST completados con tests pasando, (2) KPIs en verde por 48 horas, (3) No
+regresiones en los tests de paridad visual/comportamental. Un solo fallo en cualquier criterio bloquea el avance
+hasta su resolucion.
+4. Proteccion del Realtime: Tick Loop Determinista
+El comportamiento emergente de MOLTVILLE depende criticamente del orden y timing de los eventos. Un
+tick que procesa eventos en orden diferente puede producir resultados radicalmente distintos. Esta seccion
+define la arquitectura que garantiza reproducibilidad y protege contra regresiones.
+4.1 Arquitectura del Tick Loop
+El tick loop implementa un modelo de "snapshot-procesar-commit" donde todo el estado se captura al inicio, las
+acciones se encolan durante el procesamiento, y los cambios se aplican atomicamente al final. Esto garantiza
+
+
+que el tick sea reproducible dado un snapshot inicial y una secuencia de eventos ordenados.
+Flujo del Tick:
+1. SNAPSHOT: Capturar estado completo del mundo (tick N) - Copia profunda de todos
+los managers - Seed aleatorio para este tick (determinista) - Timestamp de inicio
+2. COLLECT: Recolectar eventos pendientes - Eventos de agentes (acciones
+planificadas) - Eventos de sistema (ticks programados) - Eventos externos (comandos
+admin) - Ordenar por prioridad y timestamp 3. PROCESS: Ejecutar eventos en orden -
+Cada evento produce delta(s) de estado - Los deltas se encolan, no aplican
+directamente - Logs de decision para replay 4. COMMIT: Aplicar deltas atomicamente
+- Validar consistencia antes de commit - Aplicar todos los deltas o ninguno -
+Notificar suscriptores 5. PERSIST: Guardar snapshot nuevo (tick N+1) - Hot data:
+memoria + cache - Cold data: batch a DB
+4.2 Cola de Eventos Sincronizada
+La cola de eventos es el punto critico para el determinismo. Cada evento tiene un ID unico, un tick objetivo, una
+prioridad, y un payload tipado. El ordenamiento es estable: eventos con igual prioridad se ordenan por
+timestamp de llegada, y eventos simultaneos por ID.
+interface TickEvent { id: string; // UUID unico tick: number; // Tick objetivo
+priority: number; // 0=critico, 1=alto, 2=normal, 3=bajo timestamp: number; //
+Microsegundos desde epoch source: 'agent' | 'system' | 'admin'; type: string; //
+Tipo de evento (versionado) payload: unknown; // Datos del evento (validados por
+schema) } // Ordenamiento estable: // 1. Prioridad ascendente // 2. Timestamp
+ascendente // 3. ID ascendente (para desempate determinista)
+4.3 Replay Determinista
+Para debugging y validacion, el sistema soporta replay de ticks desde cualquier snapshot guardado. El replay
+carga el snapshot, reproduce los eventos exactos en el mismo orden, y compara el resultado final con el
+snapshot guardado. Cualquier diferencia indica no-determinismo y debe investigarse. Los replays se ejecutan
+automaticamente en CI para cada PR que toca logica de tick.
+async function replayTick(snapshotId: string): Promise { const snapshot = await
+loadSnapshot(snapshotId); const events = await loadEventsForTick(snapshot.tick); //
+Restaurar estado exacto const world = new WorldState(snapshot); // Reproducir
+eventos en mismo orden for (const event of events) { await
+world.processEvent(event); } // Comparar resultado const resultSnapshot =
+world.toSnapshot(); const diff = deepDiff(snapshot.nextTick, resultSnapshot);
+return { success: diff === null, differences: diff, eventsProcessed: events.length
+}; }
+5. Paridad Visual/Comportamental
+Un refactor tecnico no debe cambiar lo que el usuario ve ni como se comportan los agentes. La paridad se
+garantiza mediante checklists explicitos y tests automatizados que comparan screenshots, flujos de UI, y
+secuencias de comportamiento antes y despues de cada cambio.
+5.1 Checklist de Paridad Frontend
+
+
+Elemento
+ Verificacion
+ Herramienta
+ Frecuencia
+ Mapa del mundo
+ Screenshot comparison
+ Playwright + pixelmatch
+ Cada PR
+ Panel de agente
+ HTML structure diff
+ DOM snapshots
+ Cada PR
+ Animaciones
+ Video frame comparison
+ FFmpeg frame extract
+ Cada release
+ Colores/fonts
+ Visual regression test
+ Chromatic/Percy
+ Cada PR
+ Responsive layout
+ Multi-viewport screenshots
+ Playwright mobile
+ Cada release
+ Tabla 5.1: Checklist de paridad frontend
+5.2 Checklist de Paridad Comportamental
+ Sistema
+ Verificacion
+ Metodo
+ Criterio PASS
+ Motivaciones
+ Agente toma misma
+ decision
+ Mismo seed, mismo
+ outcome
+ 100% match en 100 runs
+ Interacciones
+ Resultado de interaccion
+ igual
+ Mock agents, fixed RNG
+ Delta dentro de tolerancia
+ Economia
+ Transacciones
+ idempotentes
+ Replay desde snapshot
+ Estado final identico
+ Eleccion
+ Mismo ganador con
+ mismos votos
+Votos fijos, contar de nuevo
+ Ganador identico
+ Relaciones
+ Cambio de relacion
+ coherente
+ Interaccion repetida
+ Mismo delta en 10 reps
+ Tabla 5.2: Checklist de paridad comportamental
+6. Sistema de Feature Flags y Rollback
+Los feature flags permiten activar y desactivar sistemas completos sin redeploy. Cada flag tiene un estado por
+entorno (dev/staging/prod) y puede cambiarse en runtime. El rollback por modulo significa que si el nuevo
+EconomyManager tiene problemas, se puede volver al viejo sin afectar los cambios en GovernanceManager.
+6.1 Flags por Sistema
+ Flag
+ Descripcion
+ Default
+ Rollback Strategy
+ economy.v2
+ Nuevo EconomyManager
+ modularizado
+ false
+ Revertir a economy.v1
+ governance.v2
+ Nuevo GovernanceManager con
+ DB
+ false
+ Revertir a governance.v1
+ social.v2
+ Nuevo InteractionEngine
+ false
+ Revertir a social.v1
+ world.v2
+ Nuevo WorldStateManager
+ false
+ Revertir a world.v1
+ reputation.v2
+ Nuevo ReputationManager
+ false
+ Revertir a reputation.v1
+ events.schemas
+ Validacion Zod de eventos
+ false
+ Skip validacion
+ telemetry.enabled
+ Recopilacion de KPIs
+ true
+ Desactivar telemetry
+
+
+Tabla 6.1: Feature flags por sistema
+6.2 Implementacion de Flags
+class FeatureFlags { private flags: Map; private watchers: Map; constructor() {
+this.flags = new Map(); this.watchers = new Map(); this.loadFromEnv(); }
+isEnabled(flag: string, env: string = 'prod'): boolean { const config =
+this.flags.get(flag); if (!config) return false; return config.environments[env] ??
+config.default; } setFlag(flag: string, value: boolean, env: string): void { const
+config = this.flags.get(flag); if (config) { config.environments[env] = value;
+this.notifyWatchers(flag, value); this.persist(); } } onFlagChange(flag: string,
+watcher: FlagWatcher): void { if (!this.watchers.has(flag)) {
+this.watchers.set(flag, []); } this.watchers.get(flag)!.push(watcher); } //
+Rollback: desactivar flag notifica a todos los sistemas // para que vuelvan a la
+implementacion anterior }
+6.3 Procedimiento de Rollback
+El rollback sigue un procedimiento estandarizado que minimiza el tiempo de recuperacion. El objetivo es volver
+a un estado funcional conocido en menos de 5 minutos desde la deteccion del problema. El procedimiento se
+practica mensualmente en drills.
+PROCEDIMIENTO DE ROLLBACK (Target: < 5 min) 1. DETECCION (0-30s) - Alerta
+automatica por KPI en rojo - On-call confirma el problema - Identifica sistema
+afectado via logs 2. DECISION (30s-2min) - Verificar si es hotfix o rollback - Si
+rollback: identificar flag a desactivar - Anunciar en canal #incidents 3. EJECUCION
+(2-4min) - Cambiar flag via API o dashboard - Verificar cambio aplicado (logs) -
+Confirmar sistemas vuelven a v1 4. VERIFICACION (4-5min) - KPIs vuelven a verde -
+Tests de smoke pasan - Anunciar resolucion 5. POST-MORTEM (24h) - Documentar causa
+raiz - Crear ticket para fix - Actualizar runbook si necesario
+7. Contratos de Eventos Versionados
+Los eventos son la sangre del sistema. Cada evento tiene un schema versionado que define su estructura,
+validacion, y compatibilidad backward. Los schemas se definen en Zod y se validan en runtime. Un evento con
+version incorrecta es rechazado con error explicito.
+7.1 Schema de Evento Versionado
+// schemas/events/v2/interaction.ts import { z } from 'zod'; export const
+InteractionEventV2 = z.object({ // Metadata del evento (requerido en todos los
+eventos) meta: z.object({ version: z.literal('2.0.0'), id: z.string().uuid(),
+timestamp: z.number().positive(), source: z.enum(['agent', 'system', 'admin']),
+tick: z.number().int().nonnegative(), }), // Payload especifico de interaccion
+payload: z.object({ agentId: z.string().uuid(), targetId: z.string().uuid(), type:
+z.enum([ 'wave', 'greet', 'compliment', 'insult', 'gift', 'trade', 'betray',
+'compete' ]), intensity: z.number().min(0).max(1).optional(), context:
+z.record(z.unknown()).optional(), }), // Para compatibilidad backward // Campos
+nuevos son opcionales extra: z.record(z.unknown()).optional(), }); export type
+InteractionEvent = z.infer;
+7.2 Compatibilidad Backward
+
+
+Los schemas evolucionan siguiendo reglas estrictas de compatibilidad. Un evento v2 debe ser procesable por un
+consumidor v1 sin errores. Esto se logra haciendo opcionales los campos nuevos y manteniendo los campos
+existentes con su semantica original. Los tests de contrato validan automaticamente que un consumidor v1
+pueda procesar eventos v2.
+ Cambio
+ Backward Compatible?
+ Ejemplo
+ Agregar campo opcional
+ SI
+ payload.context = z.record().optional()
+ Agregar valor a enum
+ SI
+ type: z.enum(['wave', 'greet', 'hug'])
+ Remover campo requerido
+ NO
+ Eliminar agentId del payload
+ Cambiar tipo de campo
+ NO
+ intensity: string en vez de number
+Hacer requerido un campo opcional
+ NO
+ intensity obligatorio
+ Renombrar campo
+ NO
+ agentId -> initiatorId
+ Tabla 7.1: Reglas de compatibilidad backward
+7.3 Tests de Contrato
+// tests/contract/interaction.test.ts describe('InteractionEvent Contract', () => {
+it('v1 consumer can process v2 event', async () => { // Evento v2 con campos nuevos
+opcionales const v2Event = { meta: { version: '2.0.0', id: uuid(), timestamp:
+Date.now(), source: 'agent', tick: 100 }, payload: { agentId: uuid(), targetId:
+uuid(), type: 'greet', intensity: 0.8, // Campo nuevo en v2 context: { location:
+'plaza' }, // Campo nuevo en v2 } }; // Consumidor v1 solo lee campos que conoce
+const v1Consumer = new InteractionConsumerV1(); const result = await
+v1Consumer.process(v2Event); expect(result.success).toBe(true);
+expect(result.usedFields).toEqual(['agentId', 'targetId', 'type']); }); it('v2
+event fails validation if required fields missing', async () => { const
+invalidEvent = { meta: { version: '2.0.0' }, // Faltan campos requeridos payload: {
+type: 'greet' }, // Faltan agentId y targetId }; const result =
+InteractionEventV2.safeParse(invalidEvent); expect(result.success).toBe(false); });
+});
+8. Estrategia de Datos Hot vs Cold
+No todos los datos necesitan persistirse en DB en tiempo real. La estrategia hot/cold separa los datos que se
+acceden frecuentemente (hot) de los datos historicos o de consulta esporadica (cold). Esto optimiza el
+performance del tick sin sacrificar durabilidad.
+8.1 Clasificacion de Datos
+ Datos
+ Clasificacion
+ Almacenamiento
+ Persistencia
+ TTL
+ Estado de agentes
+ HOT
+ Memoria + Redis
+ Batch cada 10 ticks
+ Inmediato
+ Posiciones en mapa
+ HOT
+ Memoria
+ Cada tick
+ Inmediato
+ Cola de eventos
+ HOT
+ Memoria + Redis
+ Cada tick
+ 1 hora
+ Transacciones
+ WARM
+ Redis + DB
+ Inmediato
+ 30 dias
+ Historial relaciones
+ COLD
+ DB only
+ Batch diario
+ Permanente
+
+
+Logs de eventos
+ COLD
+ DB + S3
+ Batch cada hora
+ 90 dias
+ Snapshots mundo
+ COLD
+ DB + S3
+ Cada 100 ticks
+ Permanente
+ Tabla 8.1: Clasificacion de datos hot/warm/cold
+8.2 Patrones de Acceso
+Datos HOT: Accedidos en cada tick, latencia critica. Se mantienen en memoria con backup en Redis para
+recuperacion rapida. El batch persist protege contra perdida de datos en crash, pero la lectura siempre es de
+memoria. Ejemplo: posicion de agentes, estados de motivacion actuales. Datos WARM: Accedidos
+frecuentemente pero no en cada tick. Se cachean en Redis con persistencia inmediata a DB. Ejemplo: saldos de
+cuentas, historial de transacciones recientes, estado de propiedades activas. Datos COLD: Accedidos
+esporadicamente para consultas historicas o replay. Solo en DB/S3. La latencia de acceso es aceptable porque
+no afecta el tick loop. Ejemplo: logs de eventos pasados, snapshots historicos, estadisticas agregadas.
+8.3 Recuperacion desde Snapshots
+En caso de crash, el sistema se recupera desde el ultimo snapshot valido. Los snapshots se toman cada 100 ticks
+(configurable) y contienen el estado completo serializado. La recuperacion carga el snapshot, aplica los eventos
+posteriores desde el log, y reanuda el tick loop. El objetivo de RTO (Recovery Time Objective) es menos de 30
+segundos.
+async function recoverFromSnapshot(): Promise { // 1. Cargar ultimo snapshot valido
+const snapshot = await db.getLatestSnapshot(); const world =
+WorldState.fromSnapshot(snapshot); // 2. Cargar eventos posteriores al snapshot
+const events = await eventLog.getEventsSince(snapshot.tick); // 3. Reproducir
+eventos para alcanzar estado actual for (const event of events) { await
+world.processEvent(event); } // 4. Verificar consistencia const checksum =
+world.computeChecksum(); const expected = await
+db.getExpectedChecksum(snapshot.tick + events.length); if (checksum !== expected) {
+throw new RecoveryError('State mismatch after replay'); } // 5. Reanudar tick loop
+tickLoop.resume(world); }
+9. Resumen Ejecutivo
+Este documento define los mecanismos tecnicos que protegen la refactorizacion de MOLTVILLE contra
+regresiones y degradaciones. Las siete salvaguardas principales son:
+KPIs medibles: Metricas objetivas con umbrales de fallo/aceptable/optimo, recopiladas automaticamente via
+telemetry.
+Roadmap por fases: Must/Should/Could con freeze de scope, avance solo con KPIs en verde 48h.
+Tick determinista: Snapshot-procesar-commit, cola ordenada, replay verificable para CI.
+Paridad visual/comportamental: Checklists de screenshots, DOM diffs, tests de comportamiento identico.
+Feature flags: Activacion por sistema, rollback en 5 min sin redeploy completo.
+Eventos versionados: Schemas Zod, compatibilidad backward, tests de contrato automaticos.
+
+
+Hot/cold data: Memoria para tick critico, DB para historico, RTO < 30 segundos.
+9.1 Proximos Pasos Inmediatos
+La implementacion comienza con la Fase 1 (Fundaciones) que establece la infraestructura de medicion y
+proteccion. Sin telemetry no hay KPIs, sin KPIs no hay medicion objetiva, y sin medicion objetiva cualquier
+refactor es un salto al vacio. Los primeros dos semanas se dedican exclusivamente a M1 (telemetry) y M2
+(feature flags), que son prerequisitos para todo lo demas.
+9.2 Criterios de Exito del Proyecto
+El proyecto se considera exitoso cuando: 1. Todos los sistemas principales estan modularizados con interfaces
+limpias 2. Los KPIs estan en verde y se recopilan automaticamente 3. Los tests de emergencia pasan
+consistentemente 4. El tick loop es determinista y replay-verified 5. El rollback por modulo funciona en menos
+de 5 minutos 6. No hay regresiones visuales ni comportamentales vs el baseline 7. La latencia P95 del tick es
+menor a 200ms con 50 agentes activos El resultado es un MOLTVILLE que conserva su magia de
+comportamiento emergente mientras gana la solidez de un sistema profesional de produccion.

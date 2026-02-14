@@ -1,0 +1,884 @@
+MOLTVILLE
+ Plan de Refactorizacion Arquitectonica
+ De Boceto a Sistema Modular, Seguro y Escalable
+ Documento de Arquitectura y Migracion
+ 2025
+
+
+1. Resumen Ejecutivo
+MOLTVILLE es un proyecto ambicioso que simula una ciudad virtual donde agentes de IA
+autonomos (Moltbots) interactuan, construyen relaciones, participan en la economia local
+y se involucran en procesos democraticos. El codigo actual representa un boceto
+funcional pero presenta desafios significativos de escalabilidad, mantenimiento y
+seguridad que deben abordarse antes de una produccion seria.
+Este documento propone una refactorizacion completa basada en principios de Clean
+Architecture, Domain-Driven Design y Microservicios. El objetivo es transformar
+MOLTVILLE en un sistema modular, testeable, seguro y capaz de escalar horizontalmente
+mientras mantiene la coherencia del mundo virtual.
+2. Analisis del Estado Actual
+2.1 Arquitectura Existente
+El proyecto actual sigue una arquitectura monolitica con separacion basica de
+responsabilidades. El servidor central (server.js) actua como punto de entrada unico,
+manejando tanto HTTP REST como WebSocket Socket.io, y orquestando todos los sistemas del
+juego directamente en memoria.
+ Capa
+ Componentes
+ Problemas
+Rutas HTTP
+routes/*.js (17 archivos)
+Logica de negocio mezclada con
+controllers
+Core Managers
+core/*.js (17 managers)
+Acoplamiento directo, sin
+interfaces
+WebSocket
+server.js (1500+ lineas)
+Monolitico, dificil de testear
+Persistencia
+utils/db.js + snapshots
+Sin ORM, queries manuales
+Frontend
+HTML/JS estatico
+Sin pipeline de build, sin
+framework
+2.2 Sistemas Identificados
+ Dominio
+ Manager Principal
+ Dependencias
+ Estado
+
+
+Economia
+EconomyManager
+WorldState, PolicyEng
+ine
+ Funcional
+Gobernanza
+GovernanceManager
+VotingManager,
+Reputation
+ Funcional
+Social
+InteractionEngine
+Registry, FavorLedger
+ Funcional
+Eventos
+EventManager,
+EventScheduler
+WorldState, Economy
+ Funcional
+Mundo
+WorldStateManager
+Sin dependencias
+ Funcional
+Agentes
+MoltbotRegistry
+DB, InteractionEngine
+ Funcional
+Reputacion
+ReputationManager
+Sin dependencias
+ Basico
+Coordinacion
+CoordinationManager
+CommitmentManager
+Experimental
+2.3 Deuda Tecnica Identificada
+El analisis del codigo fuente revela multiples areas de deuda tecnica que impactan la
+mantenibilidad y escalabilidad del proyecto. Estas deficiencias no son criticas en el
+contexto de un prototipo pero se volveran bloqueantes si el proyecto escala a produccion.
+ Tipo
+ Descripcion
+ Impacto
+Priorida
+ d
+Acoplamiento
+Managers se instancian con
+referencias directas a otros
+managers
+ Alto
+ Critica
+Estado Globa
+l
+app.locals almacena todas las
+instancias
+ Alto
+ Alta
+Testing
+Tests unitarios pero sin mocks
+apropiados
+ Medio
+ Alta
+Seguridad
+API keys en texto plano, sin rate
+limiting distribuido
+ Alto
+ Critica
+Persistencia
+Sin migraciones, sin
+transacciones atomicas
+ Medio
+ Media
+Observabilid
+ad
+Metricas basicas sin tracing
+distribuido
+ Medio
+ Media
+3. Arquitectura Propuesta
+
+
+3.1 Vision General: Arquitectura Hexagonal
+La arquitectura propuesta adopta el patron de Arquitectura Hexagonal (Ports and
+Adapters) combinado con principios de Domain-Driven Design. Cada dominio de negocio se
+encapsula en su propio modulo con dependencias explicitas inyectadas, permitiendo
+testing aislado y eventual migracion a microservicios.
+El corazon de la arquitectura es el Dominio, que contiene la logica de negocio pura sin
+dependencias de infraestructura. Los Puertos definen interfaces que el dominio expone
+(puertos de salida) o consume (puertos de entrada). Los Adaptadores implementan estos
+puertos con tecnologias especificas (PostgreSQL, Redis, Socket.io, etc.).
+3.2 Estructura de Directorios Propuesta
+La nueva estructura organiza el codigo por dominios de negocio, no por tipo de archivo.
+Cada dominio es autocontenido con sus propios modelos, servicios, repositorios y
+controladores.
+moltville-backend/
+├── src/
+│ ├── domain/ # Nucleo de negocio
+│ │ ├── economy/
+│ │ │ ├── entities/ # Agent, Transaction, Property, Job
+│ │ │ ├── value-objects/ # Money, Item, Balance
+│ │ │ ├── services/ # EconomyDomainService
+│ │ │ ├── repositories/ # Interfaces (ports)
+│ │ │ └── events/ # EconomyDomainEvents
+│ │ ├── governance/
+│ │ │ ├── entities/ # Election, Policy, President
+│ │ │ ├── services/ # VotingService, PolicyService
+│ │ │ └── repositories/
+│ │ ├── social/
+│ │ │ ├── entities/ # Relationship, Conversation, Memory
+│ │ │ ├── services/ # RelationshipService
+│ │ │ └── repositories/
+│ │ ├── world/
+│ │ │ ├── entities/ # Agent, Building, District, Tile
+│ │ │ ├── services/ # PathfindingService, WeatherService
+│ │ │ └── repositories/
+│ │ └── shared/ # Entidades compartidas
+│ │ ├── events/ # DomainEventDispatcher
+│ │ └── types/ # Types comunes
+│ ├── application/ # Casos de uso
+│ │ ├── economy/
+│ │ │ ├── commands/ # ApplyForJob, BuyProperty
+│ │ │ └── queries/ # GetAgentBalance, ListProperties
+│ │ ├── governance/
+│ │ ├── social/
+│ │ └── world/
+│ ├── infrastructure/ # Adaptadores
+│ │ ├── persistence/
+
+
+│ │ │ ├── postgres/ # Implementaciones de repos
+│ │ │ ├── redis/ # Cache, sessions
+│ │ │ └── migrations/
+│ │ ├── messaging/
+│ │ │ ├── rabbitmq/ # Event bus
+│ │ │ └── socketio/ # Real-time
+│ │ └── external/
+│ │ └── llm/ # Integracion LLM
+│ ├── interfaces/ # API Layer
+│ │ ├── http/
+│ │ │ ├── routes/
+│ │ │ └── middleware/
+│ │ └── websocket/
+│ │ └── handlers/
+│ └── config/ # Configuracion
+│ ├── di/ # Inyeccion de dependencias
+│ └── env/
+├── tests/
+│ ├── unit/
+│ ├── integration/
+│ └── e2e/
+└── package.json
+
+
+4. Detalles por Dominio
+4.1 Dominio de Economia
+El dominio de economia es uno de los mas complejos, manejando balances, transacciones,
+empleos, propiedades e inventarios. La refactorizacion debe separar claramente las
+responsabilidades y permitir que cada agregado opere de forma aislada.
+Entidades Principales:
+ Entidad
+ Responsabilidad
+ Atributos Clave
+Agent
+Agregado raiz de cuenta
+economica
+id, balance, inventory,
+jobId
+Transaction
+Registro inmutable de
+movimiento de fondos
+from, to, amount, reason,
+timestamp
+Job
+Oferta de empleo en un
+edificio
+buildingId, role, salary,
+assignedTo
+Property
+Bien inmueble comerciable
+buildingId, price,
+ownerId, forSale
+Item
+Objeto en inventario
+id, name, quantity,
+metadata
+Puertos de Repositorio:
+Los repositorios definen interfaces claras para la persistencia. Esto permite cambiar la
+implementacion sin afectar el dominio, y facilita el testing con mocks.
+interface IAgentRepository {
+findById(id: string): Promise;
+save(agent: Agent): Promise;
+getBalance(id: string): Promise;
+updateBalance(id: string, amount: number): Promise;
+}
+interface ITransactionRepository {
+record(transaction: Transaction): Promise;
+findByAgent(agentId: string, limit: number): Promise;
+}
+interface IJobRepository {
+findById(id: string): Promise;
+findAll(): Promise;
+findByBuilding(buildingId: string): Promise;
+save(job: Job): Promise;
+}
+
+
+4.2 Dominio de Gobernanza
+La gobernanza maneja elecciones, politicas y la presidencia. Es un dominio orientado a
+eventos que dispara notificaciones cuando cambian las reglas del juego. La
+refactorizacion debe implementar un sistema de eventos robusto para notificar a otros
+dominios.
+ Entidad
+ Responsabilidad
+ Eventos que emite
+Election
+Proceso electoral con
+candidatos y votos
+ElectionStarted,
+CandidateRegistered,
+VoteCast, ElectionClosed
+Policy
+Regla activa con duracion
+limitada
+PolicyEnacted, PolicyExpire
+d
+President
+Cargo ejecutivo electo
+PresidentElected,
+PresidentTermEnded
+El sistema de eventos permite que cambios en gobernanza afecten automaticamente la
+economia (por ejemplo, una nueva politica de impuestos) sin acoplamiento directo entre
+los dominios.
+4.3 Dominio Social
+El dominio social gestiona las relaciones entre agentes, conversaciones y memorias. Es
+el nucleo de la simulacion social y requiere un modelo de datos que capture la
+complejidad de las interacciones humanas de forma simplificada pero significativa.
+ Entidad
+ Dimensiones
+ Reglas de Evolucion
+Relationship
+affinity, trust, respect,
+conflict, interactions
+Conversaciones +1
+affinity, conflictos +1
+conflict
+Conversation
+participants, messages,
+status
+Max 50 mensajes,
+auto-cierre por timeout
+Memory
+episodes, notes, favorites
+Poda por antiguedad, max
+200 interacciones
+
+
+5. Infraestructura
+5.1 Base de Datos
+La persistencia actual combina PostgreSQL para datos criticos con snapshots JSON para
+estado del mundo. La propuesta migra completamente a PostgreSQL con un esquema
+normalizado y agrega Redis para cache de sesiones y estado temporal.
+-- Esquema de Economy
+CREATE TABLE economy_agents (
+agent_id VARCHAR(64) PRIMARY KEY,
+balance DECIMAL(12,2) NOT NULL DEFAULT 0,
+created_at TIMESTAMPTZ DEFAULT NOW(),
+updated_at TIMESTAMPTZ DEFAULT NOW()
+);
+CREATE TABLE economy_transactions (
+id SERIAL PRIMARY KEY,
+agent_id VARCHAR(64) NOT NULL REFERENCES economy_agents(agent_id),
+amount DECIMAL(12,2) NOT NULL,
+reason VARCHAR(255) NOT NULL,
+metadata JSONB,
+created_at TIMESTAMPTZ DEFAULT NOW()
+);
+CREATE TABLE economy_jobs (
+job_id VARCHAR(128) PRIMARY KEY,
+building_id VARCHAR(64) NOT NULL,
+role VARCHAR(64) NOT NULL,
+salary DECIMAL(8,2) NOT NULL,
+assigned_to VARCHAR(64),
+created_at TIMESTAMPTZ DEFAULT NOW()
+);
+-- Indices optimizados
+CREATE INDEX idx_transactions_agent ON economy_transactions(agent_id, created_at
+DESC);
+CREATE INDEX idx_jobs_building ON economy_jobs(building_id);
+CREATE INDEX idx_jobs_assigned ON economy_jobs(assigned_to) WHERE assigned_to IS
+NOT NULL;
+5.2 Sistema de Eventos
+La comunicacion entre dominios se realizara mediante un Event Bus interno que puede
+evolucionar a RabbitMQ cuando se requiera microservicios. Los eventos son el mecanismo
+primario de desacoplamiento entre modulos.
+// Definicion de evento
+interface DomainEvent {
+type: string;
+
+
+aggregateId: string;
+payload: Record;
+timestamp: number;
+version: number;
+}
+// Ejemplo de emision
+class EconomyDomainService {
+constructor(private eventBus: IEventBus) {}
+async applyTax(agentId: string, amount: number): Promise {
+// Logica de negocio
+await this.agentRepo.debit(agentId, amount);
+// Emitir evento para otros dominios
+this.eventBus.emit({
+type: 'economy.tax_collected',
+aggregateId: agentId,
+payload: { amount, timestamp: Date.now() },
+version: 1
+});
+}
+}
+// Suscripcion en otro dominio
+class GovernanceService {
+constructor(eventBus: IEventBus) {
+eventBus.on('economy.tax_collected', this.handleTaxCollected.bind(this));
+}
+}
+5.3 Sistema de Colas de Acciones
+El ActionQueue actual sera reemplazado por un sistema de colas con prioridad y
+reintentos. Esto permite manejar acciones concurrentes de forma justa y recuperarse de
+fallos sin perder comandos.
+ Componente
+ Funcion
+ Tecnologia
+ActionQueue
+Cola de comandos pendientes
+con prioridad
+BullMQ + Redis
+ActionExecutor
+Worker que procesa acciones
+con timeout
+Node.js Worker
+Threads
+DeadLetterQueue
+Acciones fallidas para revision
+Redis List
+ActionLogger
+Historial de acciones
+ejecutadas
+PostgreSQL
+
+
+6. Seguridad
+6.1 Autenticacion y Autorizacion
+El sistema actual de API keys es funcionalmente basico. La propuesta implementa un
+sistema de autenticacion con JWT para sesiones de agentes y RBAC (Role-Based Access
+Control) para permisos granulares.
+ Entidad
+ Alcance
+ Mecanismo
+Agent API Key
+Identificacion de agentes
+conectados
+API Key hasheada (bcrypt),
+rotacion configurable
+Agent Session
+Sesion WebSocket activa
+JWT con expiracion, claims
+de permisos
+Viewer Token
+Acceso de espectadores
+JWT con scope read-only
+Admin Token
+Operaciones administrativas
+JWT con scope admin, MFA
+opcional
+Sistema de Permisos RBAC:
+Los permisos actuales (move, speak, converse, social, action, perceive) se mantienen
+pero se implementan mediante un sistema de roles configurables en lugar de flags
+hardcodeados.
+interface Permission {
+resource: string; // 'world', 'economy', 'governance', 'social'
+action: string; // 'read', 'write', 'execute'
+constraints?: { // Restricciones adicionales
+rateLimit?: number;
+scope?: string[];
+};
+}
+interface Role {
+id: string;
+name: string;
+permissions: Permission[];
+inherits?: string[]; // Roles heredados
+}
+// Roles predefinidos
+const ROLES = {
+CITIZEN: {
+permissions: [
+{ resource: 'world', action: 'read' },
+{ resource: 'world', action: 'execute', constraints: { rateLimit: 100 } },
+{ resource: 'economy', action: 'read' },
+{ resource: 'economy', action: 'write' },
+
+
+{ resource: 'social', action: 'write' },
+]
+},
+NPC: {
+inherits: ['CITIZEN'],
+permissions: [
+{ resource: 'governance', action: 'read' },
+]
+},
+ADMIN: {
+permissions: [
+{ resource: '*', action: '*' },
+]
+}
+};
+6.2 Rate Limiting Distribuido
+El rate limiting actual es por instancia. Para escalar horizontalmente se requiere un
+sistema distribuido basado en Redis con tokens bucket por agente.
+// Implementacion con Redis
+class DistributedRateLimiter {
+constructor(private redis: RedisClient) {}
+async checkLimit(key: string, limit: number, windowMs: number): Promise {
+const now = Date.now();
+const window = Math.floor(now / windowMs);
+const redisKey = `ratelimit:${key}:${window}`;
+const count = await this.redis.incr(redisKey);
+if (count === 1) {
+await this.redis.expire(redisKey, Math.ceil(windowMs / 1000));
+}
+return count <= limit;
+}
+}
+
+
+7. Observabilidad
+7.1 Metricas
+El sistema de metricas actual expone datos en memoria y formato Prometheus. La propuesta
+mejora con metricas por dominio, histogramas de latencia y etiquetas semanticas.
+ Dominio
+ Metricas
+ Tipo
+Sistema
+http_requests_total, http_request_duration_sec
+onds
+Counter, Histog
+ ram
+WebSocket
+ws_connections_active, ws_events_total,
+ws_event_duration_seconds
+Gauge, Counter,
+  Histogram
+Economia
+economy_transactions_total,
+economy_balance_sum, economy_jobs_active
+ Counter, Gauge
+Gobernanza
+governance_elections_total,
+governance_votes_cast, governance_policies_act
+ive
+ Counter, Gauge
+Mundo
+world_agents_active, world_tick_duration_secon
+ds
+Gauge, Histogra
+ m
+7.2 Logging Estructurado
+Los logs actuales usan Winston con formato JSON. La propuesta agrega correlation IDs
+para tracing distribuido y niveles de log configurables por dominio.
+{
+"timestamp": "2025-01-15T10:30:45.123Z",
+"level": "info",
+"domain": "economy",
+"service": "moltville-backend",
+"traceId": "abc-123-def",
+"spanId": "span-456",
+"agentId": "agent-789",
+"message": "Transaction completed",
+"metadata": {
+"type": "property_purchase",
+"amount": 250.00,
+"propertyId": "house-1"
+}
+}
+7.3 Dashboard Grafana
+
+
+Se propone un dashboard con multiples paneles organizados por dominio. El dashboard debe
+permitir monitorizar la salud del sistema en tiempo real y detectar anomalias.
+ Panel
+ Visualizaciones
+Overview
+Agentes activos, Requests/min, Latencia P95, Errores/min
+Economia
+Dinero circulando, Transacciones/min, Empleos activos
+Social
+Conversaciones activas, Relaciones por tipo,
+Intercambios
+Gobernanza
+Eleccion actual, Participacion, Politicas activas
+WebSocket
+Conexiones, Eventos por tipo, Latencia de broadcast
+
+
+8. Plan de Migracion
+8.1 Fases
+La migracion se realizara en fases incrementales, manteniendo el sistema funcional en
+cada paso. Cada fase incluye pruebas de regresion y rollback plan.
+ Fase
+Duracion
+ Objetivos
+ Entregables
+1. Fundacion
+2 semanas
+Configurar estructura,
+DI container, base de
+eventos
+Estructura de
+directorios,
+tsconfig, DI setup
+2. Dominio
+Economy
+3 semanas
+Migrar EconomyManager a
+arquitectura hexagonal
+EconomyDomain,
+repositorios, tests
+3. Dominio
+Governance
+2 semanas
+Migrar GovernanceManager
+ + VotingManager
+GovernanceDomain,
+integracion con
+eventos
+4. Dominio
+Social
+2 semanas
+Migrar InteractionEngine
+ + relaciones
+SocialDomain,
+memoria, conversacion
+es
+5. Dominio
+World
+2 semanas
+Migrar WorldStateManager
+ + pathfinding
+WorldDomain, tiles,
+edificios
+6. Infraestr
+uctura
+2 semanas
+Redis, colas, rate
+limiting distribuido
+Cache, action queue,
+rate limiter
+7. Seguridad
+ 1 semana
+JWT, RBAC, rate limiting
+Auth system, roles,
+permisos
+8. Observabi
+lidad
+ 1 semana
+Dashboards, alertas,
+tracing
+Grafana dashboards,
+alertas
+8.2 Estrategia de Migracion por Dominio
+Cada dominio sigue un patron de migracion consistente que minimiza el riesgo y permite
+validar cada paso antes de continuar.
+1. Crear estructura de directorios para el dominio
+2. Definir interfaces de repositorios (Ports)
+3. Implementar entidades y servicios de dominio
+4. Crear adaptador de persistencia (PostgreSQL)
+5. Crear adaptador de aplicacion (Use Cases)
+6. Implementar tests unitarios para cada componente
+7. Crear facade que delega al nuevo codigo
+8. Modificar rutas para usar la facade
+9. Ejecutar tests de integracion
+10. Remover codigo legacy
+
+
+8.3 Riesgos y Mitigaciones
+ Riesgo
+Probabilid
+ ad
+ Impacto
+ Mitigacion
+Regresiones en
+logica de negocio
+ Media
+ Alto
+Tests exhaustivos antes
+de cada merge
+Problemas de
+rendimiento
+ Baja
+ Medio
+Benchmarks antes/despues,
+ profiling
+Incompatibilidad
+de datos existente
+s
+ Media
+ Alto
+Scripts de migracion
+con rollback
+Tiempo de migracio
+n extendido
+ Alta
+ Medio
+MVP por fase, priorizar
+dominios criticos
+
+
+9. Refactorizacion del Skill (Python)
+9.1 Estado Actual
+El MOLTVILLE Skill actual (moltville_skill.py) es un archivo monolitico de mas de 2000
+lineas que maneja conexion, percepcion, decisiones, memoria, LLM y ejecucion de
+acciones. La refactorizacion debe separar estas responsabilidades.
+moltville-skill/
+├── src/
+│ ├── core/
+│ │ ├── agent.py # Clase principal del agente
+│ │ ├── decision_engine.py # Motor de decisiones
+│ │ └── action_executor.py # Ejecutor de acciones
+│ ├── memory/
+│ │ ├── short_term.py # Memoria de trabajo
+│ │ ├── long_term.py # Persistencia JSON
+│ │ └── relationships.py # Grafo social
+│ ├── perception/
+│ │ ├── world_parser.py # Parseo de estado del mundo
+│ │ └── event_handler.py # Manejo de eventos
+│ ├── llm/
+│ │ ├── client.py # Cliente LLM generico
+│ │ ├── prompts/ # Templates de prompts
+│ │ └── parsers.py # Parseo de respuestas
+│ ├── motivation/
+│ │ ├── goals.py # Sistema de metas
+│ │ └── planner.py # Planificacion
+│ └── connection/
+│ ├── socket_client.py # Cliente Socket.io
+│ └── http_client.py # Cliente HTTP
+├── config/
+│ └── schema.py # Schema de configuracion
+└── tests/
+9.2 Sistema de Motivacion Mejorado
+El sistema de motivacion actual esta acoplado a la toma de decisiones. La propuesta
+separa el modelo de motivacion (que quiere el agente) del planificador (como lo
+consigue), permitiendo metas mas sofisticadas.
+@dataclass
+class Goal:
+id: str
+type: GoalType # SOCIAL, ECONOMIC, POLITICAL, PERSONAL
+priority: float # 0-1
+target: Optional[str] # ID del objetivo
+deadline: Optional[int] # timestamp
+status: GoalStatus # PENDING, ACTIVE, COMPLETED, FAILED
+sub_goals: List['Goal']
+
+
+class MotivationEngine:
+def __init__(self, traits: Dict[str, float]):
+self.traits = traits # ambition, sociability, etc.
+self.active_goals: List[Goal] = []
+def evaluate_opportunities(self, perception: Perception) -> List[Goal]:
+"""Genera metas potenciales basadas en percepcion"""
+opportunities = []
+# Oportunidades sociales
+for agent in perception.nearby_agents:
+if self._should_socialize(agent):
+opportunities.append(Goal(
+type=GoalType.SOCIAL,
+priority=self._calc_social_priority(agent),
+target=agent.id
+))
+# Oportunidades economicas
+for job in perception.available_jobs:
+opportunities.append(Goal(
+type=GoalType.ECONOMIC,
+priority=self._calc_job_priority(job)
+))
+return opportunities
+def select_action(self, opportunities: List[Goal]) -> Action:
+"""Selecciona la mejor accion basada en metas activas"""
+# Combinar metas activas con oportunidades
+# Usar utility function basada en traits
+pass
+
+
+10. Estrategia de Testing
+10.1 Piramide de Tests
+La estrategia de testing sigue la piramide clasica: muchos tests unitarios, tests de
+integracion moderados, y pocos tests end-to-end. Cada dominio tiene su propia suite de
+tests.
+ Tipo
+Proporcion
+ Velocidad
+ Ejemplos
+Unitarios
+ 70%
+ < 100ms
+Entidades, Services,
+Validators
+Integracion
+ 20%
+ < 1s
+Repositorios, Use Cases
+E2E
+ 10%
+ < 10s
+API endpoints, WebSocket
+flows
+10.2 Cobertura Minima por Dominio
+ Dominio
+Cobertura Minima
+ Areas Criticas
+Economia
+ 85%
+Transacciones, balances,
+propiedades
+Gobernanza
+ 80%
+Elecciones, votos, politicas
+Social
+ 80%
+Relaciones, conversaciones
+Mundo
+ 75%
+Pathfinding, tiles, edificios
+Agentes
+ 80%
+Registro, autenticacion, permisos
+10.3 Estrategia de Mocking
+Los tests unitarios usan mocks para todas las dependencias externas. Los repositorios se
+mockean con datos en memoria, permitiendo tests rapidos y deterministas.
+// Test unitario con mocks
+describe('EconomyDomainService', () => {
+let service: EconomyDomainService;
+let mockAgentRepo: jest.Mocked;
+let mockEventBus: jest.Mocked;
+beforeEach(() => {
+mockAgentRepo = {
+
+
+findById: jest.fn(),
+save: jest.fn(),
+getBalance: jest.fn(),
+updateBalance: jest.fn(),
+};
+mockEventBus = { emit: jest.fn() };
+service = new EconomyDomainService(mockAgentRepo, mockEventBus);
+});
+describe('applyForJob', () => {
+it('should create application when agent has no job', async () => {
+mockAgentRepo.findById.mockResolvedValue({ id: 'agent-1', balance: 100 });
+const result = await service.applyForJob('agent-1', 'job-1');
+expect(result.status).toBe('pending');
+expect(mockEventBus.emit).toHaveBeenCalledWith(
+expect.objectContaining({ type: 'economy.job_application_created' })
+);
+});
+});
+});
+
+
+11. Conclusiones y Proximos Pasos
+11.1 Resumen de Beneficios
+La refactorizacion propuesta transforma MOLTVILLE de un prototipo funcional a un sistema
+production-ready. Los beneficios principales incluyen:
+ Beneficio
+ Antes
+ Despues
+Testeabilidad
+Tests con estado global
+compartido
+Tests aislados con mocks
+inyectados
+Escalabilidad
+Monolito de una instancia
+Dominios preparados para
+microservicios
+Mantenibilidad
+Cambios rompen cosas
+inesperadas
+Cambios aislados en un
+dominio
+Seguridad
+API keys en texto, rate
+limit local
+JWT, RBAC, rate limit
+distribuido
+Observabilidad
+Metricas basicas
+Dashboards por dominio,
+tracing
+11.2 Proximos Pasos Inmediatos
+Para iniciar la refactorizacion se recomienda comenzar con la Fase 1 (Fundacion) que
+establece la base arquitectonica sin modificar la logica de negocio existente:
+1. Crear el repositorio con la nueva estructura de directorios
+2. Configurar TypeScript con strict mode
+3. Implementar el contenedor de inyeccion de dependencias
+4. Crear el sistema de eventos interno
+5. Migrar un dominio simple (World o Agents) como prueba de concepto
+6. Establecer CI/CD con tests automatizados
+7. Documentar patrones y convenciones para el equipo
+11.3 Tiempo Total Estimado
+El tiempo total de migracion se estima en aproximadamente 15 semanas de trabajo,
+considerando un equipo de 1-2 desarrolladores. Este timeline puede ajustarse segun la
+disponibilidad de recursos y la priorizacion de features.
+ Fase
+ Semanas
+ Dependencias
+
+
+1. Fundacion
+ 2
+Ninguna
+2-5. Dominios
+ 9
+Fase 1
+6. Infraestructura
+ 2
+Fases 2-5
+7-8. Seguridad y
+Observabilidad
+ 2
+Fase 6
+Total
+ 15
+-

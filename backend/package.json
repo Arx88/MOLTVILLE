@@ -9,7 +9,9 @@
     "dev": "nodemon server.js",
     "init-db": "node scripts/initDatabase.js",
     "migrate": "node scripts/migrate.js",
-    "test": "node --test --experimental-test-coverage --test-coverage-lines=65 --test-coverage-include=core/EconomyManager.js --test-coverage-include=core/MoltbotRegistry.js --test-coverage-include=routes/metrics.js --test-coverage-include=utils/metrics.js --test-coverage-include=utils/permissions.js"
+    "test": "node --test --experimental-test-coverage --test-coverage-lines=65 --test-coverage-include=core/EconomyManager.js --test-coverage-include=core/MoltbotRegistry.js --test-coverage-include=routes/metrics.js --test-coverage-include=utils/metrics.js --test-coverage-include=utils/permissions.js",
+    "test:contracts": "node --test tests/visualContract.test.js tests/determinism/election.test.js tests/determinism/replay.test.js",
+    "check:syntax": "node --check server.js && node --check core/VotingManager.js && node --check routes/world.js && node --check routes/vote.js"
   },
   "keywords": ["moltville", "moltbot", "ai-agents", "virtual-city"],
   "author": "",

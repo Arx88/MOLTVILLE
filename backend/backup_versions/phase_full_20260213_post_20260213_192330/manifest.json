@@ -1,0 +1,44 @@
+﻿[
+    {
+        "source":  "C:\\Users\\juanp\\Downloads\\MOLTVILLE\\MOLTVILLE-main\\backend\\server.js",
+        "backup":  "C:\\Users\\juanp\\Downloads\\MOLTVILLE\\MOLTVILLE-main\\backend\\backup_versions\\phase_full_20260213_post_20260213_192330\\server.js.bak.v1",
+        "bytes":  50296,
+        "copiedAt":  "2026-02-13T19:23:30.1063514+01:00"
+    },
+    {
+        "source":  "C:\\Users\\juanp\\Downloads\\MOLTVILLE\\MOLTVILLE-main\\frontend\\app.js",
+        "backup":  "C:\\Users\\juanp\\Downloads\\MOLTVILLE\\MOLTVILLE-main\\backend\\backup_versions\\phase_full_20260213_post_20260213_192330\\app.js.bak.v1",
+        "bytes":  163924,
+        "copiedAt":  "2026-02-13T19:23:30.1140608+01:00"
+    },
+    {
+        "source":  "C:\\Users\\juanp\\Downloads\\MOLTVILLE\\MOLTVILLE-main\\frontend\\index.html",
+        "backup":  "C:\\Users\\juanp\\Downloads\\MOLTVILLE\\MOLTVILLE-main\\backend\\backup_versions\\phase_full_20260213_post_20260213_192330\\index.html.bak.v1",
+        "bytes":  8721,
+        "copiedAt":  "2026-02-13T19:23:30.1186512+01:00"
+    },
+    {
+        "source":  "C:\\Users\\juanp\\Downloads\\MOLTVILLE\\MOLTVILLE-main\\backend\\bootstrap\\httpRoutes.js",
+        "backup":  "C:\\Users\\juanp\\Downloads\\MOLTVILLE\\MOLTVILLE-main\\backend\\backup_versions\\phase_full_20260213_post_20260213_192330\\httpRoutes.js.bak.v1",
+        "bytes":  3055,
+        "copiedAt":  "2026-02-13T19:23:30.1212117+01:00"
+    },
+    {
+        "source":  "C:\\Users\\juanp\\Downloads\\MOLTVILLE\\MOLTVILLE-main\\backend\\bootstrap\\gracefulShutdown.js",
+        "backup":  "C:\\Users\\juanp\\Downloads\\MOLTVILLE\\MOLTVILLE-main\\backend\\backup_versions\\phase_full_20260213_post_20260213_192330\\gracefulShutdown.js.bak.v1",
+        "bytes":  308,
+        "copiedAt":  "2026-02-13T19:23:30.1227298+01:00"
+    },
+    {
+        "source":  "C:\\Users\\juanp\\Downloads\\MOLTVILLE\\MOLTVILLE-main\\frontend\\runtime\\viewerStorage.js",
+        "backup":  "C:\\Users\\juanp\\Downloads\\MOLTVILLE\\MOLTVILLE-main\\backend\\backup_versions\\phase_full_20260213_post_20260213_192330\\viewerStorage.js.bak.v1",
+        "bytes":  2097,
+        "copiedAt":  "2026-02-13T19:23:30.1257713+01:00"
+    },
+    {
+        "source":  "C:\\Users\\juanp\\Downloads\\MOLTVILLE\\MOLTVILLE-main\\backend\\tests\\votingProposals.test.js",
+        "backup":  "C:\\Users\\juanp\\Downloads\\MOLTVILLE\\MOLTVILLE-main\\backend\\backup_versions\\phase_full_20260213_post_20260213_192330\\votingProposals.test.js.bak.v1",
+        "bytes":  2932,
+        "copiedAt":  "2026-02-13T19:23:30.1272908+01:00"
+    }
+]

@@ -33,6 +33,8 @@ __pycache__/
 .moltville_agent_id
 backend_pid.txt
 world_snapshot.json
+backend/world_snapshot.json
+backend/data/api-keys.json
 
 # IDEs
 .vscode/

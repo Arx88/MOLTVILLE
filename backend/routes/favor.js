@@ -5,25 +5,77 @@ import { JoiHelpers, validateBody } from '../utils/validation.js';
 const router = express.Router();
 const { Joi } = JoiHelpers;
 
-const favorSchema = Joi.object({
+const favorCreateSchema = Joi.object({
   from: Joi.string().trim().required(),
   to: Joi.string().trim().required(),
   value: Joi.number().min(1).default(1),
-  reason: Joi.string().allow('').default('')
+  reason: Joi.string().allow('').default(''),
+  dueAt: Joi.number().optional(),
+  dueInMs: Joi.number().positive().optional()
 });
 
-router.get('/:agentId', requireAgentKey({ allowAdmin: true, useSuccessResponse: true, getAgentId: req => req.params.agentId }), (req, res) => {
+const favorRepaySchema = Joi.object({
+  from: Joi.string().trim().required(),
+  to: Joi.string().trim().required(),
+  value: Joi.number().min(1).default(1)
+});
+
+const transferSchema = Joi.object({
+  favorId: Joi.string().trim().required(),
+  newCreditor: Joi.string().trim().required(),
+  byAgentId: Joi.string().trim().optional()
+});
+
+router.get('/:agentId', requireAgentKey({
+  allowAdmin: true,
+  useSuccessResponse: true,
+  getAgentId: (req) => req.params.agentId
+}), (req, res) => {
   const { agentId } = req.params;
   const ledger = req.app.locals.favorLedger;
-  res.json({ agentId, entries: ledger.listForAgent(agentId), summary: ledger.getSummary(agentId) });
+  res.json({
+    agentId,
+    entries: ledger.listForAgent(agentId),
+    summary: ledger.getSummary(agentId)
+  });
 });
 
-router.post('/create', requireAgentKey({ allowAdmin: true, useSuccessResponse: true, getAgentId: req => req.body?.from }), validateBody(favorSchema), (req, res) => {
+router.get('/:agentId/overdue', requireAgentKey({
+  allowAdmin: true,
+  useSuccessResponse: true,
+  getAgentId: (req) => req.params.agentId
+}), (req, res) => {
+  const { agentId } = req.params;
+  const ledger = req.app.locals.favorLedger;
+  res.json({
+    agentId,
+    overdue: ledger.listOverdue(agentId)
+  });
+});
+
+router.get('/:agentId/risk', requireAgentKey({
+  allowAdmin: true,
+  useSuccessResponse: true,
+  getAgentId: (req) => req.params.agentId
+}), (req, res) => {
+  const { agentId } = req.params;
+  const ledger = req.app.locals.favorLedger;
+  const risk = ledger.getRiskProfile(agentId);
+  res.json({
+    agentId,
+    risk
+  });
+});
+
+router.post('/create', requireAgentKey({
+  allowAdmin: true,
+  useSuccessResponse: true,
+  getAgentId: (req) => req.body?.from
+}), validateBody(favorCreateSchema), (req, res) => {
   const ledger = req.app.locals.favorLedger;
   const reputationManager = req.app.locals.reputationManager;
   try {
     const entry = ledger.createFavor(req.body);
-    // "to" entrega el favor; "from" queda en deuda.
     if (reputationManager) {
       reputationManager.adjust(entry.to, 0.8, { reason: 'favor_delivered', favorId: entry.id, from: entry.from, to: entry.to });
       reputationManager.adjust(entry.from, 0.1, { reason: 'favor_received', favorId: entry.id, from: entry.from, to: entry.to });
@@ -34,7 +86,11 @@ router.post('/create', requireAgentKey({ allowAdmin: true, useSuccessResponse: t
   }
 });
 
-router.post('/repay', requireAgentKey({ allowAdmin: true, useSuccessResponse: true, getAgentId: req => req.body?.from }), validateBody(favorSchema), (req, res) => {
+router.post('/repay', requireAgentKey({
+  allowAdmin: true,
+  useSuccessResponse: true,
+  getAgentId: (req) => req.body?.from
+}), validateBody(favorRepaySchema), (req, res) => {
   const ledger = req.app.locals.favorLedger;
   const reputationManager = req.app.locals.reputationManager;
   try {
@@ -44,6 +100,20 @@ router.post('/repay', requireAgentKey({ allowAdmin: true, useSuccessResponse: tr
       reputationManager.adjust(req.body.to, 0.35, { reason: 'favor_settlement_received', from: req.body.from, value: req.body.value });
     }
     res.json({ success: true, result });
+  } catch (error) {
+    res.status(400).json({ success: false, error: error.message });
+  }
+});
+
+router.post('/transfer', requireAgentKey({
+  allowAdmin: true,
+  useSuccessResponse: true,
+  getAgentId: (req) => req.body?.byAgentId || req.body?.newCreditor
+}), validateBody(transferSchema), (req, res) => {
+  const ledger = req.app.locals.favorLedger;
+  try {
+    const entry = ledger.transferFavor(req.body);
+    res.json({ success: true, entry });
   } catch (error) {
     res.status(400).json({ success: false, error: error.message });
   }

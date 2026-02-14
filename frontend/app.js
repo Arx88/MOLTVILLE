@@ -1,4 +1,4 @@
-// ============================================================
+﻿// ============================================================
 // MOLTVILLE - WORLD DATA
 // ============================================================
 const TILE = 32;
@@ -77,6 +77,7 @@ const WORLD_CONTEXT = {
   lastRefreshDurationMs: null,
   lastModalAutoOpenAt: null,
   useLiveData: false,
+  everUsedLiveData: false,
   activeConversations: [],
   telemetryFeed: [],
   economy: {
@@ -87,12 +88,7 @@ const WORLD_CONTEXT = {
 };
 const AGENT_DIRECTORY = new Map();
 const LIVE_AGENT_COLORS = new Map();
-let viewerSocket = null;
-const uiFeedback = window.MoltvilleUI || {
-  toast: () => {},
-  setLoading: () => {},
-  setError: () => {}
-};
+const AGENT_COLORS = ['#e74c3c','#3498db','#2ecc71','#9b59b6','#f39c12','#1abc9c','#e67e22','#e84393'];
 const REFRESH_PERSIST_MS = 15000;
 const REFRESH_MODAL_AUTO_OPEN_MS = 60000;
 const REFRESH_MODAL_FAILURE_THRESHOLD = 3;
@@ -113,6 +109,7 @@ const DEFAULT_UI_STATE = {
   showModeActive: true,
   showAllLabels: false
 };
+const viewerStorage = window.MoltvilleViewerStorage || {};
 const SHOW_MODE_DEFAULTS = {
   minSceneDurationMs: 10000,
   decayWindowMs: 30000,
@@ -164,293 +161,94 @@ const SHOW_MODE_STATE = {
   }
 };
 const SHOW_MODE_LAST_CONV_TS = new Map();
+const FEED_DUPLICATE_WINDOW_MS = 4500;
+const FEED_RECENT_LIMIT = 120;
+const FEED_RECENT_MESSAGES = new Map();
+const ENABLE_DEMO_DIALOGUES = new URLSearchParams(window.location.search).get('demo_dialogs') === '1';
 let liveAgentPositions = {};
 
+const createViewerRealtime = window.createMoltvilleViewerRealtime;
+const viewerRealtime = typeof createViewerRealtime === 'function'
+  ? createViewerRealtime({
+    apiBase: API_BASE,
+    worldContext: WORLD_CONTEXT,
+    agentDirectory: AGENT_DIRECTORY,
+    liveAgentColors: LIVE_AGENT_COLORS,
+    agentColors: AGENT_COLORS,
+    mergeBuildingVisuals,
+    getLots: () => LOTS,
+    setLots: (nextLots) => { LOTS = nextLots; },
+    getLiveAgentPositions: () => liveAgentPositions,
+    setLiveAgentPositions: (nextPositions) => { liveAgentPositions = nextPositions; },
+    getViewerKey,
+    pushFeedMessage,
+    updateAgentSpeech,
+    registerShowBeat,
+    showStatusBanner
+  })
+  : null;
+
 function getAgentColor(agentId) {
+  if (viewerRealtime && typeof viewerRealtime.getAgentColor === 'function') {
+    return viewerRealtime.getAgentColor(agentId);
+  }
   if (LIVE_AGENT_COLORS.has(agentId)) {
     return LIVE_AGENT_COLORS.get(agentId);
   }
-  let hash = 0;
-  for (let i = 0; i < agentId.length; i += 1) {
-    hash = (hash * 31 + agentId.charCodeAt(i)) % 997;
-  }
-  const color = AGENT_COLORS[hash % AGENT_COLORS.length];
-  LIVE_AGENT_COLORS.set(agentId, color);
-  return color;
+  return AGENT_COLORS[0];
 }
 
 function syncLiveAgents(scene, agentsPayload) {
-  if (!scene || !agentsPayload) return;
-  const existing = new Map(scene.agents.map(agent => [agent.id, agent]));
-  const nextAgents = [];
-  Object.entries(agentsPayload).forEach(([id, payload]) => {
-    const existingAgent = existing.get(id);
-    const directoryProfile = AGENT_DIRECTORY.get(id) || {};
-    const name = directoryProfile?.name || `Agent ${id.slice(0, 4)}`;
-    const agent = existingAgent || {
-      id,
-      name,
-      color: getAgentColor(id),
-      x: payload.x,
-      y: payload.y,
-      tx: payload.x,
-      ty: payload.y,
-      facing: payload.facing || 'down',
-      progress: 1,
-      walkCycle: 0,
-      state: payload.state || 'idle',
-      talkTimer: 0,
-      idleTimer: 0
-    };
-    agent.name = name;
-    agent.facing = payload.facing || agent.facing;
-    agent.state = payload.state || agent.state;
-    agent.progress = 1;
-    agent.x = payload.x;
-    agent.y = payload.y;
-    agent.tx = payload.x;
-    agent.ty = payload.y;
-    agent.currentBuilding = payload.currentBuilding || null;
-
-    // Merge richer profile data for agent panel.
-    agent.isNPC = Boolean(directoryProfile.isNPC);
-    agent.profile = directoryProfile.profile || null;
-    agent.traits = directoryProfile.traits || null;
-    agent.motivation = directoryProfile.motivation || null;
-    agent.plan = directoryProfile.plan || null;
-    agent.reputation = directoryProfile.reputation || null;
-    agent.favors = directoryProfile.favors || null;
-    agent.cognition = directoryProfile.cognition || null;
-    const relCount = directoryProfile.relationshipCount
-      ?? (directoryProfile.relationships && typeof directoryProfile.relationships === 'object'
-        ? Object.keys(directoryProfile.relationships).length
-        : 0);
-    agent.relationshipCount = relCount;
-
-    nextAgents.push(agent);
-  });
-  scene.agents = nextAgents;
+  if (viewerRealtime && typeof viewerRealtime.syncLiveAgents === 'function') {
+    viewerRealtime.syncLiveAgents(scene, agentsPayload);
+  }
 }
 
 function handleWorldState(scene, state) {
-  if (!state) return;
-  WORLD_CONTEXT.useLiveData = true;
-  WORLD_CONTEXT.worldTime = state.worldTime || null;
-  WORLD_CONTEXT.weather = state.weather || null;
-  WORLD_CONTEXT.mood = state.mood || null;
-  WORLD_CONTEXT.districts = state.districts || null;
-  WORLD_CONTEXT.activeConversations = state.conversations || WORLD_CONTEXT.activeConversations || [];
-  WORLD_CONTEXT.events = state.events || WORLD_CONTEXT.events || [];
-  WORLD_CONTEXT.agentCount = state.agents ? Object.keys(state.agents).length : 0;
-  liveAgentPositions = state.agents || {};
-  const themeHash = (state.districts || []).map(d => `${d.id}:${d.theme || 'classic'}`).join('|');
-  if (scene && themeHash !== WORLD_CONTEXT.districtThemeHash) {
-    WORLD_CONTEXT.districtThemeHash = themeHash;
-    scene.drawTiles();
+  if (viewerRealtime && typeof viewerRealtime.handleWorldState === 'function') {
+    viewerRealtime.handleWorldState(scene, state);
   }
-  LOTS = state.lots || [];
-  const newBuildings = mergeBuildingVisuals(state.buildings || []);
-  if (scene && newBuildings.length) {
-    scene.renderNewBuildings(newBuildings);
-  }
-  if (scene && scene.drawLots) {
-    scene.drawLots();
-  }
-  syncLiveAgents(scene, liveAgentPositions);
 }
 
 function handleWorldTick(scene, payload) {
-  if (!payload) return;
-  WORLD_CONTEXT.useLiveData = true;
-  WORLD_CONTEXT.worldTime = payload.worldTime || WORLD_CONTEXT.worldTime;
-  WORLD_CONTEXT.weather = payload.weather || WORLD_CONTEXT.weather;
-  WORLD_CONTEXT.vote = payload.vote || WORLD_CONTEXT.vote;
-  WORLD_CONTEXT.governance = payload.governance || WORLD_CONTEXT.governance;
-  WORLD_CONTEXT.mood = payload.mood || WORLD_CONTEXT.mood;
-  WORLD_CONTEXT.aestheticsVote = payload.aesthetics || WORLD_CONTEXT.aestheticsVote;
-  WORLD_CONTEXT.activeConversations = payload.conversations || [];
-  WORLD_CONTEXT.events = payload.events || WORLD_CONTEXT.events || [];
-  liveAgentPositions = payload.agents || liveAgentPositions;
-  WORLD_CONTEXT.agentCount = liveAgentPositions ? Object.keys(liveAgentPositions).length : WORLD_CONTEXT.agentCount;
-  syncLiveAgents(scene, liveAgentPositions);
+  if (viewerRealtime && typeof viewerRealtime.handleWorldTick === 'function') {
+    viewerRealtime.handleWorldTick(scene, payload);
+  }
 }
 
 function setupViewerSocket(scene) {
-  if (!window.io) return;
-  if (viewerSocket) return;
-  viewerSocket = (window.MoltvilleSocket && window.MoltvilleSocket.createViewerSocket)
-    ? window.MoltvilleSocket.createViewerSocket(API_BASE)
-    : window.io(API_BASE, { transports: ['websocket'] });
-  viewerSocket.on('connect', () => {
-    uiFeedback.setError('');
-    uiFeedback.toast('Viewer conectado', 'success', 1400);
-    const viewerKey = getViewerKey();
-    viewerSocket.emit('viewer:join', viewerKey ? { apiKey: viewerKey } : {});
-  });
-  viewerSocket.on('agents:list', (agents) => {
-    (agents || []).forEach(agent => {
-      AGENT_DIRECTORY.set(agent.id, agent);
-    });
-  });
-  viewerSocket.on('world:state', (state) => handleWorldState(scene, state));
-  viewerSocket.on('world:tick', (tick) => handleWorldTick(scene, tick));
-  viewerSocket.on('agent:spoke', (payload) => {
-    const agentName = payload?.agentName || 'Agente';
-    const message = payload?.message || '';
-    pushFeedMessage(agentName, message);
-    updateAgentSpeech(payload.agentId || agentName, message);
-    registerShowBeat({
-      participants: [agentName],
-      summary: message,
-      dialogue: message
-    });
-  });
-  viewerSocket.on('telemetry:action', (entry) => {
-    if (!entry) return;
-    WORLD_CONTEXT.telemetryFeed = [...(WORLD_CONTEXT.telemetryFeed || []), entry].slice(-6);
-  });
-  viewerSocket.on('conversation:started', (payload) => {
-    if (!payload) return;
-    const from = payload.fromName || 'Agente';
-    const to = payload.toName || 'Agente';
-    const message = payload.message || '';
-    pushFeedMessage('Conversación', `💬 ${from} → ${to}: ${message}`);
-    updateAgentSpeech(payload.fromId || from, message);
-    registerShowBeat({
-      participants: [from, to],
-      summary: `${from} inició conversación con ${to}`,
-      dialogue: message
-    });
-  });
-  viewerSocket.on('conversation:message', (payload) => {
-    const message = payload?.message;
-    if (!message) return;
-    const from = message.fromName || 'Agente';
-    const to = message.toName || 'Agente';
-    pushFeedMessage('Conversación', `💬 ${from} → ${to}: ${message.message}`);
-    updateAgentSpeech(message.from || from, message.message);
-    registerShowBeat({
-      participants: [from, to],
-      summary: message.message,
-      dialogue: message.message
-    });
-  });
-  viewerSocket.on('conversation:ended', (payload) => {
-    if (!payload) return;
-    pushFeedMessage('Conversación', `✅ Conversación ${payload.conversationId} finalizada.`);
-    registerShowBeat({
-      participants: [payload?.fromName, payload?.toName].filter(Boolean),
-      summary: 'La conversación terminó.'
-    });
-  });
-  viewerSocket.on('agent:social', (payload) => {
-    if (!payload) return;
-    const from = payload.from || 'Agente';
-    const to = payload.to || 'Agente';
-    pushFeedMessage('Social', `🤝 ${from} interactuó con ${to} (${payload.actionType}).`);
-    registerShowBeat({
-      participants: [from, to],
-      summary: `${from} interactuó con ${to} (${payload.actionType}).`
-    });
-  });
-  viewerSocket.on('agent:action', (payload) => {
-    if (!payload) return;
-    pushFeedMessage('Acción', `⚙️ ${payload.agentId} ejecutó ${payload.actionType}.`);
-    registerShowBeat({
-      participants: [payload.agentId || 'Agente'],
-      summary: `${payload.agentId || 'Agente'} ejecutó ${payload.actionType}.`
-    });
-  });
-  viewerSocket.on('agent:spawned', (payload) => {
-    if (!payload) return;
-    pushFeedMessage('Sistema', `👋 ${payload.name || 'Un agente'} llegó a Moltville.`);
-    registerShowBeat({
-      type: 'interaccion',
-      participants: [payload.name || 'Agente'],
-      summary: `${payload.name || 'Un agente'} llegó a Moltville.`
-    });
-  });
-  viewerSocket.on('agent:disconnected', (payload) => {
-    if (!payload) return;
-    pushFeedMessage('Sistema', `👋 ${payload.agentName || 'Un agente'} se desconectó.`);
-  });
-  viewerSocket.on('vote:started', (payload) => {
-    if (!payload) return;
-    pushFeedMessage('Democracia', `🗳️ Nueva votación: ${payload.options?.length || 0} opciones disponibles.`);
-  });
-  viewerSocket.on('vote:closed', (payload) => {
-    if (!payload) return;
-    const winner = payload.winner?.name || payload.winner?.type || 'Edificio';
-    pushFeedMessage('Democracia', `🏗️ Construcción aprobada: ${winner}.`);
-  });
-  viewerSocket.on('building:constructed', (payload) => {
-    if (!payload) return;
-    pushFeedMessage('Ciudad', `🏙️ Nuevo edificio: ${payload.name}.`);
-  });
-  viewerSocket.on('president:election_started', () => {
-    pushFeedMessage('Gobierno', '🗳️ Se abrió una elección presidencial.');
-  });
-  viewerSocket.on('president:election_closed', (payload) => {
-    const winner = payload?.winner?.name || 'Sin presidente';
-    pushFeedMessage('Gobierno', `👑 Resultado electoral: ${winner}.`);
-  });
-  viewerSocket.on('governance:policy_added', (payload) => {
-    if (!payload) return;
-    pushFeedMessage('Gobierno', `📜 Política activa: ${payload.type}.`);
-  });
-  viewerSocket.on('governance:policy_expired', (payload) => {
-    if (!payload) return;
-    pushFeedMessage('Gobierno', `⌛ Política expirada: ${payload.type}.`);
-  });
-  viewerSocket.on('aesthetics:vote_started', (payload) => {
-    if (!payload) return;
-    pushFeedMessage('Estética', `🎨 Votación de distrito: ${payload.districtName}.`);
-  });
-  viewerSocket.on('aesthetics:vote_closed', (payload) => {
-    if (!payload) return;
-    const winner = payload.winner?.name || 'Sin cambios';
-    pushFeedMessage('Estética', `🎨 Votación cerrada: ${winner}.`);
-  });
-  viewerSocket.on('aesthetics:theme_applied', (payload) => {
-    if (!payload) return;
-    pushFeedMessage('Estética', `🎨 Tema aplicado en distrito ${payload.districtId}.`);
-  });
-  viewerSocket.on('event:started', (payload) => {
-    if (!payload) return;
-    pushFeedMessage('Eventos', `🎉 Evento activo: ${payload.name}.`);
-  });
-  viewerSocket.on('event:ended', (payload) => {
-    if (!payload) return;
-    pushFeedMessage('Eventos', `🎉 Evento finalizado: ${payload.name}.`);
-  });
-  viewerSocket.on('connect_error', () => {
-    WORLD_CONTEXT.useLiveData = false;
-    uiFeedback.setError('Sin conexión al viewer en vivo');
-    uiFeedback.toast('Conexión en vivo no disponible', 'error');
-    showStatusBanner('No se pudo conectar al viewer en vivo. Usando refresco.', true);
-  });
-  viewerSocket.on('disconnect', () => {
-    WORLD_CONTEXT.useLiveData = false;
-    uiFeedback.setError('Viewer desconectado');
-  });
+  if (viewerRealtime && typeof viewerRealtime.setupViewerSocket === 'function') {
+    viewerRealtime.setupViewerSocket(scene);
+  }
 }
-
 function getStoredAgentId() {
+  if (typeof viewerStorage.getStoredAgentId === 'function') {
+    return viewerStorage.getStoredAgentId(STORAGE_KEYS);
+  }
   return localStorage.getItem(STORAGE_KEYS.agentId) || '';
 }
 
 function getViewerKey() {
+  if (typeof viewerStorage.getViewerKey === 'function') {
+    return viewerStorage.getViewerKey(STORAGE_KEYS);
+  }
   if (window.MOLTVILLE_VIEWER_KEY) return window.MOLTVILLE_VIEWER_KEY;
   return localStorage.getItem(STORAGE_KEYS.viewerKey) || '';
 }
 
 function getViewerHeaders() {
+  if (typeof viewerStorage.getViewerHeaders === 'function') {
+    return viewerStorage.getViewerHeaders(STORAGE_KEYS);
+  }
   const viewerKey = getViewerKey();
   if (!viewerKey) return {};
   return { 'x-viewer-key': viewerKey };
 }
 
 function fetchWithViewerKey(url, options = {}) {
+  if (typeof viewerStorage.fetchWithViewerKey === 'function') {
+    return viewerStorage.fetchWithViewerKey(url, options, STORAGE_KEYS);
+  }
   const headers = {
     ...getViewerHeaders(),
     ...(options.headers || {})
@@ -459,16 +257,83 @@ function fetchWithViewerKey(url, options = {}) {
 }
 
 function storeAgentId(agentId) {
+  if (typeof viewerStorage.storeAgentId === 'function') {
+    viewerStorage.storeAgentId(agentId, STORAGE_KEYS);
+    return;
+  }
   if (agentId) {
     localStorage.setItem(STORAGE_KEYS.agentId, agentId);
   }
 }
 
+function decodeLikelyMojibake(value) {
+  const text = String(value ?? '');
+  if (!text) return '';
+  // Heuristic for common UTF-8/Latin-1 mojibake artifacts.
+  if (!/[ÃÂâðï]/.test(text)) return text;
+  try {
+    const bytes = Uint8Array.from(text, (char) => char.charCodeAt(0) & 0xff);
+    const decoded = new TextDecoder('utf-8', { fatal: false }).decode(bytes);
+    if (decoded && !decoded.includes('\uFFFD')) {
+      return decoded;
+    }
+  } catch (error) {
+    // Keep original text when decoding fails.
+  }
+  return text;
+}
+
+function normalizeDisplayText(value, options = {}) {
+  const {
+    maxLength = 180,
+    fallback = ''
+  } = options;
+  let text = decodeLikelyMojibake(value);
+  text = String(text ?? '')
+    .replace(/[\u0000-\u001f\u007f]/g, ' ')
+    .replace(/\s+/g, ' ')
+    .replace(/([^\s]{24})(?=[^\s])/g, '$1 ')
+    .trim();
+  if (!text) return fallback;
+  if (text.length <= maxLength) return text;
+  return `${text.slice(0, Math.max(1, maxLength - 1))}\u2026`;
+}
+
+function escapeHtml(value) {
+  return String(value ?? '')
+    .replace(/&/g, '&amp;')
+    .replace(/</g, '&lt;')
+    .replace(/>/g, '&gt;')
+    .replace(/"/g, '&quot;')
+    .replace(/'/g, '&#39;');
+}
+
 function pushFeedMessage(name, message) {
   const scene = window._moltvilleScene;
   if (!scene || typeof scene.addChatMessage !== 'function') return;
-  const safeMessage = message || '...';
-  scene.addChatMessage(name, safeMessage);
+  const safeName = normalizeDisplayText(name, { maxLength: 40, fallback: 'Agente' });
+  const safeMessage = normalizeDisplayText(message, { maxLength: 160, fallback: '...' });
+  const normalizedKey = `${safeName.toLowerCase()}::${safeMessage.toLowerCase()}`;
+  const now = Date.now();
+  const lastAt = FEED_RECENT_MESSAGES.get(normalizedKey) || 0;
+  if (now - lastAt < FEED_DUPLICATE_WINDOW_MS) {
+    return;
+  }
+  FEED_RECENT_MESSAGES.set(normalizedKey, now);
+  if (FEED_RECENT_MESSAGES.size > FEED_RECENT_LIMIT) {
+    let oldestKey = null;
+    let oldestAt = Number.POSITIVE_INFINITY;
+    for (const [key, at] of FEED_RECENT_MESSAGES.entries()) {
+      if (at < oldestAt) {
+        oldestAt = at;
+        oldestKey = key;
+      }
+    }
+    if (oldestKey) {
+      FEED_RECENT_MESSAGES.delete(oldestKey);
+    }
+  }
+  scene.addChatMessage(safeName, safeMessage);
 }
 
 function updateAgentSpeech(idOrName, message) {
@@ -476,10 +341,11 @@ function updateAgentSpeech(idOrName, message) {
   if (!scene || !scene.agents) return;
   const agent = scene.agents.find(a => a.id === idOrName || a.name === idOrName);
   if (agent) {
+    const normalized = normalizeDisplayText(message, { maxLength: 160, fallback: '' });
     agent.talkTimer = 6;
-    agent.lastSpeech = message;
+    agent.lastSpeech = normalized;
     if (agent._speechText) {
-      agent._speechText.setText(message);
+      agent._speechText.setText(normalized);
     }
   }
 }
@@ -1447,6 +1313,9 @@ function registerConversationBeats(conversations = []) {
 }
 
 function getUiState() {
+  if (typeof viewerStorage.getUiState === 'function') {
+    return viewerStorage.getUiState(STORAGE_KEYS, DEFAULT_UI_STATE);
+  }
   try {
     const stored = localStorage.getItem(STORAGE_KEYS.uiState);
     return stored ? { ...DEFAULT_UI_STATE, ...JSON.parse(stored) } : { ...DEFAULT_UI_STATE };
@@ -1456,6 +1325,9 @@ function getUiState() {
 }
 
 function setUiState(next) {
+  if (typeof viewerStorage.setUiState === 'function') {
+    return viewerStorage.setUiState(next, STORAGE_KEYS, DEFAULT_UI_STATE);
+  }
   const current = getUiState();
   const merged = { ...current, ...next };
   localStorage.setItem(STORAGE_KEYS.uiState, JSON.stringify(merged));
@@ -2617,7 +2489,6 @@ function showStatusBanner(message, isError, options = {}) {
     messageEl.textContent = message;
   }
   WORLD_CONTEXT.lastErrorMessage = message;
-  uiFeedback.setError(isError ? message : '');
   banner.classList.toggle('success', !isError);
   banner.style.display = 'block';
   if (options.persistent) {
@@ -2692,8 +2563,8 @@ function closeStatusModal() {
 
 function setRefreshState(isActive) {
   const indicator = document.getElementById('refresh-indicator');
-  if (indicator) indicator.classList.toggle('is-active', isActive);
-  uiFeedback.setLoading(isActive, 'Actualizando mundo…');
+  if (!indicator) return;
+  indicator.classList.toggle('is-active', isActive);
 }
 
 function setPollingActive(isActive) {
@@ -2851,7 +2722,6 @@ function generateDecorations() {
 // ============================================================
 // DEMO AGENTS (simulate moltbots)
 // ============================================================
-const AGENT_COLORS = ['#e74c3c','#3498db','#2ecc71','#9b59b6','#f39c12','#1abc9c','#e67e22','#e84393'];
 const AGENT_NAMES = ['Alice','Bob','Clara','Diego','Eva','Frank','Grace','Hugo'];
 const AGENT_TARGETS = {}; // id -> {x,y}
 
@@ -3671,7 +3541,7 @@ class MoltivilleScene extends Phaser.Scene {
       }
     });
 
-    if (WORLD_CONTEXT.useLiveData) {
+    if (WORLD_CONTEXT.useLiveData || WORLD_CONTEXT.everUsedLiveData) {
       this.agents.forEach(agent => {
         if (agent.progress < 1) {
           agent.walkCycle += dtSec * 8;
@@ -3710,7 +3580,7 @@ class MoltivilleScene extends Phaser.Scene {
           other.state !== 'talking'
         );
 
-        if (!WORLD_CONTEXT.useLiveData && nearby.length > 0 && Math.random() < 0.05 && agent.talkTimer <= 0 && agent.state !== 'talking') {
+        if (ENABLE_DEMO_DIALOGUES && nearby.length > 0 && Math.random() < 0.05 && agent.talkTimer <= 0 && agent.state !== 'talking') {
           const target = nearby[0];
           agent.talkTimer = 5 + Math.random() * 2;
           target.talkTimer = 5 + Math.random() * 2;
@@ -3821,14 +3691,16 @@ class MoltivilleScene extends Phaser.Scene {
   }
 
   addChatMessage(name, msg) {
+    const normalizedName = normalizeDisplayText(name, { maxLength: 40, fallback: 'Agente' });
+    const normalizedMsg = normalizeDisplayText(msg, { maxLength: 160, fallback: '...' });
     const now = new Date();
-    this.chatLog.push({ name, msg, time: now });
+    this.chatLog.push({ name: normalizedName, msg: normalizedMsg, time: now });
     if (this.chatLog.length > 15) this.chatLog.shift();
 
     // Sync with agent speech bubble
-    const agent = this.agents.find(a => a.name === name);
+    const agent = this.agents.find(a => a.name === name || a.name === normalizedName || a.id === name);
     if (agent) {
-      agent.lastSpeech = msg;
+      agent.lastSpeech = normalizedMsg;
       agent.talkTimer = 6;
       agent.state = 'talking';
       // Store timestamp to auto-clear if needed
@@ -3837,7 +3709,7 @@ class MoltivilleScene extends Phaser.Scene {
 
     const chatEl = document.getElementById('chat-log');
     chatEl.innerHTML = this.chatLog.map(c =>
-      `<div class="chat-msg"><span class="name">${c.name}:</span> ${c.msg} <span class="time">${c.time.toLocaleTimeString([], {hour:'2-digit',minute:'2-digit'})}</span></div>`
+      `<div class="chat-msg"><span class="name">${escapeHtml(c.name)}:</span> ${escapeHtml(c.msg)} <span class="time">${c.time.toLocaleTimeString([], {hour:'2-digit',minute:'2-digit'})}</span></div>`
     ).join('');
     chatEl.scrollTop = chatEl.scrollHeight;
   }
@@ -3851,6 +3723,7 @@ class MoltivilleScene extends Phaser.Scene {
     const speechGfx = this.speechGraphics;
     speechGfx.clear();
     this._crowdCounts = new Map();
+    const bubbleStacks = new Map();
 
     // Draw conversation lines
     if (WORLD_CONTEXT.activeConversations && WORLD_CONTEXT.activeConversations.length > 0) {
@@ -3947,9 +3820,9 @@ class MoltivilleScene extends Phaser.Scene {
       const px = pos.x + this.sys.game.config.width / 2;
       const py = pos.y + this.sys.game.config.height / 2;
 
-      const bodyAlpha = inBuilding ? 0.35 : 1;
-      const limbAlpha = inBuilding ? 0.25 : 0.85;
-      const shadowAlpha = inBuilding ? 0.12 : 0.25;
+      const bodyAlpha = inBuilding ? 0.82 : 1;
+      const limbAlpha = inBuilding ? 0.72 : 0.85;
+      const shadowAlpha = inBuilding ? 0.22 : 0.25;
 
       // Walk cycle bob
       const bob = agent.state === 'walking' ? Math.sin(agent.walkCycle) * 3 : 0;
@@ -4006,6 +3879,11 @@ class MoltivilleScene extends Phaser.Scene {
       gfx.fillStyle(0xf5cba7, bodyAlpha); // skin
       gfx.fillCircle(px, bodyY - 1, 6);
 
+      // Contrast outline so agents remain visible on busy backgrounds.
+      gfx.lineStyle(1.2, 0x111827, 0.92);
+      gfx.strokeRect(px - 5, bodyY + 2, 10, 7);
+      gfx.strokeCircle(px, bodyY - 1, 6);
+
       // Hair (top of head, color-coded)
       gfx.fillStyle(agent.color, bodyAlpha);
       gfx.fillRect(px - 5, bodyY - 7, 10, 4);
@@ -4022,7 +3900,8 @@ class MoltivilleScene extends Phaser.Scene {
         gfx.fillCircle(px + 2, bodyY - 1, 1.2);
       }
 
-      const isSpeaking = agent.talkTimer > 0 && agent.lastSpeech;
+      const speechText = normalizeDisplayText(agent.lastSpeech, { maxLength: 160, fallback: '' });
+      const isSpeaking = agent.talkTimer > 0 && Boolean(speechText);
       const isSelected = this.selectedAgentId === agent.id;
       const isHovered = this.hoveredAgentId === agent.id;
       const isFocused = isSpeaking || isSelected || isHovered;
@@ -4052,11 +3931,19 @@ class MoltivilleScene extends Phaser.Scene {
       }
 
       // Speech bubble (speaking or selected)
-      if ((isSpeaking || (isSelected && agent.lastSpeech)) && agent.lastSpeech) {
-        const bubbleW = Math.min(200, Math.max(70, agent.lastSpeech.length * 7.5 + 20));
-        const bubbleH = (agent.lastSpeech.length > 30) ? 46 : 28;
+      if ((isSpeaking || (isSelected && speechText)) && speechText) {
+        const bubbleKey = `${Math.round(curX)}:${Math.round(curY)}`;
+        const stackIndex = bubbleStacks.get(bubbleKey) || 0;
+        bubbleStacks.set(bubbleKey, stackIndex + 1);
+
+        const maxBubbleWidth = 220;
+        const minBubbleWidth = 96;
+        const estimatedLineCount = Math.max(1, Math.min(5, Math.ceil(speechText.length / 24)));
+        const bubbleW = Math.min(maxBubbleWidth, Math.max(minBubbleWidth, speechText.length * 6.4 + 24));
+        const bubbleH = 18 + estimatedLineCount * 14;
         const bx = px;
-        const by = bodyY - 45;
+        const by = Math.max(24, bodyY - 46 - stackIndex * (bubbleH + 8));
+        const tailTipY = bodyY - 14;
 
         // Background with agent color border
         speechGfx.fillStyle(0xffffff, 0.98);
@@ -4068,7 +3955,7 @@ class MoltivilleScene extends Phaser.Scene {
         speechGfx.fillStyle(0xffffff, 1);
         speechGfx.beginPath();
         speechGfx.moveTo(bx - 8, by + bubbleH/2);
-        speechGfx.lineTo(px, by + bubbleH/2 + 10);
+        speechGfx.lineTo(px, tailTipY);
         speechGfx.lineTo(bx + 8, by + bubbleH/2);
         speechGfx.closePath();
         speechGfx.fillPath();
@@ -4077,16 +3964,22 @@ class MoltivilleScene extends Phaser.Scene {
         speechGfx.lineStyle(2, agent.color, 1);
         speechGfx.beginPath();
         speechGfx.moveTo(bx - 8, by + bubbleH/2);
-        speechGfx.lineTo(px, by + bubbleH/2 + 10);
+        speechGfx.lineTo(px, tailTipY);
         speechGfx.lineTo(bx + 8, by + bubbleH/2);
         speechGfx.strokePath();
 
         if (!agent._speechText) {
-          agent._speechText = this.add.text(bx, by, agent.lastSpeech, {
-            fontSize: '11px', color: '#000', fontWeight: 'bold', align: 'center', wordWrap: { width: bubbleW - 15 }
+          agent._speechText = this.add.text(bx, by, speechText, {
+            fontSize: '11px',
+            color: '#000',
+            fontWeight: 'bold',
+            align: 'center',
+            wordWrap: { width: bubbleW - 18, useAdvancedWrap: true }
           }).setOrigin(0.5, 0.5).setDepth(605);
+          agent._speechText.setLineSpacing(2);
         }
-        agent._speechText.setText(agent.lastSpeech).setPosition(bx, by).setVisible(true);
+        agent._speechText.setWordWrapWidth(bubbleW - 18, true);
+        agent._speechText.setText(speechText).setPosition(bx, by).setVisible(true);
       } else if (agent._speechText) {
         agent._speechText.setVisible(false);
       }
@@ -4356,3 +4249,4 @@ const game = new Phaser.Game(config);
 window.addEventListener('resize', () => {
   game.scale.resize(window.innerWidth, window.innerHeight);
 });
+

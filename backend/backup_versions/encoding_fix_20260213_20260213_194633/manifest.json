@@ -1,0 +1,14 @@
+﻿[
+    {
+        "source":  "C:\\Users\\juanp\\Downloads\\MOLTVILLE\\MOLTVILLE-main\\frontend\\index.html",
+        "backup":  "C:\\Users\\juanp\\Downloads\\MOLTVILLE\\MOLTVILLE-main\\backend\\backup_versions\\encoding_fix_20260213_20260213_194633\\index.html.bak.v1",
+        "bytes":  8789,
+        "copiedAt":  "2026-02-13T19:46:33.1274971+01:00"
+    },
+    {
+        "source":  "C:\\Users\\juanp\\Downloads\\MOLTVILLE\\MOLTVILLE-main\\frontend\\app.js",
+        "backup":  "C:\\Users\\juanp\\Downloads\\MOLTVILLE\\MOLTVILLE-main\\backend\\backup_versions\\encoding_fix_20260213_20260213_194633\\app.js.bak.v1",
+        "bytes":  155699,
+        "copiedAt":  "2026-02-13T19:46:33.1358009+01:00"
+    }
+]

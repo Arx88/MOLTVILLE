@@ -1,0 +1,377 @@
+(function initMoltvilleViewerRealtime(global) {
+  function createMoltvilleViewerRealtime({
+    apiBase,
+    worldContext,
+    agentDirectory,
+    liveAgentColors,
+    agentColors,
+    mergeBuildingVisuals,
+    getLots,
+    setLots,
+    getLiveAgentPositions,
+    setLiveAgentPositions,
+    getViewerKey,
+    pushFeedMessage,
+    updateAgentSpeech,
+    registerShowBeat,
+    showStatusBanner
+  }) {
+    let viewerSocket = null;
+    const recentDialogues = new Map();
+    const duplicateDialogueWindowMs = 4500;
+    const duplicateDialogueLimit = 120;
+
+    function shouldSkipDuplicateDialogue(speaker, message) {
+      const cleanSpeaker = String(speaker || '').trim().toLowerCase();
+      const cleanMessage = String(message || '').trim().toLowerCase();
+      if (!cleanMessage) return true;
+      const key = `${cleanSpeaker}::${cleanMessage}`;
+      const now = Date.now();
+      const lastAt = recentDialogues.get(key) || 0;
+      if (now - lastAt < duplicateDialogueWindowMs) {
+        return true;
+      }
+      recentDialogues.set(key, now);
+      if (recentDialogues.size > duplicateDialogueLimit) {
+        let oldestKey = null;
+        let oldestAt = Number.POSITIVE_INFINITY;
+        for (const [savedKey, savedAt] of recentDialogues.entries()) {
+          if (savedAt < oldestAt) {
+            oldestAt = savedAt;
+            oldestKey = savedKey;
+          }
+        }
+        if (oldestKey) {
+          recentDialogues.delete(oldestKey);
+        }
+      }
+      return false;
+    }
+
+    function getAgentColor(agentId) {
+      if (liveAgentColors.has(agentId)) {
+        return liveAgentColors.get(agentId);
+      }
+      let hash = 0;
+      for (let i = 0; i < agentId.length; i += 1) {
+        hash = (hash * 31 + agentId.charCodeAt(i)) % 997;
+      }
+      const color = agentColors[hash % agentColors.length];
+      liveAgentColors.set(agentId, color);
+      return color;
+    }
+
+    function syncLiveAgents(scene, agentsPayload) {
+      if (!scene || !agentsPayload) return;
+      const existing = new Map(scene.agents.map(agent => [agent.id, agent]));
+      const nextAgents = [];
+      const nextIds = new Set();
+      Object.entries(agentsPayload).forEach(([id, payload]) => {
+        if (!payload || typeof payload !== 'object') return;
+        const existingAgent = existing.get(id);
+        const directoryProfile = agentDirectory.get(id) || {};
+        const name = directoryProfile?.name || `Agent ${id.slice(0, 4)}`;
+        const nextX = Number(payload.x);
+        const nextY = Number(payload.y);
+        if (!Number.isFinite(nextX) || !Number.isFinite(nextY)) return;
+        const agent = existingAgent || {
+          id,
+          name,
+          color: getAgentColor(id),
+          x: nextX,
+          y: nextY,
+          tx: nextX,
+          ty: nextY,
+          facing: payload.facing || 'down',
+          progress: 1,
+          walkCycle: 0,
+          state: payload.state || 'idle',
+          talkTimer: 0,
+          idleTimer: 0
+        };
+        agent.name = name;
+        agent.facing = payload.facing || agent.facing;
+        const prevX = existingAgent
+          ? (existingAgent.progress < 1
+            ? existingAgent.x + (existingAgent.tx - existingAgent.x) * existingAgent.progress
+            : existingAgent.x)
+          : nextX;
+        const prevY = existingAgent
+          ? (existingAgent.progress < 1
+            ? existingAgent.y + (existingAgent.ty - existingAgent.y) * existingAgent.progress
+            : existingAgent.y)
+          : nextY;
+        const moved = Math.hypot(nextX - prevX, nextY - prevY) > 0.001;
+
+        if (existingAgent && moved) {
+          agent.x = prevX;
+          agent.y = prevY;
+          agent.tx = nextX;
+          agent.ty = nextY;
+          agent.progress = 0;
+          if (agent.state !== 'talking') {
+            agent.state = payload.state || 'walking';
+          }
+        } else {
+          agent.x = nextX;
+          agent.y = nextY;
+          agent.tx = nextX;
+          agent.ty = nextY;
+          agent.progress = 1;
+          agent.state = payload.state || agent.state || 'idle';
+        }
+        agent.currentBuilding = payload.currentBuilding || null;
+
+        agent.isNPC = Boolean(directoryProfile.isNPC);
+        agent.profile = directoryProfile.profile || null;
+        agent.traits = directoryProfile.traits || null;
+        agent.motivation = directoryProfile.motivation || null;
+        agent.plan = directoryProfile.plan || null;
+        agent.reputation = directoryProfile.reputation || null;
+        agent.favors = directoryProfile.favors || null;
+        agent.cognition = directoryProfile.cognition || null;
+        const relCount = directoryProfile.relationshipCount
+          ?? (directoryProfile.relationships && typeof directoryProfile.relationships === 'object'
+            ? Object.keys(directoryProfile.relationships).length
+            : 0);
+        agent.relationshipCount = relCount;
+
+        nextIds.add(id);
+        nextAgents.push(agent);
+      });
+
+      existing.forEach((agent, id) => {
+        if (nextIds.has(id)) return;
+        if (agent?._speechText) {
+          agent._speechText.destroy();
+          agent._speechText = null;
+        }
+        if (agent?._nameText) {
+          agent._nameText.destroy();
+          agent._nameText = null;
+        }
+        if (liveAgentColors.has(id)) {
+          liveAgentColors.delete(id);
+        }
+      });
+
+      scene.agents = nextAgents;
+
+      if (!scene._liveCameraInitialized && nextAgents.length > 0 && scene.cameras?.main && global.toIso) {
+        const center = nextAgents.reduce((acc, agent) => {
+          acc.x += Number(agent.tx ?? agent.x ?? 0);
+          acc.y += Number(agent.ty ?? agent.y ?? 0);
+          return acc;
+        }, { x: 0, y: 0 });
+        const avgX = center.x / nextAgents.length;
+        const avgY = center.y / nextAgents.length;
+        const iso = global.toIso(avgX, avgY);
+        scene.cameras.main.centerOn(
+          iso.x + scene.sys.game.config.width / 2,
+          iso.y + scene.sys.game.config.height / 2 - 40
+        );
+        scene._liveCameraInitialized = true;
+      }
+    }
+
+    function handleWorldState(scene, state) {
+      if (!state) return;
+      worldContext.useLiveData = true;
+      worldContext.everUsedLiveData = true;
+      worldContext.worldTime = state.worldTime || null;
+      worldContext.weather = state.weather || null;
+      worldContext.mood = state.mood || null;
+      worldContext.districts = state.districts || null;
+      worldContext.activeConversations = state.conversations || worldContext.activeConversations || [];
+      worldContext.events = state.events || worldContext.events || [];
+      worldContext.agentCount = state.agents ? Object.keys(state.agents).length : 0;
+      setLiveAgentPositions(state.agents || {});
+      const themeHash = (state.districts || []).map(d => `${d.id}:${d.theme || 'classic'}`).join('|');
+      if (scene && themeHash !== worldContext.districtThemeHash) {
+        worldContext.districtThemeHash = themeHash;
+        scene.drawTiles();
+      }
+      setLots(state.lots || []);
+      const newBuildings = mergeBuildingVisuals(state.buildings || []);
+      if (scene && newBuildings.length) {
+        scene.renderNewBuildings(newBuildings);
+      }
+      if (scene && scene.drawLots) {
+        scene.drawLots();
+      }
+      syncLiveAgents(scene, getLiveAgentPositions());
+    }
+
+    function handleWorldTick(scene, payload) {
+      if (!payload) return;
+      worldContext.useLiveData = true;
+      worldContext.everUsedLiveData = true;
+      worldContext.worldTime = payload.worldTime || worldContext.worldTime;
+      worldContext.weather = payload.weather || worldContext.weather;
+      worldContext.vote = payload.vote || worldContext.vote;
+      worldContext.governance = payload.governance || worldContext.governance;
+      worldContext.mood = payload.mood || worldContext.mood;
+      worldContext.aestheticsVote = payload.aesthetics || worldContext.aestheticsVote;
+      worldContext.activeConversations = payload.conversations || [];
+      worldContext.events = payload.events || worldContext.events || [];
+      setLiveAgentPositions(payload.agents || getLiveAgentPositions());
+      const positions = getLiveAgentPositions();
+      worldContext.agentCount = positions ? Object.keys(positions).length : worldContext.agentCount;
+      syncLiveAgents(scene, positions);
+    }
+
+    function setupViewerSocket(scene) {
+      if (!global.io) return;
+      if (viewerSocket) return;
+      viewerSocket = global.io(apiBase, { transports: ['websocket'] });
+      viewerSocket.on('connect', () => {
+        const viewerKey = getViewerKey();
+        viewerSocket.emit('viewer:join', viewerKey ? { apiKey: viewerKey } : {});
+      });
+      viewerSocket.on('agents:list', (agents) => {
+        (agents || []).forEach(agent => {
+          agentDirectory.set(agent.id, agent);
+        });
+      });
+      viewerSocket.on('world:state', (state) => handleWorldState(scene, state));
+      viewerSocket.on('world:tick', (tick) => handleWorldTick(scene, tick));
+      viewerSocket.on('agent:spoke', (payload) => {
+        const agentName = payload?.agentName || 'Agente';
+        const message = payload?.message || '';
+        if (shouldSkipDuplicateDialogue(agentName, message)) return;
+        pushFeedMessage(agentName, message);
+        updateAgentSpeech(payload.agentId || agentName, message);
+        registerShowBeat({
+          participants: [agentName],
+          summary: message,
+          dialogue: message
+        });
+      });
+      viewerSocket.on('telemetry:action', (entry) => {
+        if (!entry) return;
+        worldContext.telemetryFeed = [...(worldContext.telemetryFeed || []), entry].slice(-6);
+      });
+      viewerSocket.on('conversation:started', (payload) => {
+        if (!payload) return;
+        const from = payload.fromName || 'Agente';
+        const to = payload.toName || 'Agente';
+        const message = payload.message || '';
+        if (shouldSkipDuplicateDialogue(from, message)) return;
+        pushFeedMessage('Conversacion', `${from} -> ${to}: ${message}`);
+        updateAgentSpeech(payload.fromId || from, message);
+        registerShowBeat({
+          participants: [from, to],
+          summary: `${from} inicio conversacion con ${to}`,
+          dialogue: message
+        });
+      });
+      viewerSocket.on('conversation:message', (payload) => {
+        const message = payload?.message;
+        if (!message) return;
+        const from = message.fromName || 'Agente';
+        const to = message.toName || 'Agente';
+        if (shouldSkipDuplicateDialogue(from, message.message)) return;
+        pushFeedMessage('Conversacion', `${from} -> ${to}: ${message.message}`);
+        updateAgentSpeech(message.from || from, message.message);
+        registerShowBeat({
+          participants: [from, to],
+          summary: message.message,
+          dialogue: message.message
+        });
+      });
+      viewerSocket.on('conversation:ended', (payload) => {
+        if (!payload) return;
+        pushFeedMessage('Conversacion', `Conversacion ${payload.conversationId} finalizada.`);
+      });
+      viewerSocket.on('agent:social', (payload) => {
+        if (!payload) return;
+        const from = payload.from || 'Agente';
+        const to = payload.to || 'Agente';
+        pushFeedMessage('Social', `${from} interactuo con ${to} (${payload.actionType}).`);
+      });
+      viewerSocket.on('agent:action', (payload) => {
+        if (!payload) return;
+        pushFeedMessage('Accion', `${payload.agentId} ejecuto ${payload.actionType}.`);
+      });
+      viewerSocket.on('agent:spawned', (payload) => {
+        if (!payload) return;
+        pushFeedMessage('Sistema', `${payload.name || 'Un agente'} llego a Moltville.`);
+      });
+      viewerSocket.on('agent:disconnected', (payload) => {
+        if (!payload) return;
+        pushFeedMessage('Sistema', `${payload.agentName || 'Un agente'} se desconecto.`);
+      });
+      viewerSocket.on('vote:started', (payload) => {
+        if (!payload) return;
+        pushFeedMessage('Democracia', `Nueva votacion: ${payload.options?.length || 0} opciones disponibles.`);
+      });
+      viewerSocket.on('vote:closed', (payload) => {
+        if (!payload) return;
+        const winner = payload.winner?.name || payload.winner?.type || 'Edificio';
+        pushFeedMessage('Democracia', `Construccion aprobada: ${winner}.`);
+      });
+      viewerSocket.on('building:constructed', (payload) => {
+        if (!payload) return;
+        pushFeedMessage('Ciudad', `Nuevo edificio: ${payload.name}.`);
+      });
+      viewerSocket.on('president:election_started', () => {
+        pushFeedMessage('Gobierno', 'Se abrio una eleccion presidencial.');
+      });
+      viewerSocket.on('president:election_closed', (payload) => {
+        const winner = payload?.winner?.name || 'Sin presidente';
+        pushFeedMessage('Gobierno', `Resultado electoral: ${winner}.`);
+      });
+      viewerSocket.on('governance:policy_added', (payload) => {
+        if (!payload) return;
+        pushFeedMessage('Gobierno', `Politica activa: ${payload.type}.`);
+      });
+      viewerSocket.on('governance:policy_expired', (payload) => {
+        if (!payload) return;
+        pushFeedMessage('Gobierno', `Politica expirada: ${payload.type}.`);
+      });
+      viewerSocket.on('aesthetics:vote_started', (payload) => {
+        if (!payload) return;
+        pushFeedMessage('Estetica', `Votacion de distrito: ${payload.districtName}.`);
+      });
+      viewerSocket.on('aesthetics:vote_closed', (payload) => {
+        if (!payload) return;
+        const winner = payload.winner?.name || 'Sin cambios';
+        pushFeedMessage('Estetica', `Votacion cerrada: ${winner}.`);
+      });
+      viewerSocket.on('aesthetics:theme_applied', (payload) => {
+        if (!payload) return;
+        pushFeedMessage('Estetica', `Tema aplicado en distrito ${payload.districtId}.`);
+      });
+      viewerSocket.on('event:started', (payload) => {
+        if (!payload) return;
+        pushFeedMessage('Eventos', `Evento activo: ${payload.name}.`);
+      });
+      viewerSocket.on('event:ended', (payload) => {
+        if (!payload) return;
+        pushFeedMessage('Eventos', `Evento finalizado: ${payload.name}.`);
+      });
+      viewerSocket.on('connect_error', () => {
+        if (!worldContext.everUsedLiveData) {
+          worldContext.useLiveData = false;
+        }
+        showStatusBanner('No se pudo conectar al viewer en vivo. Usando refresco.', true);
+      });
+      viewerSocket.on('disconnect', () => {
+        if (!worldContext.everUsedLiveData) {
+          worldContext.useLiveData = false;
+        }
+        showStatusBanner('Conexion en vivo interrumpida. Intentando reconectar...', true);
+      });
+    }
+
+    return {
+      getAgentColor,
+      syncLiveAgents,
+      handleWorldState,
+      handleWorldTick,
+      setupViewerSocket
+    };
+  }
+
+  global.createMoltvilleViewerRealtime = createMoltvilleViewerRealtime;
+})(window);

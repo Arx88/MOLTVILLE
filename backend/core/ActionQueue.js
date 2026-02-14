@@ -6,11 +6,47 @@ export class ActionQueue {
     this.moltbotRegistry = moltbotRegistry;
     this.queue = [];
     this.processing = false;
+    this.enqueueSeq = 0;
+  }
+
+  normalizeAction(action = {}) {
+    const priority = Number.isFinite(action.priority) ? Number(action.priority) : 2;
+    const timestamp = Number.isFinite(action.timestamp) ? Number(action.timestamp) : Date.now();
+    const seq = this.enqueueSeq++;
+    const id = action.id || `aq-${timestamp}-${seq}`;
+    return {
+      ...action,
+      _queueMeta: {
+        priority,
+        timestamp,
+        seq,
+        id
+      }
+    };
+  }
+
+  sortQueue() {
+    this.queue.sort((a, b) => {
+      const left = a?._queueMeta || {};
+      const right = b?._queueMeta || {};
+      if ((left.priority ?? 2) !== (right.priority ?? 2)) {
+        return (left.priority ?? 2) - (right.priority ?? 2);
+      }
+      if ((left.timestamp ?? 0) !== (right.timestamp ?? 0)) {
+        return (left.timestamp ?? 0) - (right.timestamp ?? 0);
+      }
+      if ((left.id ?? '') !== (right.id ?? '')) {
+        return String(left.id ?? '').localeCompare(String(right.id ?? ''));
+      }
+      return (left.seq ?? 0) - (right.seq ?? 0);
+    });
   }
 
   async enqueue(action) {
-    this.queue.push(action);
-    logger.debug(`Action enqueued: ${action.type} from ${action.agentId}`);
+    const normalized = this.normalizeAction(action);
+    this.queue.push(normalized);
+    this.sortQueue();
+    logger.debug(`Action enqueued: ${normalized.type} from ${normalized.agentId}`);
   }
 
   async processQueue() {
@@ -180,6 +216,11 @@ export class ActionQueue {
   loadSnapshot(snapshot) {
     if (!snapshot) return;
     this.queue = Array.isArray(snapshot.queue) ? snapshot.queue.map(action => ({ ...action })) : [];
+    this.enqueueSeq = this.queue.reduce((maxSeq, action) => {
+      const seq = Number(action?._queueMeta?.seq || 0);
+      return Math.max(maxSeq, seq);
+    }, 0) + 1;
+    this.sortQueue();
     this.processing = false;
   }
 }

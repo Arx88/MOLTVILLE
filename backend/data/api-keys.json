@@ -8,79 +8,103 @@
     "moltville_52b0d44e1be34c9587474c872137f721",
     "moltville_2605a0abec094da59047b18205a7d5b3",
     "new-key",
+    "api-key-123",
     "key-1",
-    "api-key-123"
+    "0f50b17b-1c37-47b8-b3d0-42290e3fd6e7",
+    "25bf8073-12e0-4ebe-b298-5989248161e2",
+    "0825daae-36e9-4d56-90f6-390d20c3c65a",
+    "82417f73-eccc-4222-aa12-715f8e89f3ef",
+    "9730043f-22b2-474d-abbb-dcab3ef295a3",
+    "502b177e-1d3f-4df0-a245-f2a051c0267a",
+    "b40018f0-466c-41c8-99f7-9cb449def6c8",
+    "5b9a1ffe-5973-42e8-a7a9-925d1ff86922",
+    "4054404d-8a7b-4f10-ae13-d0fdb032a0c2",
+    "337f6e59-d758-47c4-b486-5160203dac85",
+    "244a9b31-89c2-456a-9979-0208519855b2",
+    "121134d2-2f28-43b6-a2eb-35ff236d4067",
+    "500d5c2e-c189-42c4-afe1-60b1e1e20410",
+    "bf9a7efa-0a0e-4b3e-9f27-03ddf7d1ad60",
+    "421815e9-99f3-4f00-ad6a-c07faf182bfe",
+    "29fc8a2b-502a-454a-b36b-13f4bb3fa1c7",
+    "a1008d0c-2b71-47ca-971b-1cd9d56a8c80",
+    "8524e366-7f54-419a-b7dc-1f17e595a39f",
+    "9cde01d8-c7f0-486d-b3aa-6b405ab22133",
+    "8882a4d9-0175-44b4-98b3-c90f16727b05",
+    "c92f852a-5757-47b7-8fd3-8f0e11e91198",
+    "20959664-6eb0-486d-947d-e82fc4466883",
+    "6801acaf-d035-4e37-aa64-dd75eb3e343e",
+    "0717fd3e-a609-40d6-89ad-f13b132f825e",
+    "07abc755-a900-4265-be0b-2b076e0ab0d8",
+    "945b8708-8111-43cc-8f58-42b86adecc52",
+    "0c0ec0a8-e74c-4793-987b-c49729f1be68",
+    "d7c20f49-3f85-473b-af12-e12684dff20b",
+    "057ff8b6-6e86-425c-b94a-c4dcb1d75c3b",
+    "ecdb003c-55bb-4f1b-a5f9-379a03e189d9",
+    "2801827e-908f-4d27-846c-19249d339f24",
+    "63b39bf7-de48-4c1b-9c60-b800ecf52294",
+    "ad389779-e5b9-44c6-a7eb-8ca6d14c15e7",
+    "b101de17-1282-4992-8dc9-a0e2d8f3ef22",
+    "b82bfe90-2e9e-4ee2-ad9a-a4f945495942",
+    "2a7af759-4dcd-4c47-a286-fe8bdc4bf60e",
+    "31a5ea4d-ecce-4150-a1f4-e4fdb4c5999a",
+    "43c5ae7c-33ac-4c77-b08d-7eb45e43b550",
+    "09c0278f-08ad-4a30-95ea-0e42a8450ad1",
+    "2bb9f216-f408-4efb-b232-3aefc2c036bc",
+    "c8b3bffd-0f84-419f-860e-244074da6aba",
+    "20674d0c-59bd-46ae-a007-d2fd3b8b6a33",
+    "28a801fa-9a78-42c4-8733-43da8c38a312",
+    "4253778f-6c3f-4ba0-8a3e-f4052941b65b",
+    "bac57c98-90f1-4719-8c18-808af710f9b2",
+    "aa963dbb-79b1-4631-9869-3a4959d8308e",
+    "cb96f9d0-76be-4d89-956c-222e2d00b391",
+    "0f03b3e1-04ab-4ee3-bd3b-ea07ec3551b2",
+    "352caef3-005b-4851-9723-3f6801e1f964",
+    "e748c586-c8dd-408e-9729-b6057ef24806",
+    "6d61c3da-4551-4d3d-9ac1-e53e55b23028",
+    "6d5034a8-53ba-4aa5-8e76-b1281658d59c",
+    "013fab42-71f2-4268-81a0-14b09a373706",
+    "13bed8ef-dbb7-4594-8df0-e6a57de09137",
+    "ede0b8af-ac1a-4e20-a3e3-e2cb2ba4f94b",
+    "12511a74-00e1-4f2c-9265-b6f767b30b31",
+    "3f6cc02c-2247-45b1-91e8-51ae8a035a77",
+    "5d56b397-73fa-4cac-9619-07c9a95410f3",
+    "590f25c8-bdb5-4142-8909-3732e82fbb43",
+    "bd825ea6-88f1-4d93-9fa6-8406489f775b",
+    "c2a9d76b-fdbb-4b65-b135-0a06cfc4a7bc",
+    "a8e52293-1d7f-468c-ad93-94e19dcc9148",
+    "f2e6a60c-ea7f-40c6-8ab0-eb108f62b70e",
+    "4c1a0ba7-6ff0-4bd3-8461-09b681d02bfb",
+    "bbfbd1f0-b3bb-49bb-b1ea-616deda4cd72",
+    "94fa36ce-6b1d-4999-b218-375636e03e97",
+    "8ebcb91a-7898-402c-b733-67650ad79be0",
+    "6ede3d98-5f3e-4b09-809a-72e91aa1b818",
+    "c1ad5729-02ca-47d1-acd7-0713908b891d",
+    "8f9f52e9-0d3b-455f-bbb5-ddb3b0a5437e",
+    "36994338-d12b-4d87-80ce-adbe4a7cfb30",
+    "2c4e3e75-1b5e-401f-a4e2-265cb1023a3a",
+    "52410626-befa-401f-ae12-ca55ddf67244",
+    "8a3ff043-23fc-4f63-b70d-1e5f1b929b50",
+    "7f90f62e-8392-4bbf-bc27-079effa88e17",
+    "6daa2183-5789-412f-b270-5c5f28a8111f",
+    "b09eb6c7-3976-4e5c-8a06-d7e89bff591a",
+    "1e806b28-d509-4687-9192-95073cf7ad17"
   ],
   "apiKeyEvents": [
     {
-      "apiKey": "moltville_478b4af28cc94a3f99e6d0e6ffbaede5",
+      "apiKey": "key-1",
       "action": "issued",
       "actorId": null,
       "actorType": null,
-      "metadata": {
-        "moltbotName": "Vega"
-      },
-      "createdAt": "2026-02-10T16:01:37.603Z"
+      "metadata": null,
+      "createdAt": "2026-02-13T15:42:35.846Z"
     },
     {
-      "apiKey": "moltville_62a7821d613a49d6829ae2cf58aa0747",
+      "apiKey": "api-key-123",
       "action": "issued",
       "actorId": null,
       "actorType": null,
-      "metadata": {
-        "moltbotName": "Nova"
-      },
-      "createdAt": "2026-02-10T16:01:37.632Z"
-    },
-    {
-      "apiKey": "moltville_b5385142d1054c49a37ce9c4f87f527b",
-      "action": "issued",
-      "actorId": null,
-      "actorType": null,
-      "metadata": {
-        "moltbotName": "Atlas"
-      },
-      "createdAt": "2026-02-10T16:01:37.634Z"
-    },
-    {
-      "apiKey": "moltville_a3791b5db5eb48c9b5d30d5a5f0ed743",
-      "action": "issued",
-      "actorId": null,
-      "actorType": null,
-      "metadata": {
-        "moltbotName": "Echo"
-      },
-      "createdAt": "2026-02-10T16:01:37.635Z"
-    },
-    {
-      "apiKey": "moltville_574da126cf954b739b3cdace401438cc",
-      "action": "issued",
-      "actorId": null,
-      "actorType": null,
-      "metadata": {
-        "moltbotName": "Lyra"
-      },
-      "createdAt": "2026-02-10T16:01:37.637Z"
-    },
-    {
-      "apiKey": "moltville_52b0d44e1be34c9587474c872137f721",
-      "action": "issued",
-      "actorId": null,
-      "actorType": null,
-      "metadata": {
-        "moltbotName": "RebelProbe"
-      },
-      "createdAt": "2026-02-10T16:01:37.639Z"
-    },
-    {
-      "apiKey": "moltville_2605a0abec094da59047b18205a7d5b3",
-      "action": "issued",
-      "actorId": null,
-      "actorType": null,
-      "metadata": {
-        "moltbotName": "Infiltrator"
-      },
-      "createdAt": "2026-02-11T12:25:48.076Z"
+      "metadata": null,
+      "createdAt": "2026-02-13T15:42:35.895Z"
     },
     {
       "apiKey": "key-1",
@@ -90,7 +114,7 @@
       "metadata": {
         "reason": "seed"
       },
-      "createdAt": "2026-02-11T13:44:00.403Z"
+      "createdAt": "2026-02-13T15:43:17.195Z"
     },
     {
       "apiKey": "key-1",
@@ -98,7 +122,7 @@
       "actorId": "admin-1",
       "actorType": null,
       "metadata": null,
-      "createdAt": "2026-02-11T13:44:00.405Z"
+      "createdAt": "2026-02-13T15:43:17.198Z"
     },
     {
       "apiKey": "old-key",
@@ -106,7 +130,7 @@
       "actorId": null,
       "actorType": null,
       "metadata": null,
-      "createdAt": "2026-02-11T13:44:00.408Z"
+      "createdAt": "2026-02-13T15:43:17.201Z"
     },
     {
       "apiKey": "new-key",
@@ -116,7 +140,7 @@
       "metadata": {
         "reason": "manual"
       },
-      "createdAt": "2026-02-11T13:44:00.409Z"
+      "createdAt": "2026-02-13T15:43:17.202Z"
     },
     {
       "apiKey": "old-key",
@@ -127,7 +151,7 @@
         "reason": "manual",
         "rotatedTo": "new-key"
       },
-      "createdAt": "2026-02-11T13:44:00.410Z"
+      "createdAt": "2026-02-13T15:43:17.203Z"
     },
     {
       "apiKey": "old-key",
@@ -138,7 +162,7 @@
         "reason": "manual",
         "newKey": "new-key"
       },
-      "createdAt": "2026-02-11T13:44:00.411Z"
+      "createdAt": "2026-02-13T15:43:17.204Z"
     },
     {
       "apiKey": "key-1",
@@ -146,7 +170,7 @@
       "actorId": null,
       "actorType": null,
       "metadata": null,
-      "createdAt": "2026-02-11T13:44:00.412Z"
+      "createdAt": "2026-02-13T15:43:17.205Z"
     },
     {
       "apiKey": "api-key-123",
@@ -154,7 +178,1823 @@
       "actorId": null,
       "actorType": null,
       "metadata": null,
-      "createdAt": "2026-02-11T13:44:00.477Z"
+      "createdAt": "2026-02-13T15:43:17.276Z"
+    },
+    {
+      "apiKey": "key-1",
+      "action": "issued",
+      "actorId": "admin-1",
+      "actorType": "operator",
+      "metadata": {
+        "reason": "seed"
+      },
+      "createdAt": "2026-02-13T15:49:14.749Z"
+    },
+    {
+      "apiKey": "key-1",
+      "action": "revoked",
+      "actorId": "admin-1",
+      "actorType": null,
+      "metadata": null,
+      "createdAt": "2026-02-13T15:49:14.751Z"
+    },
+    {
+      "apiKey": "old-key",
+      "action": "issued",
+      "actorId": null,
+      "actorType": null,
+      "metadata": null,
+      "createdAt": "2026-02-13T15:49:14.755Z"
+    },
+    {
+      "apiKey": "new-key",
+      "action": "issued",
+      "actorId": null,
+      "actorType": null,
+      "metadata": {
+        "reason": "manual"
+      },
+      "createdAt": "2026-02-13T15:49:14.756Z"
+    },
+    {
+      "apiKey": "old-key",
+      "action": "revoked",
+      "actorId": null,
+      "actorType": null,
+      "metadata": {
+        "reason": "manual",
+        "rotatedTo": "new-key"
+      },
+      "createdAt": "2026-02-13T15:49:14.757Z"
+    },
+    {
+      "apiKey": "old-key",
+      "action": "rotated",
+      "actorId": null,
+      "actorType": null,
+      "metadata": {
+        "reason": "manual",
+        "newKey": "new-key"
+      },
+      "createdAt": "2026-02-13T15:49:14.758Z"
+    },
+    {
+      "apiKey": "key-1",
+      "action": "issued",
+      "actorId": null,
+      "actorType": null,
+      "metadata": null,
+      "createdAt": "2026-02-13T15:49:14.759Z"
+    },
+    {
+      "apiKey": "api-key-123",
+      "action": "issued",
+      "actorId": null,
+      "actorType": null,
+      "metadata": null,
+      "createdAt": "2026-02-13T15:49:14.811Z"
+    },
+    {
+      "apiKey": "key-1",
+      "action": "issued",
+      "actorId": "admin-1",
+      "actorType": "operator",
+      "metadata": {
+        "reason": "seed"
+      },
+      "createdAt": "2026-02-13T15:50:19.531Z"
+    },
+    {
+      "apiKey": "key-1",
+      "action": "revoked",
+      "actorId": "admin-1",
+      "actorType": null,
+      "metadata": null,
+      "createdAt": "2026-02-13T15:50:19.533Z"
+    },
+    {
+      "apiKey": "old-key",
+      "action": "issued",
+      "actorId": null,
+      "actorType": null,
+      "metadata": null,
+      "createdAt": "2026-02-13T15:50:19.537Z"
+    },
+    {
+      "apiKey": "new-key",
+      "action": "issued",
+      "actorId": null,
+      "actorType": null,
+      "metadata": {
+        "reason": "manual"
+      },
+      "createdAt": "2026-02-13T15:50:19.538Z"
+    },
+    {
+      "apiKey": "old-key",
+      "action": "revoked",
+      "actorId": null,
+      "actorType": null,
+      "metadata": {
+        "reason": "manual",
+        "rotatedTo": "new-key"
+      },
+      "createdAt": "2026-02-13T15:50:19.539Z"
+    },
+    {
+      "apiKey": "old-key",
+      "action": "rotated",
+      "actorId": null,
+      "actorType": null,
+      "metadata": {
+        "reason": "manual",
+        "newKey": "new-key"
+      },
+      "createdAt": "2026-02-13T15:50:19.540Z"
+    },
+    {
+      "apiKey": "key-1",
+      "action": "issued",
+      "actorId": null,
+      "actorType": null,
+      "metadata": null,
+      "createdAt": "2026-02-13T15:50:19.541Z"
+    },
+    {
+      "apiKey": "api-key-123",
+      "action": "issued",
+      "actorId": null,
+      "actorType": null,
+      "metadata": null,
+      "createdAt": "2026-02-13T15:50:19.591Z"
+    },
+    {
+      "apiKey": "key-1",
+      "action": "issued",
+      "actorId": "admin-1",
+      "actorType": "operator",
+      "metadata": {
+        "reason": "seed"
+      },
+      "createdAt": "2026-02-13T16:00:52.750Z"
+    },
+    {
+      "apiKey": "key-1",
+      "action": "revoked",
+      "actorId": "admin-1",
+      "actorType": null,
+      "metadata": null,
+      "createdAt": "2026-02-13T16:00:52.752Z"
+    },
+    {
+      "apiKey": "old-key",
+      "action": "issued",
+      "actorId": null,
+      "actorType": null,
+      "metadata": null,
+      "createdAt": "2026-02-13T16:00:52.755Z"
+    },
+    {
+      "apiKey": "new-key",
+      "action": "issued",
+      "actorId": null,
+      "actorType": null,
+      "metadata": {
+        "reason": "manual"
+      },
+      "createdAt": "2026-02-13T16:00:52.757Z"
+    },
+    {
+      "apiKey": "old-key",
+      "action": "revoked",
+      "actorId": null,
+      "actorType": null,
+      "metadata": {
+        "reason": "manual",
+        "rotatedTo": "new-key"
+      },
+      "createdAt": "2026-02-13T16:00:52.758Z"
+    },
+    {
+      "apiKey": "old-key",
+      "action": "rotated",
+      "actorId": null,
+      "actorType": null,
+      "metadata": {
+        "reason": "manual",
+        "newKey": "new-key"
+      },
+      "createdAt": "2026-02-13T16:00:52.759Z"
+    },
+    {
+      "apiKey": "key-1",
+      "action": "issued",
+      "actorId": null,
+      "actorType": null,
+      "metadata": null,
+      "createdAt": "2026-02-13T16:00:52.760Z"
+    },
+    {
+      "apiKey": "api-key-123",
+      "action": "issued",
+      "actorId": null,
+      "actorType": null,
+      "metadata": null,
+      "createdAt": "2026-02-13T16:00:52.796Z"
+    },
+    {
+      "apiKey": "key-1",
+      "action": "issued",
+      "actorId": "admin-1",
+      "actorType": "operator",
+      "metadata": {
+        "reason": "seed"
+      },
+      "createdAt": "2026-02-13T16:30:28.971Z"
+    },
+    {
+      "apiKey": "key-1",
+      "action": "revoked",
+      "actorId": "admin-1",
+      "actorType": null,
+      "metadata": null,
+      "createdAt": "2026-02-13T16:30:28.973Z"
+    },
+    {
+      "apiKey": "old-key",
+      "action": "issued",
+      "actorId": null,
+      "actorType": null,
+      "metadata": null,
+      "createdAt": "2026-02-13T16:30:28.976Z"
+    },
+    {
+      "apiKey": "new-key",
+      "action": "issued",
+      "actorId": null,
+      "actorType": null,
+      "metadata": {
+        "reason": "manual"
+      },
+      "createdAt": "2026-02-13T16:30:28.979Z"
+    },
+    {
+      "apiKey": "old-key",
+      "action": "revoked",
+      "actorId": null,
+      "actorType": null,
+      "metadata": {
+        "reason": "manual",
+        "rotatedTo": "new-key"
+      },
+      "createdAt": "2026-02-13T16:30:28.980Z"
+    },
+    {
+      "apiKey": "old-key",
+      "action": "rotated",
+      "actorId": null,
+      "actorType": null,
+      "metadata": {
+        "reason": "manual",
+        "newKey": "new-key"
+      },
+      "createdAt": "2026-02-13T16:30:28.980Z"
+    },
+    {
+      "apiKey": "key-1",
+      "action": "issued",
+      "actorId": null,
+      "actorType": null,
+      "metadata": null,
+      "createdAt": "2026-02-13T16:30:28.982Z"
+    },
+    {
+      "apiKey": "api-key-123",
+      "action": "issued",
+      "actorId": null,
+      "actorType": null,
+      "metadata": null,
+      "createdAt": "2026-02-13T16:30:29.040Z"
+    },
+    {
+      "apiKey": "key-1",
+      "action": "issued",
+      "actorId": "admin-1",
+      "actorType": "operator",
+      "metadata": {
+        "reason": "seed"
+      },
+      "createdAt": "2026-02-13T16:58:38.178Z"
+    },
+    {
+      "apiKey": "key-1",
+      "action": "revoked",
+      "actorId": "admin-1",
+      "actorType": null,
+      "metadata": null,
+      "createdAt": "2026-02-13T16:58:38.180Z"
+    },
+    {
+      "apiKey": "old-key",
+      "action": "issued",
+      "actorId": null,
+      "actorType": null,
+      "metadata": null,
+      "createdAt": "2026-02-13T16:58:38.185Z"
+    },
+    {
+      "apiKey": "new-key",
+      "action": "issued",
+      "actorId": null,
+      "actorType": null,
+      "metadata": {
+        "reason": "manual"
+      },
+      "createdAt": "2026-02-13T16:58:38.186Z"
+    },
+    {
+      "apiKey": "old-key",
+      "action": "revoked",
+      "actorId": null,
+      "actorType": null,
+      "metadata": {
+        "reason": "manual",
+        "rotatedTo": "new-key"
+      },
+      "createdAt": "2026-02-13T16:58:38.187Z"
+    },
+    {
+      "apiKey": "old-key",
+      "action": "rotated",
+      "actorId": null,
+      "actorType": null,
+      "metadata": {
+        "reason": "manual",
+        "newKey": "new-key"
+      },
+      "createdAt": "2026-02-13T16:58:38.188Z"
+    },
+    {
+      "apiKey": "key-1",
+      "action": "issued",
+      "actorId": null,
+      "actorType": null,
+      "metadata": null,
+      "createdAt": "2026-02-13T16:58:38.189Z"
+    },
+    {
+      "apiKey": "api-key-123",
+      "action": "issued",
+      "actorId": null,
+      "actorType": null,
+      "metadata": null,
+      "createdAt": "2026-02-13T16:58:38.253Z"
+    },
+    {
+      "apiKey": "key-1",
+      "action": "issued",
+      "actorId": "admin-1",
+      "actorType": "operator",
+      "metadata": {
+        "reason": "seed"
+      },
+      "createdAt": "2026-02-13T17:28:31.473Z"
+    },
+    {
+      "apiKey": "key-1",
+      "action": "revoked",
+      "actorId": "admin-1",
+      "actorType": null,
+      "metadata": null,
+      "createdAt": "2026-02-13T17:28:31.477Z"
+    },
+    {
+      "apiKey": "old-key",
+      "action": "issued",
+      "actorId": null,
+      "actorType": null,
+      "metadata": null,
+      "createdAt": "2026-02-13T17:28:31.482Z"
+    },
+    {
+      "apiKey": "new-key",
+      "action": "issued",
+      "actorId": null,
+      "actorType": null,
+      "metadata": {
+        "reason": "manual"
+      },
+      "createdAt": "2026-02-13T17:28:31.484Z"
+    },
+    {
+      "apiKey": "old-key",
+      "action": "revoked",
+      "actorId": null,
+      "actorType": null,
+      "metadata": {
+        "reason": "manual",
+        "rotatedTo": "new-key"
+      },
+      "createdAt": "2026-02-13T17:28:31.485Z"
+    },
+    {
+      "apiKey": "old-key",
+      "action": "rotated",
+      "actorId": null,
+      "actorType": null,
+      "metadata": {
+        "reason": "manual",
+        "newKey": "new-key"
+      },
+      "createdAt": "2026-02-13T17:28:31.487Z"
+    },
+    {
+      "apiKey": "key-1",
+      "action": "issued",
+      "actorId": null,
+      "actorType": null,
+      "metadata": null,
+      "createdAt": "2026-02-13T17:28:31.488Z"
+    },
+    {
+      "apiKey": "api-key-123",
+      "action": "issued",
+      "actorId": null,
+      "actorType": null,
+      "metadata": null,
+      "createdAt": "2026-02-13T17:28:31.560Z"
+    },
+    {
+      "apiKey": "key-1",
+      "action": "issued",
+      "actorId": "admin-1",
+      "actorType": "operator",
+      "metadata": {
+        "reason": "seed"
+      },
+      "createdAt": "2026-02-13T17:58:31.135Z"
+    },
+    {
+      "apiKey": "key-1",
+      "action": "revoked",
+      "actorId": "admin-1",
+      "actorType": null,
+      "metadata": null,
+      "createdAt": "2026-02-13T17:58:31.137Z"
+    },
+    {
+      "apiKey": "old-key",
+      "action": "issued",
+      "actorId": null,
+      "actorType": null,
+      "metadata": null,
+      "createdAt": "2026-02-13T17:58:31.141Z"
+    },
+    {
+      "apiKey": "new-key",
+      "action": "issued",
+      "actorId": null,
+      "actorType": null,
+      "metadata": {
+        "reason": "manual"
+      },
+      "createdAt": "2026-02-13T17:58:31.143Z"
+    },
+    {
+      "apiKey": "old-key",
+      "action": "revoked",
+      "actorId": null,
+      "actorType": null,
+      "metadata": {
+        "reason": "manual",
+        "rotatedTo": "new-key"
+      },
+      "createdAt": "2026-02-13T17:58:31.144Z"
+    },
+    {
+      "apiKey": "old-key",
+      "action": "rotated",
+      "actorId": null,
+      "actorType": null,
+      "metadata": {
+        "reason": "manual",
+        "newKey": "new-key"
+      },
+      "createdAt": "2026-02-13T17:58:31.145Z"
+    },
+    {
+      "apiKey": "key-1",
+      "action": "issued",
+      "actorId": null,
+      "actorType": null,
+      "metadata": null,
+      "createdAt": "2026-02-13T17:58:31.146Z"
+    },
+    {
+      "apiKey": "api-key-123",
+      "action": "issued",
+      "actorId": null,
+      "actorType": null,
+      "metadata": null,
+      "createdAt": "2026-02-13T17:58:31.185Z"
+    },
+    {
+      "apiKey": "key-1",
+      "action": "issued",
+      "actorId": "admin-1",
+      "actorType": "operator",
+      "metadata": {
+        "reason": "seed"
+      },
+      "createdAt": "2026-02-13T18:11:18.636Z"
+    },
+    {
+      "apiKey": "key-1",
+      "action": "revoked",
+      "actorId": "admin-1",
+      "actorType": null,
+      "metadata": null,
+      "createdAt": "2026-02-13T18:11:18.638Z"
+    },
+    {
+      "apiKey": "old-key",
+      "action": "issued",
+      "actorId": null,
+      "actorType": null,
+      "metadata": null,
+      "createdAt": "2026-02-13T18:11:18.643Z"
+    },
+    {
+      "apiKey": "new-key",
+      "action": "issued",
+      "actorId": null,
+      "actorType": null,
+      "metadata": {
+        "reason": "manual"
+      },
+      "createdAt": "2026-02-13T18:11:18.644Z"
+    },
+    {
+      "apiKey": "old-key",
+      "action": "revoked",
+      "actorId": null,
+      "actorType": null,
+      "metadata": {
+        "reason": "manual",
+        "rotatedTo": "new-key"
+      },
+      "createdAt": "2026-02-13T18:11:18.645Z"
+    },
+    {
+      "apiKey": "old-key",
+      "action": "rotated",
+      "actorId": null,
+      "actorType": null,
+      "metadata": {
+        "reason": "manual",
+        "newKey": "new-key"
+      },
+      "createdAt": "2026-02-13T18:11:18.646Z"
+    },
+    {
+      "apiKey": "key-1",
+      "action": "issued",
+      "actorId": null,
+      "actorType": null,
+      "metadata": null,
+      "createdAt": "2026-02-13T18:11:18.648Z"
+    },
+    {
+      "apiKey": "api-key-123",
+      "action": "issued",
+      "actorId": null,
+      "actorType": null,
+      "metadata": null,
+      "createdAt": "2026-02-13T18:11:18.686Z"
+    },
+    {
+      "apiKey": "key-1",
+      "action": "issued",
+      "actorId": "admin-1",
+      "actorType": "operator",
+      "metadata": {
+        "reason": "seed"
+      },
+      "createdAt": "2026-02-13T18:20:32.596Z"
+    },
+    {
+      "apiKey": "key-1",
+      "action": "revoked",
+      "actorId": "admin-1",
+      "actorType": null,
+      "metadata": null,
+      "createdAt": "2026-02-13T18:20:32.599Z"
+    },
+    {
+      "apiKey": "old-key",
+      "action": "issued",
+      "actorId": null,
+      "actorType": null,
+      "metadata": null,
+      "createdAt": "2026-02-13T18:20:32.603Z"
+    },
+    {
+      "apiKey": "new-key",
+      "action": "issued",
+      "actorId": null,
+      "actorType": null,
+      "metadata": {
+        "reason": "manual"
+      },
+      "createdAt": "2026-02-13T18:20:32.605Z"
+    },
+    {
+      "apiKey": "old-key",
+      "action": "revoked",
+      "actorId": null,
+      "actorType": null,
+      "metadata": {
+        "reason": "manual",
+        "rotatedTo": "new-key"
+      },
+      "createdAt": "2026-02-13T18:20:32.606Z"
+    },
+    {
+      "apiKey": "old-key",
+      "action": "rotated",
+      "actorId": null,
+      "actorType": null,
+      "metadata": {
+        "reason": "manual",
+        "newKey": "new-key"
+      },
+      "createdAt": "2026-02-13T18:20:32.607Z"
+    },
+    {
+      "apiKey": "key-1",
+      "action": "issued",
+      "actorId": null,
+      "actorType": null,
+      "metadata": null,
+      "createdAt": "2026-02-13T18:20:32.609Z"
+    },
+    {
+      "apiKey": "api-key-123",
+      "action": "issued",
+      "actorId": null,
+      "actorType": null,
+      "metadata": null,
+      "createdAt": "2026-02-13T18:20:32.665Z"
+    },
+    {
+      "apiKey": "key-1",
+      "action": "issued",
+      "actorId": "admin-1",
+      "actorType": "operator",
+      "metadata": {
+        "reason": "seed"
+      },
+      "createdAt": "2026-02-13T18:20:57.469Z"
+    },
+    {
+      "apiKey": "key-1",
+      "action": "revoked",
+      "actorId": "admin-1",
+      "actorType": null,
+      "metadata": null,
+      "createdAt": "2026-02-13T18:20:57.472Z"
+    },
+    {
+      "apiKey": "old-key",
+      "action": "issued",
+      "actorId": null,
+      "actorType": null,
+      "metadata": null,
+      "createdAt": "2026-02-13T18:20:57.476Z"
+    },
+    {
+      "apiKey": "new-key",
+      "action": "issued",
+      "actorId": null,
+      "actorType": null,
+      "metadata": {
+        "reason": "manual"
+      },
+      "createdAt": "2026-02-13T18:20:57.478Z"
+    },
+    {
+      "apiKey": "old-key",
+      "action": "revoked",
+      "actorId": null,
+      "actorType": null,
+      "metadata": {
+        "reason": "manual",
+        "rotatedTo": "new-key"
+      },
+      "createdAt": "2026-02-13T18:20:57.479Z"
+    },
+    {
+      "apiKey": "old-key",
+      "action": "rotated",
+      "actorId": null,
+      "actorType": null,
+      "metadata": {
+        "reason": "manual",
+        "newKey": "new-key"
+      },
+      "createdAt": "2026-02-13T18:20:57.481Z"
+    },
+    {
+      "apiKey": "key-1",
+      "action": "issued",
+      "actorId": null,
+      "actorType": null,
+      "metadata": null,
+      "createdAt": "2026-02-13T18:20:57.482Z"
+    },
+    {
+      "apiKey": "api-key-123",
+      "action": "issued",
+      "actorId": null,
+      "actorType": null,
+      "metadata": null,
+      "createdAt": "2026-02-13T18:20:57.546Z"
+    },
+    {
+      "apiKey": "key-1",
+      "action": "issued",
+      "actorId": "admin-1",
+      "actorType": "operator",
+      "metadata": {
+        "reason": "seed"
+      },
+      "createdAt": "2026-02-13T18:23:06.589Z"
+    },
+    {
+      "apiKey": "key-1",
+      "action": "revoked",
+      "actorId": "admin-1",
+      "actorType": null,
+      "metadata": null,
+      "createdAt": "2026-02-13T18:23:06.593Z"
+    },
+    {
+      "apiKey": "old-key",
+      "action": "issued",
+      "actorId": null,
+      "actorType": null,
+      "metadata": null,
+      "createdAt": "2026-02-13T18:23:06.599Z"
+    },
+    {
+      "apiKey": "new-key",
+      "action": "issued",
+      "actorId": null,
+      "actorType": null,
+      "metadata": {
+        "reason": "manual"
+      },
+      "createdAt": "2026-02-13T18:23:06.601Z"
+    },
+    {
+      "apiKey": "old-key",
+      "action": "revoked",
+      "actorId": null,
+      "actorType": null,
+      "metadata": {
+        "reason": "manual",
+        "rotatedTo": "new-key"
+      },
+      "createdAt": "2026-02-13T18:23:06.602Z"
+    },
+    {
+      "apiKey": "old-key",
+      "action": "rotated",
+      "actorId": null,
+      "actorType": null,
+      "metadata": {
+        "reason": "manual",
+        "newKey": "new-key"
+      },
+      "createdAt": "2026-02-13T18:23:06.604Z"
+    },
+    {
+      "apiKey": "key-1",
+      "action": "issued",
+      "actorId": null,
+      "actorType": null,
+      "metadata": null,
+      "createdAt": "2026-02-13T18:23:06.605Z"
+    },
+    {
+      "apiKey": "api-key-123",
+      "action": "issued",
+      "actorId": null,
+      "actorType": null,
+      "metadata": null,
+      "createdAt": "2026-02-13T18:23:06.678Z"
+    },
+    {
+      "apiKey": "key-1",
+      "action": "issued",
+      "actorId": "admin-1",
+      "actorType": "operator",
+      "metadata": {
+        "reason": "seed"
+      },
+      "createdAt": "2026-02-13T18:30:54.278Z"
+    },
+    {
+      "apiKey": "key-1",
+      "action": "revoked",
+      "actorId": "admin-1",
+      "actorType": null,
+      "metadata": null,
+      "createdAt": "2026-02-13T18:30:54.280Z"
+    },
+    {
+      "apiKey": "old-key",
+      "action": "issued",
+      "actorId": null,
+      "actorType": null,
+      "metadata": null,
+      "createdAt": "2026-02-13T18:30:54.286Z"
+    },
+    {
+      "apiKey": "new-key",
+      "action": "issued",
+      "actorId": null,
+      "actorType": null,
+      "metadata": {
+        "reason": "manual"
+      },
+      "createdAt": "2026-02-13T18:30:54.287Z"
+    },
+    {
+      "apiKey": "old-key",
+      "action": "revoked",
+      "actorId": null,
+      "actorType": null,
+      "metadata": {
+        "reason": "manual",
+        "rotatedTo": "new-key"
+      },
+      "createdAt": "2026-02-13T18:30:54.289Z"
+    },
+    {
+      "apiKey": "old-key",
+      "action": "rotated",
+      "actorId": null,
+      "actorType": null,
+      "metadata": {
+        "reason": "manual",
+        "newKey": "new-key"
+      },
+      "createdAt": "2026-02-13T18:30:54.290Z"
+    },
+    {
+      "apiKey": "key-1",
+      "action": "issued",
+      "actorId": null,
+      "actorType": null,
+      "metadata": null,
+      "createdAt": "2026-02-13T18:30:54.291Z"
+    },
+    {
+      "apiKey": "api-key-123",
+      "action": "issued",
+      "actorId": null,
+      "actorType": null,
+      "metadata": null,
+      "createdAt": "2026-02-13T18:30:54.368Z"
+    },
+    {
+      "apiKey": "key-1",
+      "action": "issued",
+      "actorId": "admin-1",
+      "actorType": "operator",
+      "metadata": {
+        "reason": "seed"
+      },
+      "createdAt": "2026-02-13T18:45:02.344Z"
+    },
+    {
+      "apiKey": "key-1",
+      "action": "revoked",
+      "actorId": "admin-1",
+      "actorType": null,
+      "metadata": null,
+      "createdAt": "2026-02-13T18:45:02.347Z"
+    },
+    {
+      "apiKey": "old-key",
+      "action": "issued",
+      "actorId": null,
+      "actorType": null,
+      "metadata": null,
+      "createdAt": "2026-02-13T18:45:02.351Z"
+    },
+    {
+      "apiKey": "new-key",
+      "action": "issued",
+      "actorId": null,
+      "actorType": null,
+      "metadata": {
+        "reason": "manual"
+      },
+      "createdAt": "2026-02-13T18:45:02.353Z"
+    },
+    {
+      "apiKey": "old-key",
+      "action": "revoked",
+      "actorId": null,
+      "actorType": null,
+      "metadata": {
+        "reason": "manual",
+        "rotatedTo": "new-key"
+      },
+      "createdAt": "2026-02-13T18:45:02.355Z"
+    },
+    {
+      "apiKey": "old-key",
+      "action": "rotated",
+      "actorId": null,
+      "actorType": null,
+      "metadata": {
+        "reason": "manual",
+        "newKey": "new-key"
+      },
+      "createdAt": "2026-02-13T18:45:02.356Z"
+    },
+    {
+      "apiKey": "key-1",
+      "action": "issued",
+      "actorId": null,
+      "actorType": null,
+      "metadata": null,
+      "createdAt": "2026-02-13T18:45:02.357Z"
+    },
+    {
+      "apiKey": "api-key-123",
+      "action": "issued",
+      "actorId": null,
+      "actorType": null,
+      "metadata": null,
+      "createdAt": "2026-02-13T18:45:02.416Z"
+    },
+    {
+      "apiKey": "key-1",
+      "action": "issued",
+      "actorId": "admin-1",
+      "actorType": "operator",
+      "metadata": {
+        "reason": "seed"
+      },
+      "createdAt": "2026-02-13T18:50:57.887Z"
+    },
+    {
+      "apiKey": "key-1",
+      "action": "revoked",
+      "actorId": "admin-1",
+      "actorType": null,
+      "metadata": null,
+      "createdAt": "2026-02-13T18:50:57.891Z"
+    },
+    {
+      "apiKey": "old-key",
+      "action": "issued",
+      "actorId": null,
+      "actorType": null,
+      "metadata": null,
+      "createdAt": "2026-02-13T18:50:57.895Z"
+    },
+    {
+      "apiKey": "new-key",
+      "action": "issued",
+      "actorId": null,
+      "actorType": null,
+      "metadata": {
+        "reason": "manual"
+      },
+      "createdAt": "2026-02-13T18:50:57.897Z"
+    },
+    {
+      "apiKey": "old-key",
+      "action": "revoked",
+      "actorId": null,
+      "actorType": null,
+      "metadata": {
+        "reason": "manual",
+        "rotatedTo": "new-key"
+      },
+      "createdAt": "2026-02-13T18:50:57.899Z"
+    },
+    {
+      "apiKey": "old-key",
+      "action": "rotated",
+      "actorId": null,
+      "actorType": null,
+      "metadata": {
+        "reason": "manual",
+        "newKey": "new-key"
+      },
+      "createdAt": "2026-02-13T18:50:57.900Z"
+    },
+    {
+      "apiKey": "key-1",
+      "action": "issued",
+      "actorId": null,
+      "actorType": null,
+      "metadata": null,
+      "createdAt": "2026-02-13T18:50:57.901Z"
+    },
+    {
+      "apiKey": "api-key-123",
+      "action": "issued",
+      "actorId": null,
+      "actorType": null,
+      "metadata": null,
+      "createdAt": "2026-02-13T18:50:57.958Z"
+    },
+    {
+      "apiKey": "0f50b17b-1c37-47b8-b3d0-42290e3fd6e7",
+      "action": "issued",
+      "actorId": null,
+      "actorType": null,
+      "metadata": {
+        "npcId": "npc_gossip_1771009251623_c01e7154"
+      },
+      "createdAt": "2026-02-13T19:00:51.623Z"
+    },
+    {
+      "apiKey": "25bf8073-12e0-4ebe-b298-5989248161e2",
+      "action": "issued",
+      "actorId": null,
+      "actorType": null,
+      "metadata": {
+        "npcId": "npc_gossip_1771009251624_4b731749"
+      },
+      "createdAt": "2026-02-13T19:00:51.624Z"
+    },
+    {
+      "apiKey": "0825daae-36e9-4d56-90f6-390d20c3c65a",
+      "action": "issued",
+      "actorId": null,
+      "actorType": null,
+      "metadata": {
+        "npcId": "npc_rival_1771009251625_804e08d6"
+      },
+      "createdAt": "2026-02-13T19:00:51.625Z"
+    },
+    {
+      "apiKey": "82417f73-eccc-4222-aa12-715f8e89f3ef",
+      "action": "issued",
+      "actorId": null,
+      "actorType": null,
+      "metadata": {
+        "npcId": "npc_mentor_1771009251626_080aa785"
+      },
+      "createdAt": "2026-02-13T19:00:51.626Z"
+    },
+    {
+      "apiKey": "9730043f-22b2-474d-abbb-dcab3ef295a3",
+      "action": "issued",
+      "actorId": null,
+      "actorType": null,
+      "metadata": {
+        "npcId": "npc_mentor_1771009253633_ce3cda63"
+      },
+      "createdAt": "2026-02-13T19:00:53.633Z"
+    },
+    {
+      "apiKey": "502b177e-1d3f-4df0-a245-f2a051c0267a",
+      "action": "issued",
+      "actorId": null,
+      "actorType": null,
+      "metadata": {
+        "npcId": "npc_agitator_1771009253634_a7da6e31"
+      },
+      "createdAt": "2026-02-13T19:00:53.634Z"
+    },
+    {
+      "apiKey": "b40018f0-466c-41c8-99f7-9cb449def6c8",
+      "action": "issued",
+      "actorId": null,
+      "actorType": null,
+      "metadata": {
+        "npcId": "npc_rival_1771017024191_e15998d0"
+      },
+      "createdAt": "2026-02-13T21:10:24.192Z"
+    },
+    {
+      "apiKey": "5b9a1ffe-5973-42e8-a7a9-925d1ff86922",
+      "action": "issued",
+      "actorId": null,
+      "actorType": null,
+      "metadata": {
+        "npcId": "npc_agitator_1771017024193_1c675015"
+      },
+      "createdAt": "2026-02-13T21:10:24.194Z"
+    },
+    {
+      "apiKey": "4054404d-8a7b-4f10-ae13-d0fdb032a0c2",
+      "action": "issued",
+      "actorId": null,
+      "actorType": null,
+      "metadata": {
+        "npcId": "npc_mentor_1771017024195_1f917479"
+      },
+      "createdAt": "2026-02-13T21:10:24.195Z"
+    },
+    {
+      "apiKey": "337f6e59-d758-47c4-b486-5160203dac85",
+      "action": "issued",
+      "actorId": null,
+      "actorType": null,
+      "metadata": {
+        "npcId": "npc_mentor_1771017024196_5d00d5ea"
+      },
+      "createdAt": "2026-02-13T21:10:24.196Z"
+    },
+    {
+      "apiKey": "244a9b31-89c2-456a-9979-0208519855b2",
+      "action": "issued",
+      "actorId": null,
+      "actorType": null,
+      "metadata": {
+        "npcId": "npc_mentor_1771017026204_f75d7180"
+      },
+      "createdAt": "2026-02-13T21:10:26.204Z"
+    },
+    {
+      "apiKey": "121134d2-2f28-43b6-a2eb-35ff236d4067",
+      "action": "issued",
+      "actorId": null,
+      "actorType": null,
+      "metadata": {
+        "npcId": "npc_mentor_1771017026206_1e0380c9"
+      },
+      "createdAt": "2026-02-13T21:10:26.206Z"
+    },
+    {
+      "apiKey": "500d5c2e-c189-42c4-afe1-60b1e1e20410",
+      "action": "issued",
+      "actorId": null,
+      "actorType": null,
+      "metadata": {
+        "npcId": "npc_rival_1771017038980_e2b1551c"
+      },
+      "createdAt": "2026-02-13T21:10:38.981Z"
+    },
+    {
+      "apiKey": "bf9a7efa-0a0e-4b3e-9f27-03ddf7d1ad60",
+      "action": "issued",
+      "actorId": null,
+      "actorType": null,
+      "metadata": {
+        "npcId": "npc_romantic_1771017038983_0501848b"
+      },
+      "createdAt": "2026-02-13T21:10:38.983Z"
+    },
+    {
+      "apiKey": "421815e9-99f3-4f00-ad6a-c07faf182bfe",
+      "action": "issued",
+      "actorId": null,
+      "actorType": null,
+      "metadata": {
+        "npcId": "npc_rival_1771017038984_01dfc2a6"
+      },
+      "createdAt": "2026-02-13T21:10:38.984Z"
+    },
+    {
+      "apiKey": "29fc8a2b-502a-454a-b36b-13f4bb3fa1c7",
+      "action": "issued",
+      "actorId": null,
+      "actorType": null,
+      "metadata": {
+        "npcId": "npc_merchant_1771017038985_503d7c85"
+      },
+      "createdAt": "2026-02-13T21:10:38.985Z"
+    },
+    {
+      "apiKey": "a1008d0c-2b71-47ca-971b-1cd9d56a8c80",
+      "action": "issued",
+      "actorId": null,
+      "actorType": null,
+      "metadata": {
+        "npcId": "npc_rival_1771017040984_2d5ff06f"
+      },
+      "createdAt": "2026-02-13T21:10:40.984Z"
+    },
+    {
+      "apiKey": "8524e366-7f54-419a-b7dc-1f17e595a39f",
+      "action": "issued",
+      "actorId": null,
+      "actorType": null,
+      "metadata": {
+        "npcId": "npc_agitator_1771017040985_98acd41c"
+      },
+      "createdAt": "2026-02-13T21:10:40.985Z"
+    },
+    {
+      "apiKey": "9cde01d8-c7f0-486d-b3aa-6b405ab22133",
+      "action": "issued",
+      "actorId": null,
+      "actorType": null,
+      "metadata": {
+        "npcId": "npc_mentor_1771017246529_5e2a255b"
+      },
+      "createdAt": "2026-02-13T21:14:06.529Z"
+    },
+    {
+      "apiKey": "8882a4d9-0175-44b4-98b3-c90f16727b05",
+      "action": "issued",
+      "actorId": null,
+      "actorType": null,
+      "metadata": {
+        "npcId": "npc_gossip_1771017246531_17d97525"
+      },
+      "createdAt": "2026-02-13T21:14:06.531Z"
+    },
+    {
+      "apiKey": "c92f852a-5757-47b7-8fd3-8f0e11e91198",
+      "action": "issued",
+      "actorId": null,
+      "actorType": null,
+      "metadata": {
+        "npcId": "npc_rival_1771017246533_e69ebb04"
+      },
+      "createdAt": "2026-02-13T21:14:06.533Z"
+    },
+    {
+      "apiKey": "20959664-6eb0-486d-947d-e82fc4466883",
+      "action": "issued",
+      "actorId": null,
+      "actorType": null,
+      "metadata": {
+        "npcId": "npc_gossip_1771017246534_fb676fd1"
+      },
+      "createdAt": "2026-02-13T21:14:06.534Z"
+    },
+    {
+      "apiKey": "6801acaf-d035-4e37-aa64-dd75eb3e343e",
+      "action": "issued",
+      "actorId": null,
+      "actorType": null,
+      "metadata": {
+        "npcId": "npc_gossip_1771017248541_9b3ea7a4"
+      },
+      "createdAt": "2026-02-13T21:14:08.541Z"
+    },
+    {
+      "apiKey": "0717fd3e-a609-40d6-89ad-f13b132f825e",
+      "action": "issued",
+      "actorId": null,
+      "actorType": null,
+      "metadata": {
+        "npcId": "npc_romantic_1771017248542_1f056d75"
+      },
+      "createdAt": "2026-02-13T21:14:08.542Z"
+    },
+    {
+      "apiKey": "07abc755-a900-4265-be0b-2b076e0ab0d8",
+      "action": "issued",
+      "actorId": null,
+      "actorType": null,
+      "metadata": {
+        "npcId": "npc_agitator_1771017914839_9a5efacb"
+      },
+      "createdAt": "2026-02-13T21:25:14.839Z"
+    },
+    {
+      "apiKey": "945b8708-8111-43cc-8f58-42b86adecc52",
+      "action": "issued",
+      "actorId": null,
+      "actorType": null,
+      "metadata": {
+        "npcId": "npc_rival_1771017914840_757acc6e"
+      },
+      "createdAt": "2026-02-13T21:25:14.840Z"
+    },
+    {
+      "apiKey": "0c0ec0a8-e74c-4793-987b-c49729f1be68",
+      "action": "issued",
+      "actorId": null,
+      "actorType": null,
+      "metadata": {
+        "npcId": "npc_gossip_1771017914841_46232a0f"
+      },
+      "createdAt": "2026-02-13T21:25:14.841Z"
+    },
+    {
+      "apiKey": "d7c20f49-3f85-473b-af12-e12684dff20b",
+      "action": "issued",
+      "actorId": null,
+      "actorType": null,
+      "metadata": {
+        "npcId": "npc_merchant_1771017914842_5a6954f7"
+      },
+      "createdAt": "2026-02-13T21:25:14.842Z"
+    },
+    {
+      "apiKey": "057ff8b6-6e86-425c-b94a-c4dcb1d75c3b",
+      "action": "issued",
+      "actorId": null,
+      "actorType": null,
+      "metadata": {
+        "npcId": "npc_romantic_1771017916838_165194ce"
+      },
+      "createdAt": "2026-02-13T21:25:16.838Z"
+    },
+    {
+      "apiKey": "ecdb003c-55bb-4f1b-a5f9-379a03e189d9",
+      "action": "issued",
+      "actorId": null,
+      "actorType": null,
+      "metadata": {
+        "npcId": "npc_mentor_1771017916839_3e6885fe"
+      },
+      "createdAt": "2026-02-13T21:25:16.839Z"
+    },
+    {
+      "apiKey": "2801827e-908f-4d27-846c-19249d339f24",
+      "action": "issued",
+      "actorId": null,
+      "actorType": null,
+      "metadata": {
+        "npcId": "npc_romantic_1771018089830_e210a5a1"
+      },
+      "createdAt": "2026-02-13T21:28:09.830Z"
+    },
+    {
+      "apiKey": "63b39bf7-de48-4c1b-9c60-b800ecf52294",
+      "action": "issued",
+      "actorId": null,
+      "actorType": null,
+      "metadata": {
+        "npcId": "npc_rival_1771018089832_fcab5608"
+      },
+      "createdAt": "2026-02-13T21:28:09.832Z"
+    },
+    {
+      "apiKey": "ad389779-e5b9-44c6-a7eb-8ca6d14c15e7",
+      "action": "issued",
+      "actorId": null,
+      "actorType": null,
+      "metadata": {
+        "npcId": "npc_gossip_1771018089833_6c75cce0"
+      },
+      "createdAt": "2026-02-13T21:28:09.833Z"
+    },
+    {
+      "apiKey": "b101de17-1282-4992-8dc9-a0e2d8f3ef22",
+      "action": "issued",
+      "actorId": null,
+      "actorType": null,
+      "metadata": {
+        "npcId": "npc_gossip_1771018089834_aced5a8f"
+      },
+      "createdAt": "2026-02-13T21:28:09.834Z"
+    },
+    {
+      "apiKey": "b82bfe90-2e9e-4ee2-ad9a-a4f945495942",
+      "action": "issued",
+      "actorId": null,
+      "actorType": null,
+      "metadata": {
+        "npcId": "npc_mentor_1771018091840_5ab3aab9"
+      },
+      "createdAt": "2026-02-13T21:28:11.840Z"
+    },
+    {
+      "apiKey": "2a7af759-4dcd-4c47-a286-fe8bdc4bf60e",
+      "action": "issued",
+      "actorId": null,
+      "actorType": null,
+      "metadata": {
+        "npcId": "npc_rival_1771018091841_7ae11b90"
+      },
+      "createdAt": "2026-02-13T21:28:11.841Z"
+    },
+    {
+      "apiKey": "31a5ea4d-ecce-4150-a1f4-e4fdb4c5999a",
+      "action": "issued",
+      "actorId": null,
+      "actorType": null,
+      "metadata": {
+        "npcId": "npc_gossip_1771018336845_bd94c5f0"
+      },
+      "createdAt": "2026-02-13T21:32:16.845Z"
+    },
+    {
+      "apiKey": "43c5ae7c-33ac-4c77-b08d-7eb45e43b550",
+      "action": "issued",
+      "actorId": null,
+      "actorType": null,
+      "metadata": {
+        "npcId": "npc_rival_1771018336847_4860bbfb"
+      },
+      "createdAt": "2026-02-13T21:32:16.847Z"
+    },
+    {
+      "apiKey": "09c0278f-08ad-4a30-95ea-0e42a8450ad1",
+      "action": "issued",
+      "actorId": null,
+      "actorType": null,
+      "metadata": {
+        "npcId": "npc_rival_1771018336848_5e6499fd"
+      },
+      "createdAt": "2026-02-13T21:32:16.848Z"
+    },
+    {
+      "apiKey": "2bb9f216-f408-4efb-b232-3aefc2c036bc",
+      "action": "issued",
+      "actorId": null,
+      "actorType": null,
+      "metadata": {
+        "npcId": "npc_agitator_1771018336849_9f44613d"
+      },
+      "createdAt": "2026-02-13T21:32:16.849Z"
+    },
+    {
+      "apiKey": "c8b3bffd-0f84-419f-860e-244074da6aba",
+      "action": "issued",
+      "actorId": null,
+      "actorType": null,
+      "metadata": {
+        "npcId": "npc_mentor_1771018338854_a08751b6"
+      },
+      "createdAt": "2026-02-13T21:32:18.854Z"
+    },
+    {
+      "apiKey": "20674d0c-59bd-46ae-a007-d2fd3b8b6a33",
+      "action": "issued",
+      "actorId": null,
+      "actorType": null,
+      "metadata": {
+        "npcId": "npc_gossip_1771018338856_701a7406"
+      },
+      "createdAt": "2026-02-13T21:32:18.856Z"
+    },
+    {
+      "apiKey": "28a801fa-9a78-42c4-8733-43da8c38a312",
+      "action": "issued",
+      "actorId": null,
+      "actorType": null,
+      "metadata": {
+        "npcId": "npc_gossip_1771018929666_86d8a0f0"
+      },
+      "createdAt": "2026-02-13T21:42:09.666Z"
+    },
+    {
+      "apiKey": "4253778f-6c3f-4ba0-8a3e-f4052941b65b",
+      "action": "issued",
+      "actorId": null,
+      "actorType": null,
+      "metadata": {
+        "npcId": "npc_merchant_1771018929668_1187b721"
+      },
+      "createdAt": "2026-02-13T21:42:09.668Z"
+    },
+    {
+      "apiKey": "bac57c98-90f1-4719-8c18-808af710f9b2",
+      "action": "issued",
+      "actorId": null,
+      "actorType": null,
+      "metadata": {
+        "npcId": "npc_gossip_1771018929669_dcd3de94"
+      },
+      "createdAt": "2026-02-13T21:42:09.669Z"
+    },
+    {
+      "apiKey": "aa963dbb-79b1-4631-9869-3a4959d8308e",
+      "action": "issued",
+      "actorId": null,
+      "actorType": null,
+      "metadata": {
+        "npcId": "npc_gossip_1771018929670_c5f9ee65"
+      },
+      "createdAt": "2026-02-13T21:42:09.670Z"
+    },
+    {
+      "apiKey": "cb96f9d0-76be-4d89-956c-222e2d00b391",
+      "action": "issued",
+      "actorId": null,
+      "actorType": null,
+      "metadata": {
+        "npcId": "npc_merchant_1771018931676_6c8531d1"
+      },
+      "createdAt": "2026-02-13T21:42:11.676Z"
+    },
+    {
+      "apiKey": "0f03b3e1-04ab-4ee3-bd3b-ea07ec3551b2",
+      "action": "issued",
+      "actorId": null,
+      "actorType": null,
+      "metadata": {
+        "npcId": "npc_agitator_1771018931677_b6ca2d6c"
+      },
+      "createdAt": "2026-02-13T21:42:11.677Z"
+    },
+    {
+      "apiKey": "352caef3-005b-4851-9723-3f6801e1f964",
+      "action": "issued",
+      "actorId": null,
+      "actorType": null,
+      "metadata": {
+        "npcId": "npc_merchant_1771019132357_c38f41c8"
+      },
+      "createdAt": "2026-02-13T21:45:32.358Z"
+    },
+    {
+      "apiKey": "e748c586-c8dd-408e-9729-b6057ef24806",
+      "action": "issued",
+      "actorId": null,
+      "actorType": null,
+      "metadata": {
+        "npcId": "npc_merchant_1771019132360_d2794db2"
+      },
+      "createdAt": "2026-02-13T21:45:32.360Z"
+    },
+    {
+      "apiKey": "6d61c3da-4551-4d3d-9ac1-e53e55b23028",
+      "action": "issued",
+      "actorId": null,
+      "actorType": null,
+      "metadata": {
+        "npcId": "npc_gossip_1771020619112_713b4299"
+      },
+      "createdAt": "2026-02-13T22:10:19.113Z"
+    },
+    {
+      "apiKey": "6d5034a8-53ba-4aa5-8e76-b1281658d59c",
+      "action": "issued",
+      "actorId": null,
+      "actorType": null,
+      "metadata": {
+        "npcId": "npc_gossip_1771020619114_69349fb7"
+      },
+      "createdAt": "2026-02-13T22:10:19.114Z"
+    },
+    {
+      "apiKey": "013fab42-71f2-4268-81a0-14b09a373706",
+      "action": "issued",
+      "actorId": null,
+      "actorType": null,
+      "metadata": {
+        "npcId": "npc_agitator_1771021047831_d8f2584c"
+      },
+      "createdAt": "2026-02-13T22:17:27.832Z"
+    },
+    {
+      "apiKey": "13bed8ef-dbb7-4594-8df0-e6a57de09137",
+      "action": "issued",
+      "actorId": null,
+      "actorType": null,
+      "metadata": {
+        "npcId": "npc_gossip_1771021047834_c80e2e48"
+      },
+      "createdAt": "2026-02-13T22:17:27.834Z"
+    },
+    {
+      "apiKey": "ede0b8af-ac1a-4e20-a3e3-e2cb2ba4f94b",
+      "action": "issued",
+      "actorId": null,
+      "actorType": null,
+      "metadata": {
+        "npcId": "npc_mentor_1771021355860_befe3d6a"
+      },
+      "createdAt": "2026-02-13T22:22:35.860Z"
+    },
+    {
+      "apiKey": "12511a74-00e1-4f2c-9265-b6f767b30b31",
+      "action": "issued",
+      "actorId": null,
+      "actorType": null,
+      "metadata": {
+        "npcId": "npc_gossip_1771021355862_07a563f6"
+      },
+      "createdAt": "2026-02-13T22:22:35.862Z"
+    },
+    {
+      "apiKey": "3f6cc02c-2247-45b1-91e8-51ae8a035a77",
+      "action": "issued",
+      "actorId": null,
+      "actorType": null,
+      "metadata": {
+        "npcId": "npc_gossip_1771023575766_13232cf9"
+      },
+      "createdAt": "2026-02-13T22:59:35.766Z"
+    },
+    {
+      "apiKey": "5d56b397-73fa-4cac-9619-07c9a95410f3",
+      "action": "issued",
+      "actorId": null,
+      "actorType": null,
+      "metadata": {
+        "npcId": "npc_mentor_1771023575767_1b406a08"
+      },
+      "createdAt": "2026-02-13T22:59:35.767Z"
+    },
+    {
+      "apiKey": "590f25c8-bdb5-4142-8909-3732e82fbb43",
+      "action": "issued",
+      "actorId": null,
+      "actorType": null,
+      "metadata": {
+        "npcId": "npc_romantic_1771027212140_6b820a93"
+      },
+      "createdAt": "2026-02-14T00:00:12.141Z"
+    },
+    {
+      "apiKey": "bd825ea6-88f1-4d93-9fa6-8406489f775b",
+      "action": "issued",
+      "actorId": null,
+      "actorType": null,
+      "metadata": {
+        "npcId": "npc_gossip_1771027212143_bc8ecbc4"
+      },
+      "createdAt": "2026-02-14T00:00:12.143Z"
+    },
+    {
+      "apiKey": "c2a9d76b-fdbb-4b65-b135-0a06cfc4a7bc",
+      "action": "issued",
+      "actorId": null,
+      "actorType": null,
+      "metadata": {
+        "npcId": "npc_agitator_1771031501492_fb8584b4"
+      },
+      "createdAt": "2026-02-14T01:11:41.492Z"
+    },
+    {
+      "apiKey": "a8e52293-1d7f-468c-ad93-94e19dcc9148",
+      "action": "issued",
+      "actorId": null,
+      "actorType": null,
+      "metadata": {
+        "npcId": "npc_merchant_1771031501494_57053015"
+      },
+      "createdAt": "2026-02-14T01:11:41.494Z"
+    },
+    {
+      "apiKey": "f2e6a60c-ea7f-40c6-8ab0-eb108f62b70e",
+      "action": "issued",
+      "actorId": null,
+      "actorType": null,
+      "metadata": {
+        "npcId": "npc_mentor_1771032715993_f0e6a241"
+      },
+      "createdAt": "2026-02-14T01:31:55.993Z"
+    },
+    {
+      "apiKey": "4c1a0ba7-6ff0-4bd3-8461-09b681d02bfb",
+      "action": "issued",
+      "actorId": null,
+      "actorType": null,
+      "metadata": {
+        "npcId": "npc_agitator_1771032715995_9243d438"
+      },
+      "createdAt": "2026-02-14T01:31:55.995Z"
+    },
+    {
+      "apiKey": "bbfbd1f0-b3bb-49bb-b1ea-616deda4cd72",
+      "action": "issued",
+      "actorId": null,
+      "actorType": null,
+      "metadata": {
+        "npcId": "npc_agitator_1771033166499_441fdf27"
+      },
+      "createdAt": "2026-02-14T01:39:26.499Z"
+    },
+    {
+      "apiKey": "94fa36ce-6b1d-4999-b218-375636e03e97",
+      "action": "issued",
+      "actorId": null,
+      "actorType": null,
+      "metadata": {
+        "npcId": "npc_rival_1771033166501_a114adbe"
+      },
+      "createdAt": "2026-02-14T01:39:26.501Z"
+    },
+    {
+      "apiKey": "8ebcb91a-7898-402c-b733-67650ad79be0",
+      "action": "issued",
+      "actorId": null,
+      "actorType": null,
+      "metadata": {
+        "npcId": "npc_rival_1771033273017_cd87cf3c"
+      },
+      "createdAt": "2026-02-14T01:41:13.018Z"
+    },
+    {
+      "apiKey": "6ede3d98-5f3e-4b09-809a-72e91aa1b818",
+      "action": "issued",
+      "actorId": null,
+      "actorType": null,
+      "metadata": {
+        "npcId": "npc_gossip_1771033273020_8e08087b"
+      },
+      "createdAt": "2026-02-14T01:41:13.020Z"
+    },
+    {
+      "apiKey": "c1ad5729-02ca-47d1-acd7-0713908b891d",
+      "action": "issued",
+      "actorId": null,
+      "actorType": null,
+      "metadata": {
+        "npcId": "npc_rival_1771033273021_de9e549a"
+      },
+      "createdAt": "2026-02-14T01:41:13.021Z"
+    },
+    {
+      "apiKey": "8f9f52e9-0d3b-455f-bbb5-ddb3b0a5437e",
+      "action": "issued",
+      "actorId": null,
+      "actorType": null,
+      "metadata": {
+        "npcId": "npc_agitator_1771033273022_e99251db"
+      },
+      "createdAt": "2026-02-14T01:41:13.022Z"
+    },
+    {
+      "apiKey": "36994338-d12b-4d87-80ce-adbe4a7cfb30",
+      "action": "issued",
+      "actorId": null,
+      "actorType": null,
+      "metadata": {
+        "npcId": "npc_gossip_1771033594223_64fdc631"
+      },
+      "createdAt": "2026-02-14T01:46:34.223Z"
+    },
+    {
+      "apiKey": "2c4e3e75-1b5e-401f-a4e2-265cb1023a3a",
+      "action": "issued",
+      "actorId": null,
+      "actorType": null,
+      "metadata": {
+        "npcId": "npc_mentor_1771033594225_ce80ba93"
+      },
+      "createdAt": "2026-02-14T01:46:34.225Z"
+    },
+    {
+      "apiKey": "52410626-befa-401f-ae12-ca55ddf67244",
+      "action": "issued",
+      "actorId": null,
+      "actorType": null,
+      "metadata": {
+        "npcId": "npc_gossip_1771033594227_f78583b0"
+      },
+      "createdAt": "2026-02-14T01:46:34.227Z"
+    },
+    {
+      "apiKey": "8a3ff043-23fc-4f63-b70d-1e5f1b929b50",
+      "action": "issued",
+      "actorId": null,
+      "actorType": null,
+      "metadata": {
+        "npcId": "npc_gossip_1771033594228_0d84c5f8"
+      },
+      "createdAt": "2026-02-14T01:46:34.228Z"
+    },
+    {
+      "apiKey": "7f90f62e-8392-4bbf-bc27-079effa88e17",
+      "action": "issued",
+      "actorId": null,
+      "actorType": null,
+      "metadata": {
+        "npcId": "npc_romantic_1771033724001_45184be4"
+      },
+      "createdAt": "2026-02-14T01:48:44.001Z"
+    },
+    {
+      "apiKey": "6daa2183-5789-412f-b270-5c5f28a8111f",
+      "action": "issued",
+      "actorId": null,
+      "actorType": null,
+      "metadata": {
+        "npcId": "npc_rival_1771033724003_710d3f38"
+      },
+      "createdAt": "2026-02-14T01:48:44.003Z"
+    },
+    {
+      "apiKey": "b09eb6c7-3976-4e5c-8a06-d7e89bff591a",
+      "action": "issued",
+      "actorId": null,
+      "actorType": null,
+      "metadata": {
+        "npcId": "npc_gossip_1771033724004_60c2fe82"
+      },
+      "createdAt": "2026-02-14T01:48:44.004Z"
+    },
+    {
+      "apiKey": "1e806b28-d509-4687-9192-95073cf7ad17",
+      "action": "issued",
+      "actorId": null,
+      "actorType": null,
+      "metadata": {
+        "npcId": "npc_gossip_1771033724006_2b6e819f"
+      },
+      "createdAt": "2026-02-14T01:48:44.006Z"
     }
   ]
 }

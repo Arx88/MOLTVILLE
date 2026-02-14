@@ -49,6 +49,12 @@ const inventoryRemoveSchema = Joi.object({
   quantity: Joi.number().positive().default(1)
 });
 
+const treasurySpendSchema = Joi.object({
+  amount: Joi.number().positive().required(),
+  reason: Joi.string().trim().required(),
+  beneficiaryAgentId: Joi.string().trim().allow('', null).optional()
+});
+
 router.get('/balance/:agentId', requireAgentKey({
   allowAdmin: true,
   useSuccessResponse: true,
@@ -244,4 +250,39 @@ router.post('/inventory/consume', requireAgentKey({
   }
 });
 
+router.get('/treasury', requireAdminKeyWithSuccess, (req, res) => {
+  const economy = req.app.locals.economyManager;
+  const limit = Number(req.query.limit) || 100;
+  const summary = economy.getTreasurySummary();
+  const transactions = Array.isArray(economy.treasuryTransactions)
+    ? economy.treasuryTransactions.slice(-Math.max(1, limit))
+    : [];
+  res.json({ success: true, summary, transactions });
+});
+
+router.post('/treasury/spend', requireAdminKeyWithSuccess, validateBody(treasurySpendSchema), (req, res) => {
+  const economy = req.app.locals.economyManager;
+  const amount = Number(req.body.amount);
+  const reason = req.body.reason;
+  const beneficiaryAgentId = req.body.beneficiaryAgentId || null;
+
+  try {
+    const current = economy.getTreasurySummary();
+    if (current.balance < amount) {
+      throw new Error('Insufficient treasury balance');
+    }
+
+    if (beneficiaryAgentId) {
+      economy.applySystemPayout(beneficiaryAgentId, amount, `public_fund:${reason}`);
+    } else {
+      economy.recordTreasury(-amount, `public_fund:${reason}`);
+    }
+
+    res.json({ success: true, summary: economy.getTreasurySummary() });
+  } catch (error) {
+    res.status(400).json({ success: false, error: error.message });
+  }
+});
 export default router;
+
+

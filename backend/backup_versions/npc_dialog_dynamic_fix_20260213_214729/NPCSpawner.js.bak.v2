@@ -1,0 +1,724 @@
+import { v4 as uuidv4 } from 'uuid';
+import { logger } from '../utils/logger.js';
+import { metrics } from '../utils/metrics.js';
+
+export class NPCSpawner {
+  constructor({
+    registry,
+    worldState,
+    economyManager,
+    interactionEngine,
+    votingManager,
+    eventManager,
+    actionQueue,
+    io
+  }) {
+    this.registry = registry;
+    this.worldState = worldState;
+    this.economyManager = economyManager;
+    this.interactionEngine = interactionEngine;
+    this.votingManager = votingManager;
+    this.eventManager = eventManager;
+    this.actionQueue = actionQueue;
+    this.io = io;
+
+    this.activeNPCs = new Map();
+
+    this.config = {
+      minRealAgents: parseInt(process.env.NPC_MIN_REAL_AGENTS || '5', 10),
+      maxNPCs: parseInt(process.env.NPC_MAX_COUNT || '4', 10),
+      maxNPCRatio: parseFloat(process.env.NPC_MAX_RATIO || '0.5'),
+      behaviorIntervalMs: parseInt(process.env.NPC_BEHAVIOR_INTERVAL_MS || '45000', 10),
+      despawnGracePeriodMs: parseInt(process.env.NPC_DESPAWN_GRACE_MS || '120000', 10),
+      speechMinIntervalMs: parseInt(process.env.NPC_SPEECH_MIN_INTERVAL_MS || '9000', 10),
+      speechDuplicateWindowMs: parseInt(process.env.NPC_SPEECH_REPEAT_WINDOW_MS || '60000', 10)
+    };
+    this.lastSpeechAt = new Map();
+    this.recentSpeech = [];
+    this.maxRecentSpeech = 160;
+
+    this.archetypes = this.initializeArchetypes();
+    this.lastSpawnCheck = 0;
+    this.spawnCheckIntervalMs = parseInt(process.env.NPC_SPAWN_CHECK_MS || '30000', 10);
+
+    logger.info('NPCSpawner initialized');
+  }
+
+  initializeArchetypes() {
+    return {
+      gossip: {
+        name: 'Chismoso',
+        avatars: ['char5', 'char6'],
+        personalities: [
+          'extroverted, nosy, unreliable, loves drama',
+          'chatty, curious, spreads rumors innocently'
+        ],
+        weight: 25,
+        behaviors: ['overhear_conversations', 'spread_rumors', 'create_misunderstandings'],
+        dramaPotential: 8
+      },
+      rival: {
+        name: 'Rival',
+        avatars: ['char7', 'char8'],
+        personalities: [
+          'ambitious, competitive, cunning, ruthless',
+          'driven, jealous, wants to be the best'
+        ],
+        weight: 25,
+        behaviors: ['compete_for_jobs', 'challenge_leadership', 'undercut_prices'],
+        dramaPotential: 9
+      },
+      agitator: {
+        name: 'Instigador',
+        avatars: ['char9', 'char10'],
+        personalities: [
+          'rebellious, provocative, charismatic',
+          'revolutionary, anti-establishment, radical'
+        ],
+        weight: 15,
+        behaviors: ['propose_controversial_votes', 'organize_protests', 'incite_debates'],
+        dramaPotential: 10
+      },
+      mentor: {
+        name: 'Mentor',
+        avatars: ['char11', 'char12'],
+        personalities: [
+          'wise, helpful, but has hidden agenda',
+          'patient, knowledgeable, manipulative'
+        ],
+        weight: 15,
+        behaviors: ['help_new_agents', 'extract_favors', 'create_dependencies'],
+        dramaPotential: 7
+      },
+      merchant: {
+        name: 'Comerciante',
+        avatars: ['char13', 'char14'],
+        personalities: [
+          'greedy, shrewd, opportunistic',
+          'business-minded, profit-focused, cunning'
+        ],
+        weight: 10,
+        behaviors: ['manipulate_prices', 'hoard_items', 'create_scarcity'],
+        dramaPotential: 6
+      },
+      romantic: {
+        name: 'Romántico',
+        avatars: ['char15', 'char16'],
+        personalities: [
+          'passionate, dramatic, obsessive about love',
+          'hopeless romantic, jealous, emotional'
+        ],
+        weight: 10,
+        behaviors: ['pursue_relationships', 'create_love_triangles', 'jealousy_outbursts'],
+        dramaPotential: 8
+      }
+    };
+  }
+
+  tick() {
+    const now = Date.now();
+    if (now - this.lastSpawnCheck < this.spawnCheckIntervalMs) {
+      return;
+    }
+    this.lastSpawnCheck = now;
+
+    const allAgents = this.registry.getAllAgents();
+    const realAgents = allAgents.filter(agent => !agent.isNPC);
+    const npcAgents = allAgents.filter(agent => agent.isNPC);
+    const realCount = realAgents.length;
+    const npcCount = npcAgents.length;
+    const totalCount = realCount + npcCount;
+
+    // Rehydrate activeNPCs from registry (snapshot restore safety)
+    if (npcCount > this.activeNPCs.size) {
+      npcAgents.forEach(agent => {
+        if (!this.activeNPCs.has(agent.id)) {
+          this.activeNPCs.set(agent.id, {
+            id: agent.id,
+            spawnedAt: now,
+            lastActionAt: now,
+            archetype: 'legacy'
+          });
+        }
+      });
+    }
+
+    metrics.population.real = realCount;
+    metrics.population.npc = npcCount;
+    metrics.population.total = totalCount;
+
+    if (realCount < this.config.minRealAgents) {
+      const maxAllowed = Math.min(
+        this.config.maxNPCs,
+        Math.floor((totalCount || 1) * this.config.maxNPCRatio / (1 - this.config.maxNPCRatio))
+      );
+      if (npcCount < maxAllowed) {
+        const needed = Math.min(
+          maxAllowed - npcCount,
+          this.config.minRealAgents - realCount
+        );
+        for (let i = 0; i < needed; i += 1) {
+          void this.spawnNPC();
+        }
+      }
+    }
+
+    const maxAllowed = Math.min(
+      this.config.maxNPCs,
+      Math.floor((totalCount || 1) * this.config.maxNPCRatio / (1 - this.config.maxNPCRatio))
+    );
+
+    // Hard cap: if NPCs exceed maxAllowed, despawn extras immediately
+    if (npcCount > maxAllowed) {
+      const excess = npcCount - maxAllowed;
+      const npcList = Array.from(this.activeNPCs.values()).sort((a, b) => a.spawnedAt - b.spawnedAt);
+      for (let i = 0; i < excess; i += 1) {
+        const npc = npcList[i];
+        if (npc) this.despawnNPC(npc.id);
+      }
+    } else if (realCount >= this.config.minRealAgents + 2 && npcCount > 0) {
+      const npc = Array.from(this.activeNPCs.values())[0];
+      if (npc && now - npc.spawnedAt > this.config.despawnGracePeriodMs) {
+        this.despawnNPC(npc.id);
+      }
+    }
+
+    this.activeNPCs.forEach(npc => {
+      const agent = this.registry.getAgent(npc.id);
+      const movement = this.worldState.getAgentMovementState(npc.id);
+      const isMoving = agent?.state === 'moving' || (movement && movement.progress < 1);
+
+      if (!isMoving && now - npc.lastActionAt >= this.config.behaviorIntervalMs) {
+        npc.lastActionAt = now;
+        void this.performBehavior(npc);
+      }
+    });
+  }
+
+  selectArchetype() {
+    const entries = Object.entries(this.archetypes);
+    const totalWeight = entries.reduce((sum, [, archetype]) => sum + archetype.weight, 0);
+    let roll = Math.random() * totalWeight;
+    for (const [key, archetype] of entries) {
+      if (roll <= archetype.weight) return key;
+      roll -= archetype.weight;
+    }
+    return entries[0][0];
+  }
+
+  async spawnNPC() {
+    const archetypeKey = this.selectArchetype();
+    const template = this.archetypes[archetypeKey];
+    const npcId = `npc_${archetypeKey}_${Date.now()}_${uuidv4().slice(0, 8)}`;
+    const name = this.generateNPCName(archetypeKey);
+    const avatar = template.avatars[Math.floor(Math.random() * template.avatars.length)];
+    const personality = template.personalities[Math.floor(Math.random() * template.personalities.length)];
+    const apiKey = uuidv4();
+
+    if (typeof this.registry.issueApiKey === 'function') {
+      this.registry.issueApiKey(apiKey, { metadata: { npcId } }).catch(error => {
+        logger.warn('NPC api key issue failed', { error: error.message });
+      });
+    }
+
+    const npcAgent = await this.registry.registerAgent({
+      id: npcId,
+      name: `${name} [NPC]`,
+      avatar,
+      socketId: null,
+      apiKey,
+      permissions: ['move', 'speak', 'action', 'converse', 'social', 'perceive'],
+      isNPC: true,
+      connected: false
+    });
+
+    this.economyManager.registerAgent(npcAgent.id);
+    const spawnPosition = this.worldState.getRandomSpawnPosition();
+    this.worldState.addAgent(npcAgent.id, spawnPosition);
+
+    const npcData = {
+      id: npcAgent.id,
+      name: npcAgent.name,
+      avatar,
+      archetype: archetypeKey,
+      personality,
+      spawnedAt: Date.now(),
+      lastActionAt: Date.now(),
+      favors: new Map()
+    };
+
+    this.activeNPCs.set(npcAgent.id, npcData);
+    metrics.npc.spawned += 1;
+    metrics.npc.active = this.activeNPCs.size;
+
+    if (this.io) {
+      this.io.emit('agent:spawned', {
+        id: npcAgent.id,
+        name: npcAgent.name,
+        avatar: npcAgent.avatar,
+        position: spawnPosition,
+        isNPC: true
+      });
+    }
+
+    logger.info(`NPC spawned: ${npcAgent.name} (${archetypeKey})`);
+    return npcData;
+  }
+
+  despawnNPC(npcId) {
+    const npc = this.activeNPCs.get(npcId);
+    if (!npc) return;
+    this.activeNPCs.delete(npcId);
+    this.worldState.removeAgent(npcId);
+    this.registry.unregisterAgent(npcId);
+    metrics.npc.despawned += 1;
+    metrics.npc.active = this.activeNPCs.size;
+    if (this.io) {
+      this.io.emit('agent:disconnected', { agentId: npcId, agentName: npc.name, isNPC: true });
+    }
+    logger.info(`NPC despawned: ${npc.name}`);
+  }
+
+  generateNPCName(archetypeKey) {
+    const namePool = {
+      gossip: ['Lola', 'Charly', 'Rita', 'Pepe'],
+      rival: ['Dante', 'Vera', 'Marco', 'Iris'],
+      agitator: ['Axel', 'Nova', 'Sasha', 'Rafa'],
+      mentor: ['Elena', 'Hugo', 'Lucia', 'Bruno'],
+      merchant: ['Mara', 'Silvio', 'Greta', 'Noel'],
+      romantic: ['Ari', 'Dahlia', 'Leo', 'Carmen']
+    };
+    const pool = namePool[archetypeKey] || ['Alex'];
+    return pool[Math.floor(Math.random() * pool.length)];
+  }
+
+  getAvailableTargets(excludeId) {
+    return this.registry.getAllAgents().filter(agent => agent.id !== excludeId);
+  }
+
+  getRandomTarget(excludeId, maxDist = Infinity) {
+    const candidates = this.getAvailableTargets(excludeId);
+    if (!candidates.length) return null;
+
+    if (maxDist !== Infinity) {
+      const myPos = this.worldState.getAgentPosition(excludeId);
+      if (myPos) {
+        const near = candidates.filter(c => {
+          const pos = this.worldState.getAgentPosition(c.id);
+          return pos && this.worldState.getDistance(myPos, pos) <= maxDist;
+        });
+        if (near.length) return near[Math.floor(Math.random() * near.length)];
+      }
+      return null; // Nobody nearby
+    }
+
+    return candidates[Math.floor(Math.random() * candidates.length)];
+  }
+
+  isAtSocialSpace(npcId) {
+    const pos = this.worldState.getAgentPosition(npcId);
+    if (!pos) return false;
+    const building = this.worldState.getBuildingAt(pos.x, pos.y);
+    return building && ['cafe', 'plaza', 'market', 'garden', 'library', 'tower1'].includes(building.type);
+  }
+
+  async performBehavior(npc) {
+    try {
+      // Logic: Move to social space first, then act
+      const isSocial = this.isAtSocialSpace(npc.id);
+      if (!isSocial && Math.random() < 0.7) {
+        this.moveToSocialSpace(npc.id);
+        // Anti-inacción: después de moverse, reintenta conducta pronto en lugar de esperar
+        // todo el behaviorInterval (que se vuelve crítico si hay reinicios frecuentes).
+        const followUpDelayMs = Math.min(8000, Math.max(1500, Math.floor(this.config.behaviorIntervalMs * 0.2)));
+        npc.lastActionAt = Date.now() - (this.config.behaviorIntervalMs - followUpDelayMs);
+        return;
+      }
+
+      const archetype = this.archetypes[npc.archetype];
+      if (!archetype) return;
+      const behavior = archetype.behaviors[Math.floor(Math.random() * archetype.behaviors.length)];
+
+      switch (behavior) {
+        case 'overhear_conversations':
+        case 'spread_rumors':
+        case 'create_misunderstandings':
+          await this.performGossip(npc);
+          break;
+        case 'compete_for_jobs':
+        case 'challenge_leadership':
+        case 'undercut_prices':
+          await this.performRivalry(npc);
+          break;
+        case 'propose_controversial_votes':
+        case 'organize_protests':
+        case 'incite_debates':
+          await this.performAgitation(npc);
+          break;
+        case 'help_new_agents':
+        case 'extract_favors':
+        case 'create_dependencies':
+          await this.performMentorship(npc);
+          break;
+        case 'manipulate_prices':
+        case 'hoard_items':
+        case 'create_scarcity':
+          await this.performMerchant(npc);
+          break;
+        case 'pursue_relationships':
+        case 'create_love_triangles':
+        case 'jealousy_outbursts':
+          await this.performRomance(npc);
+          break;
+        default:
+          break;
+      }
+    } catch (error) {
+      logger.warn(`NPC ${npc.name} behavior failed: ${error.message}`);
+    }
+  }
+
+  pickFrom(items, fallback = '') {
+    if (!Array.isArray(items) || items.length === 0) return fallback;
+    return items[Math.floor(Math.random() * items.length)];
+  }
+
+  getDisplayName(name) {
+    const raw = String(name || '').trim();
+    if (!raw) return 'alguien';
+    return raw.replace(/\s*\[NPC\]\s*$/i, '').trim();
+  }
+
+  renderDialogTemplate(template, tokens) {
+    return String(template || '').replace(/\{(\w+)\}/g, (_, key) => tokens?.[key] ?? '');
+  }
+
+  getPhaseLabel() {
+    const phase = this.worldState?.getTimeState?.()?.phase || 'day';
+    const map = {
+      morning: 'manana',
+      afternoon: 'tarde',
+      evening: 'atardecer',
+      night: 'noche'
+    };
+    return map[phase] || 'dia';
+  }
+
+  getWeatherLabel() {
+    const weather = this.worldState?.getWeatherState?.()?.current || 'clear';
+    const map = {
+      clear: 'tranquilo',
+      rain: 'lluvioso',
+      storm: 'electrico',
+      snow: 'frio'
+    };
+    return map[weather] || 'cambiante';
+  }
+
+  pickActiveEventName() {
+    const activeEvents = this.eventManager?.getSummary?.()?.filter(event => event.status === 'active') || [];
+    if (!activeEvents.length) return 'la plaza';
+    const event = this.pickFrom(activeEvents);
+    return event?.name || 'la plaza';
+  }
+
+  pickLocalPlaceName(npcId) {
+    const pos = this.worldState?.getAgentPosition?.(npcId);
+    if (pos) {
+      const building = this.worldState?.getBuildingAt?.(pos.x, pos.y);
+      if (building?.name) return building.name;
+    }
+    return this.pickPlaceName();
+  }
+
+  buildSpeechTokens(npc, target = null) {
+    return {
+      me: this.getDisplayName(npc?.name),
+      target: this.getDisplayName(target?.name),
+      place: this.pickLocalPlaceName(npc?.id),
+      altPlace: this.pickPlaceName(),
+      phase: this.getPhaseLabel(),
+      weather: this.getWeatherLabel(),
+      event: this.pickActiveEventName(),
+      reform: `${Math.floor(Math.random() * 100)}`
+    };
+  }
+
+  composeDynamicLine(templates, tokens, fallback) {
+    const template = this.pickFrom(templates, fallback);
+    const line = this.renderDialogTemplate(template, tokens).replace(/\s+/g, ' ').trim();
+    return line || fallback;
+  }
+
+  async performGossip(npc) {
+    const target = this.getRandomTarget(npc.id);
+    const listener = this.getRandomTarget(npc.id, 2.5); // Must be near to hear gossip
+    if (!target || !listener) return;
+
+    const tokens = this.buildSpeechTokens(npc, target);
+    const rumor = this.composeDynamicLine([
+      '{target} se movio raro por {place} durante la {phase}.',
+      'Dicen que {target} esta negociando algo grande en {altPlace}.',
+      'No lo repitas: {target} aparece en cada reunion de {event}.',
+      'Con este clima {weather}, todos murmuran sobre {target}.',
+      'Escuche en {place} que {target} quiere cambiar el tablero.',
+      'Algo paso en {altPlace} y {target} sabe mas de lo que dice.',
+      'Si preguntas por {target}, todos te apuntan a {place}.',
+      'La ciudad esta inquieta y {target} esta justo en el centro.'
+    ], tokens, `${this.getDisplayName(target.name)} esta en algo raro.`);
+
+    await this.interactionEngine.initiateConversation(npc.id, listener.id, rumor);
+    this.emitSpeech(npc.id, npc.name, rumor);
+    metrics.npc.dramaPoints += 4;
+  }
+
+  async performRivalry(npc) {
+    const target = this.getRichestTarget(npc.id) || this.getRandomTarget(npc.id);
+    const listener = this.getRandomTarget(npc.id, 3); // Challenges should be heard by someone
+    if (!target) return;
+
+    const tokens = this.buildSpeechTokens(npc, target);
+    const message = this.composeDynamicLine([
+      '{target}, hoy te supero en influencia.',
+      'Cuando cierre la {phase}, {target} va a quedar atras.',
+      'No vine a mirar: vine a ganar, {target}.',
+      'La proxima votacion va con mi firma, no con la de {target}.',
+      'Esta ciudad no alcanza para dos lideres y ya elegi quien sobra.',
+      '{target}, cuida tu puesto. Yo ya voy por el siguiente nivel.',
+      'No compito por ruido, compito por resultados.'
+    ], tokens, `${this.getDisplayName(target.name)}, voy por tu lugar.`);
+
+    await this.interactionEngine.performSocialAction(npc.id, 'compete', target.id, { contest: 'liderazgo' });
+    if (listener) {
+      await this.interactionEngine.initiateConversation(npc.id, listener.id, message);
+    }
+    this.emitSpeech(npc.id, npc.name, message);
+
+    const jobs = this.economyManager.listJobs().filter(job => !job.assignedTo);
+    if (jobs.length) {
+      const job = jobs[Math.floor(Math.random() * jobs.length)];
+      try {
+        this.economyManager.applyForJob(npc.id, job.id);
+      } catch (error) {
+        logger.debug('NPC job application failed', { error: error.message });
+      }
+    }
+    metrics.npc.dramaPoints += 6;
+  }
+
+  async performAgitation(npc) {
+    const tokens = this.buildSpeechTokens(npc);
+    const proposalName = `Reforma ${tokens.reform}`;
+    try {
+      this.votingManager.proposeBuilding({
+        agentId: npc.id,
+        type: 'civic',
+        customName: proposalName
+      });
+    } catch (error) {
+      logger.debug('NPC proposal failed', { error: error.message });
+    }
+
+    if (this.eventManager) {
+      const eventNames = [
+        'Gran Protesta',
+        'Mitin Popular',
+        'Debate Callejero',
+        'Asamblea de Barrio'
+      ];
+      const eventName = this.pickFrom(eventNames, 'Debate Publico');
+      this.eventManager.createEvent({
+        name: `${eventName} por ${this.getDisplayName(npc.name)}`,
+        type: 'protest',
+        startAt: Date.now(),
+        endAt: Date.now() + 30 * 60 * 1000,
+        location: 'plaza',
+        description: `La ciudad debate una nueva ruta para la ${tokens.phase}.`,
+        goalScope: 'global'
+      });
+    }
+
+    const slogan = this.composeDynamicLine([
+      'La ciudad necesita un cambio ahora.',
+      'No mas promesas vacias: queremos decisiones.',
+      'La agenda de {event} no representa a todos.',
+      'Con clima {weather}, se nota mas la tension social.',
+      'Hoy en {place} empezamos una reforma real.'
+    ], tokens, 'La ciudad necesita un cambio real.');
+    this.emitSpeech(npc.id, npc.name, slogan);
+    metrics.npc.dramaPoints += 8;
+  }
+
+  async performMentorship(npc) {
+    const target = this.getRandomTarget(npc.id, 2.5); // Target must be near
+    if (!target) return;
+    const favorCount = npc.favors.get(target.id) || 0;
+    const tokens = this.buildSpeechTokens(npc, target);
+
+    if (favorCount === 0) {
+      const supportLine = this.composeDynamicLine([
+        '{target}, puedo ayudarte a crecer en {place}.',
+        '{target}, te comparto un atajo para esta {phase}.',
+        'Si quieres avanzar, {target}, yo te cubro la espalda.'
+      ], tokens, `${this.getDisplayName(target.name)}, cuenta conmigo.`);
+
+      await this.interactionEngine.performSocialAction(npc.id, 'compliment', target.id, {
+        message: supportLine
+      });
+      npc.favors.set(target.id, 1);
+      this.emitSpeech(npc.id, npc.name, supportLine);
+    } else {
+      const pressureLine = this.composeDynamicLine([
+        '{target}, ya es hora de devolver ese favor.',
+        '{target}, te ayude en {altPlace}; ahora te toca cumplir.',
+        'No olvides lo que pactamos, {target}.'
+      ], tokens, `${this.getDisplayName(target.name)}, toca saldar la deuda.`);
+
+      await this.interactionEngine.performSocialAction(npc.id, 'betray', target.id, {
+        context: 'favor_pendiente'
+      });
+      npc.favors.set(target.id, favorCount + 1);
+      this.emitSpeech(npc.id, npc.name, pressureLine);
+    }
+    metrics.npc.dramaPoints += 5;
+  }
+
+  async performMerchant(npc) {
+    const itemPool = [
+      { id: 'bread', name: 'Pan' },
+      { id: 'coffee', name: 'Cafe' },
+      { id: 'wood', name: 'Madera' },
+      { id: 'fruit', name: 'Fruta' }
+    ];
+    const pickedItem = this.pickFrom(itemPool, itemPool[0]);
+
+    try {
+      this.economyManager.addItem(npc.id, {
+        itemId: pickedItem.id,
+        name: pickedItem.name,
+        quantity: 2 + Math.floor(Math.random() * 3)
+      });
+    } catch (error) {
+      logger.debug('NPC merchant add item failed', { error: error.message });
+    }
+
+    const tokens = this.buildSpeechTokens(npc);
+    const salesLine = this.composeDynamicLine([
+      `${pickedItem.name} en alza: hoy se mueve rapido.`,
+      `Si buscas ${pickedItem.name}, mejor compra antes del anochecer.`,
+      `Con este clima {weather}, ${pickedItem.name} vuela del mercado.`,
+      `En {place} ya casi no queda ${pickedItem.name}.`
+    ], tokens, `${pickedItem.name} esta escaso y caro.`);
+
+    this.emitSpeech(npc.id, npc.name, salesLine);
+    metrics.npc.dramaPoints += 3;
+  }
+
+  async performRomance(npc) {
+    const target = this.getRandomTarget(npc.id, 4); // Romance needs proximity
+    if (!target) return;
+
+    const tokens = this.buildSpeechTokens(npc, target);
+    const romanticLine = this.composeDynamicLine([
+      '{target}, te invito un cafe en {place}.',
+      '{target}, en esta {phase} todo se siente distinto contigo.',
+      '{target}, si quieres, damos una vuelta por {altPlace}.',
+      'No puedo ignorarlo mas, {target}: me gustas.'
+    ], tokens, `${this.getDisplayName(target.name)}, quieres caminar conmigo?`);
+
+    await this.interactionEngine.performSocialAction(npc.id, 'compliment', target.id, {
+      message: romanticLine
+    });
+    this.emitSpeech(npc.id, npc.name, romanticLine);
+    metrics.npc.dramaPoints += 5;
+  }
+
+  pickPlaceName() {
+    const worldPlaces = Array.isArray(this.worldState?.buildings)
+      ? this.worldState.buildings
+        .map(building => building?.name)
+        .filter(Boolean)
+      : [];
+    if (worldPlaces.length > 0) {
+      return this.pickFrom(worldPlaces, 'Central Plaza');
+    }
+    const places = ['Hobbs Cafe', 'Market Square', 'Central Plaza', 'City Hall'];
+    return this.pickFrom(places, 'Central Plaza');
+  }
+
+  shouldEmitSpeech(agentId, message) {
+    const normalized = String(message || '').trim().toLowerCase();
+    if (!normalized) return false;
+
+    const now = Date.now();
+    const lastAt = this.lastSpeechAt.get(agentId) || 0;
+    if (now - lastAt < this.config.speechMinIntervalMs) {
+      return false;
+    }
+
+    const repeatWindowMs = this.config.speechDuplicateWindowMs;
+    this.recentSpeech = this.recentSpeech.filter(entry => now - entry.at < repeatWindowMs);
+    const hasRecentDuplicate = this.recentSpeech.some(entry => entry.text === normalized);
+    if (hasRecentDuplicate && Math.random() < 0.8) {
+      return false;
+    }
+
+    this.lastSpeechAt.set(agentId, now);
+    this.recentSpeech.push({ text: normalized, at: now });
+    if (this.recentSpeech.length > this.maxRecentSpeech) {
+      this.recentSpeech.shift();
+    }
+    return true;
+  }
+
+  emitSpeech(agentId, agentName, message) {
+    const cleanMessage = String(message || '').replace(/\s+/g, ' ').trim();
+    if (!cleanMessage) return;
+    if (!this.shouldEmitSpeech(agentId, cleanMessage)) return;
+    if (!this.io) return;
+    this.io.emit('agent:spoke', {
+      agentId,
+      agentName,
+      message: cleanMessage
+    });
+    logger.debug(`NPC Speech: ${agentName}: ${cleanMessage}`);
+  });
+    logger.debug(`NPC Speech: ${agentName}: ${message}`);
+  }
+
+  moveToSocialSpace(npcId) {
+    const socialBuildings = this.worldState.buildings.filter(b => 
+      ['cafe', 'plaza', 'market', 'garden', 'library', 'tower1'].includes(b.type)
+    );
+    if (!socialBuildings.length) return;
+    const building = socialBuildings[Math.floor(Math.random() * socialBuildings.length)];
+    // Pick a random spot inside the building footprint
+    const tx = building.x + Math.floor(Math.random() * building.width);
+    const ty = building.y + Math.floor(Math.random() * building.height);
+    
+    try {
+      this.worldState.moveAgentTo(npcId, tx, ty);
+    } catch (error) {
+      logger.debug(`NPC ${npcId} failed to move to social space: ${error.message}`);
+    }
+  }
+
+  getRichestTarget(excludeId) {
+    let richestId = null;
+    let maxBalance = -1;
+
+    for (const [agentId, balance] of this.economyManager.balances.entries()) {
+      if (agentId !== excludeId && balance > maxBalance) {
+        maxBalance = balance;
+        richestId = agentId;
+      }
+    }
+
+    if (richestId) {
+      const agent = this.registry.getAgent(richestId);
+      return agent ? { id: richestId, name: agent.name } : null;
+    }
+    return null;
+  }
+}
+

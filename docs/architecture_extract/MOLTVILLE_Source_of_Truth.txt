@@ -1,0 +1,170 @@
+MOLTVILLE - Source of Truth
+ Documento maestro | Prioridades y resolucion de conflictos
+1. Jerarquia de Documentos (Que manda)
+Cuando dos documentos se contradicen, este documento prevalece. La jerarquia de autoridad es:
+ Rango
+ Documento
+ Proposito
+ 1
+ Source of Truth (este)
+ Resuelve conflictos, define KPIs finales, lista entregables
+ 2
+ Diseno_Juego
+Vision del juego, STAKES, narrativas emergentes, mejoras
+ por sistema
+ 3
+ Implementacion_Tecnica
+ Mecanismos de proteccion, arquitectura detallada,
+ procedimientos
+ 4
+ Plan_Refactorizacion
+ Referencia historica, patrones generales (usar con criterio)
+2. Principios Rectores (Enfoque Pragmatico)
+El documento Plan_Refactorizacion empuja un enfoque "enterprise/microservicios". Este Source of Truth
+establece el enfoque correcto para MOLTVILLE: pragmatico, centrado en el juego, protegiendo el realtime.
+NO microservicios: Mantener monolito modular. Separar por manager dentro del mismo proceso. La
+comunicacion inter-manager es llamada directa, no HTTP/gRPC.
+NO over-engineering: Patrones enterprise solo si resuelven un problema real. No prevenir problemas
+imaginarios.
+SI determinismo: El tick debe ser reproducible. Esto es no-negociable para comportamiento emergente.
+SI medicion objetiva: Nada se considera 'mejor' sin KPI medible. Subjetividad = stagnacion.
+SI rollback por modulo: Feature flags por sistema. No hay excusa para no poder volver atras.
+3. KPIs Finales Unicos
+Estos son los unicos KPIs oficiales. Si otro documento muestra valores distintos, ignorar. Los umbrales definen
+tres estados: ROJO (sistema roto), AMARILLO (funcional pero mejorable), VERDE (optimo).
+3.1 KPIs Tecnicos (obligatorios)
+ KPI
+ ROJO (bloqueante)
+ AMARILLO
+ VERDE
+ Medicion
+ Tick P95
+ > 500ms
+ 200-500ms
+ < 200ms
+ Histograma por tick
+ Tick P99
+ > 2000ms
+ 500-2000ms
+ < 500ms
+ Histograma por tick
+ WS Latencia P95
+ > 1000ms
+ 300-1000ms
+ < 300ms
+ Ping/pong cada 10s
+ Reconexiones/min
+ > 10
+ 3-10
+ < 3
+ Counter en socket.io
+ Eventos/tick
+ < 10
+ 10-50
+ > 50
+ Queue length log
+
+
+3.2 KPIs de Comportamiento (tests automatizados)
+ KPI
+ Criterio PASS
+ Frecuencia
+ Eleccion determinista
+ Mismos votos = mismo ganador (10 runs)
+ Cada eleccion
+ Motivacion coherente
+ Agente completa prerequisitos antes de objetivo
+ Cada tick
+ Transaccion valida
+ Solo propietario puede vender, saldo nunca negativo
+ Cada transaccion
+ Relacion consistente
+ Delta de interaccion dentro de limite de personalidad
+ Cada interaccion
+4. Primeros Entregables - Sprint 1 (Semanas 1-2)
+Estos 5 entregables son obligatorios. Cada uno tiene Definition of Done (DoD) exacto. No se avanza al Sprint 2
+hasta que todos esten en VERDE.
+E1: Sistema de Telemetry Basico
+Hooks en cada manager que emiten metricas a un colector central. No requiere UI, solo logs estructurados.
+ Criterio DoD
+ Verificacion
+EconomyManager emite tick_duration
+Log visible con metrica
+GovernanceManager emite event_count
+Log visible con metrica
+InteractionEngine emite interaction_count
+Log visible con metrica
+Todos los managers tienen metricas
+Code review confirma coverage 100%
+Logs en formato JSON
+grep muestra estructura valida
+E2: Feature Flags Core
+Sistema de flags en memoria (no requiere DB) que permite activar/desactivar funcionalidad por entorno.
+ Criterio DoD
+ Verificacion
+Flag 'telemetry.enabled' funciona
+Toggle cambia comportamiento
+Flag 'economy.v2' existe (default false)
+Codigo lee flag correctamente
+Flags se cargan de environment
+ENV var controla valor
+Cambio de flag en runtime loggeado
+Log muestra cambio
+E3: Test de Eleccion Determinista
+Test automatizado que verifica que una eleccion con mismos votos produce mismo ganador.
+ Criterio DoD
+ Verificacion
+Test existe en /tests/determinism/
+Archivo presente
+Test corre 10 iteraciones
+Log muestra 10 runs
+Test pasa con seed fijo
+CI verde
+Test falla si se cambia RNG
+Demostrar que detecta no-determinismo
+E4: Tick Loop con Snapshot Basico
+
+
+El tick captura estado al inicio y lo compara al final para detectar inconsistencias.
+ Criterio DoD
+ Verificacion
+Snapshot se crea al inicio de cada tick
+Log muestra snapshot creado
+Checksum se calcula al final
+Log muestra checksum
+Diferencia se loggea si existe
+Test con corrupcion manual lo detecta
+Performance no degradada
+Tick P95 < 200ms
+E5: Logging Estructurado con Correlation ID
+Todos los logs incluyen tick_id y correlation_id para tracing.
+ Criterio DoD
+ Verificacion
+Cada tick tiene ID unico
+Log muestra tick_id
+Eventos tienen correlation_id
+Log muestra correlation_id
+Formato JSON estructurado
+jq parsea sin errores
+Nivel de log configurable
+ENV var cambia nivel
+5. Resolucion de Conflictos Especificos
+ Conflicto
+ Plan_Refactorizacion dice
+ Source of Truth decide
+Arquitectura
+Microservicios con API Gateway
+Monolito modular, managers en mismo proceso
+DB para todo
+PostgreSQL obligatorio
+Hot data en memoria/Redis, Cold en DB
+Event Bus
+Kafka/RabbitMQ
+Cola en memoria + Redis backup
+Testing
+Unit tests por clase
+Tests de comportamiento emergente
+Deploy
+Kubernetes, containers
+Simple PM2 o systemd, sin orquestacion compleja
+Proxima revision: Al finalizar Sprint 1. Los KPIs y entregables se actualizan con lo aprendido.

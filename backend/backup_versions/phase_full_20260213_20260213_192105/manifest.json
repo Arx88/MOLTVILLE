@@ -1,0 +1,20 @@
+﻿[
+    {
+        "source":  "C:\\Users\\juanp\\Downloads\\MOLTVILLE\\MOLTVILLE-main\\backend\\server.js",
+        "backup":  "C:\\Users\\juanp\\Downloads\\MOLTVILLE\\MOLTVILLE-main\\backend\\backup_versions\\phase_full_20260213_20260213_192105\\server.js.bak.v1",
+        "bytes":  52636,
+        "copiedAt":  "2026-02-13T19:21:05.4496453+01:00"
+    },
+    {
+        "source":  "C:\\Users\\juanp\\Downloads\\MOLTVILLE\\MOLTVILLE-main\\frontend\\app.js",
+        "backup":  "C:\\Users\\juanp\\Downloads\\MOLTVILLE\\MOLTVILLE-main\\backend\\backup_versions\\phase_full_20260213_20260213_192105\\app.js.bak.v1",
+        "bytes":  162970,
+        "copiedAt":  "2026-02-13T19:21:05.4568042+01:00"
+    },
+    {
+        "source":  "C:\\Users\\juanp\\Downloads\\MOLTVILLE\\MOLTVILLE-main\\frontend\\index.html",
+        "backup":  "C:\\Users\\juanp\\Downloads\\MOLTVILLE\\MOLTVILLE-main\\backend\\backup_versions\\phase_full_20260213_20260213_192105\\index.html.bak.v1",
+        "bytes":  8658,
+        "copiedAt":  "2026-02-13T19:21:05.4598597+01:00"
+    }
+]

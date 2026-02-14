@@ -18,6 +18,7 @@ import {
   recordSocketError,
   recordSocketDuration,
   recordTickDuration,
+  recordTickEventCount,
   recordIntentSignal,
   trackHttpRequest,
   trackSocketEvent,
@@ -42,33 +43,21 @@ import { CityMoodManager } from './core/CityMoodManager.js';
 import { AestheticsManager } from './core/AestheticsManager.js';
 import { EventManager } from './core/EventManager.js';
 import { NPCSpawner } from './core/NPCSpawner.js';
+import { AgentAutonomyEngine } from './core/AgentAutonomyEngine.js';
 import { EventScheduler } from './core/EventScheduler.js';
 import { HealthMonitor } from './core/HealthMonitor.js';
 import { MicroEventEngine } from './core/MicroEventEngine.js';
+import { FeatureFlags } from './core/FeatureFlags.js';
+import { TickIntegrityMonitor } from './core/TickIntegrityMonitor.js';
 import { AnalyticsStore, buildDramaScore } from './utils/analyticsStore.js';
-import { createContainer } from './src/shared/container.js';
-import { registerSocketServer } from './src/infrastructure/websocket/SocketServer.js';
-
-import authRoutes from './routes/auth.js';
-import moltbotRoutes from './routes/moltbot.js';
-import worldRoutes from './routes/world.js';
-import economyRoutes from './routes/economy.js';
-import voteRoutes from './routes/vote.js';
-import governanceRoutes from './routes/governance.js';
-import favorRoutes from './routes/favor.js';
-import reputationRoutes from './routes/reputation.js';
-import negotiationRoutes from './routes/negotiation.js';
-import telemetryRoutes from './routes/telemetry.js';
-import { createAestheticsRouter } from './routes/aesthetics.js';
-import eventRoutes from './routes/events.js';
-import coordinationRoutes from './routes/coordination.js';
-import commitmentsRoutes from './routes/commitments.js';
-import { createMetricsRouter } from './routes/metrics.js';
-import adminRoutes from './routes/admin.js';
-import showRoutes from './routes/show.js';
-import kickRoutes from './routes/kick.js';
-import { createAnalyticsRouter } from './routes/analytics.js';
+import { runWithLogContext } from './utils/logContext.js';
+import { WorldRuntime } from './runtime/WorldRuntime.js';
+import { RealtimeGateway } from './adapters/RealtimeGateway.js';
+import { emitContractEvent, emitContractRoomEvent } from './utils/eventContracts.js';
 import { KickChatClient } from './services/KickChatClient.js';
+import { mountApplicationRoutes } from './bootstrap/httpRoutes.js';
+import { registerGracefulShutdown } from './bootstrap/gracefulShutdown.js';
+import { registerRealtimeSocketHandlers } from './bootstrap/socketHandlers.js';
 
 const app = express();
 const httpServer = createServer(app);
@@ -107,7 +96,11 @@ app.use((req, res, next) => {
   const requestId = randomUUID();
   req.requestId = requestId;
   res.setHeader('x-request-id', requestId);
-  next();
+  runWithLogContext({
+    request_id: requestId,
+    correlation_id: `http-${requestId}`,
+    tick_id: null
+  }, () => next());
 });
 app.use(express.json());
 app.use(express.urlencoded({ extended: true }));
@@ -210,6 +203,7 @@ const ensureActiveApiKey = (socket, registry) => {
 const disconnectTimers = new Map();
 const EVENT_GOAL_RADIUS = parseInt(process.env.EVENT_GOAL_RADIUS || '8', 10);
 const DEFAULT_EVENT_GOAL_TTL_MS = 15 * 60 * 1000;
+const AUTONOMY_DISABLE_FORCED_GOALS = String(process.env.AUTONOMY_DISABLE_FORCED_GOALS || 'true').toLowerCase() !== 'false';
 
 const buildAgentContext = (agentId) => ({
   economy: economyManager.getAgentSummary(agentId),
@@ -253,6 +247,19 @@ const getEventGoalRecipients = (event, location) => {
 };
 
 const emitEventGoals = (transitions = []) => {
+  if (AUTONOMY_DISABLE_FORCED_GOALS) {
+    (transitions || [])
+      .filter(entry => entry.status === 'active')
+      .forEach(({ event }) => {
+        io.to('viewers').emit('world:event_goal_signal', {
+          eventId: event?.id || null,
+          name: event?.name || null,
+          type: event?.type || null,
+          mode: 'informational_only'
+        });
+      });
+    return;
+  }
   transitions
     .filter(entry => entry.status === 'active')
     .forEach(({ event }) => {
@@ -326,6 +333,47 @@ const applyEventIncentives = (eventTransitions = []) => {
 
 let lastAnalyticsRecord = 0;
 const analyticsIntervalMs = parseInt(process.env.ANALYTICS_RECORD_INTERVAL_MS || '10000', 10);
+const eventMoodTransitions = new Set();
+
+const applyEventLegacyMood = (eventTransitions = []) => {
+  const typeModifiers = {
+    festival: { prosperity: 0.05, cohesion: 0.08, stability: 0.03 },
+    market_day: { prosperity: 0.07, cohesion: 0.03, stability: 0.02 },
+    emergency: { prosperity: -0.05, cohesion: -0.08, stability: -0.12 },
+    storm: { prosperity: -0.04, cohesion: -0.03, stability: -0.1 },
+    election: { prosperity: 0, cohesion: 0.03, stability: -0.02 }
+  };
+
+  (eventTransitions || []).forEach(({ event, status }) => {
+    if (!event?.id) return;
+    const key = `${event.id}:${status}`;
+    if (eventMoodTransitions.has(key)) return;
+    eventMoodTransitions.add(key);
+
+    const base = typeModifiers[event.type] || { prosperity: 0.01, cohesion: 0.02, stability: 0.01 };
+    if (status === 'active') {
+      cityMoodManager.addModifier({
+        id: `event-active-${event.id}`,
+        source: `event:${event.type}`,
+        prosperity: base.prosperity,
+        cohesion: base.cohesion,
+        stability: base.stability,
+        durationMs: 20 * 60 * 1000,
+        metadata: { eventId: event.id, status }
+      });
+    } else if (status === 'ended') {
+      cityMoodManager.addModifier({
+        id: `event-end-${event.id}`,
+        source: `event_end:${event.type}`,
+        prosperity: base.prosperity * 0.4,
+        cohesion: base.cohesion * 0.3,
+        stability: base.stability * 0.25,
+        durationMs: 8 * 60 * 1000,
+        metadata: { eventId: event.id, status }
+      });
+    }
+  });
+};
 
 // Initialize core systems
 const worldState = new WorldStateManager();
@@ -333,13 +381,15 @@ const moltbotRegistry = new MoltbotRegistry({ db });
 const actionQueue = new ActionQueue(worldState, moltbotRegistry);
 const interactionEngine = new InteractionEngine(worldState, moltbotRegistry, { db });
 const economyManager = new EconomyManager(worldState, { db, io });
-const votingManager = new VotingManager(worldState, io, { db, economyManager });
 const governanceManager = new GovernanceManager(io, { db });
+const votingManager = new VotingManager(worldState, io, { db, economyManager, governanceManager });
 const favorLedger = new FavorLedger();
 const reputationManager = new ReputationManager();
 const negotiationService = new NegotiationService({ favorLedger, reputationManager });
 const policyEngine = new PolicyEngine({ governanceManager, economyManager });
 const telemetryService = new TelemetryService();
+const coreFlags = new FeatureFlags();
+const tickIntegrityMonitor = new TickIntegrityMonitor();
 const coordinationManager = new CoordinationManager();
 const commitmentManager = new CommitmentManager();
 const cityMoodManager = new CityMoodManager(economyManager, interactionEngine);
@@ -354,6 +404,19 @@ const npcSpawner = new NPCSpawner({
   eventManager,
   actionQueue,
   io
+});
+const agentAutonomyEngine = new AgentAutonomyEngine({
+  io,
+  worldState,
+  registry: moltbotRegistry,
+  interactionEngine,
+  economyManager,
+  negotiationService,
+  commitmentManager,
+  favorLedger,
+  reputationManager,
+  actionQueue,
+  logger
 });
 const eventScheduler = new EventScheduler({ eventManager, worldState, cityMoodManager });
 const healthMonitor = new HealthMonitor({ registry: moltbotRegistry, worldState, npcSpawner, eventManager });
@@ -436,54 +499,59 @@ app.locals.cityMoodManager = cityMoodManager;
 app.locals.aestheticsManager = aestheticsManager;
 app.locals.eventManager = eventManager;
 app.locals.npcSpawner = npcSpawner;
+app.locals.agentAutonomyEngine = agentAutonomyEngine;
 app.locals.eventScheduler = eventScheduler;
 app.locals.healthMonitor = healthMonitor;
 app.locals.analyticsStore = analyticsStore;
 app.locals.featureFlags = featureFlags;
+app.locals.coreFlags = coreFlags;
+app.locals.tickIntegrityMonitor = tickIntegrityMonitor;
 app.locals.io = io;
 app.locals.db = db;
 
-const container = createContainer({
+const realtimeGateway = new RealtimeGateway({
   io,
+  emitContractEvent,
+  emitContractRoomEvent
+});
+
+const worldRuntime = new WorldRuntime({
+  tickRate: config.worldTickRate,
+  logger,
+  runWithLogContext,
+  coreFlags,
+  telemetryService,
+  tickIntegrityMonitor,
   worldState,
-  moltbotRegistry,
   actionQueue,
-  interactionEngine,
+  moltbotRegistry,
+  policyEngine,
   economyManager,
   votingManager,
   governanceManager,
-  cityMoodManager,
-  eventManager,
-  aestheticsManager,
-  reputationManager,
   favorLedger,
-  recordIntentSignal
+  reputationManager,
+  cityMoodManager,
+  aestheticsManager,
+  eventManager,
+  npcSpawner,
+  eventScheduler,
+  healthMonitor,
+  microEventEngine,
+  interactionEngine,
+  agentAutonomyEngine,
+  analyticsStore,
+  metrics,
+  recordTickDuration,
+  recordTickEventCount,
+  emitEventGoals,
+  applyEventIncentives,
+  applyEventLegacyMood,
+  realtimeGateway,
+  analyticsIntervalMs
 });
 
-const socketContext = {
-  ...container,
-  services: container.services,
-  config,
-  logger,
-  metrics,
-  telemetryService,
-  trackSocketEvent,
-  trackSocketRateLimit,
-  recordSocketError,
-  recordSocketDuration,
-  sanitizeText,
-  sanitizeId,
-  isSocketRateLimited,
-  applySocketBackoff,
-  shouldBlockSocket,
-  ensureActiveApiKey,
-  emitViewerEvent,
-  disconnectTimers,
-  socketRateState,
-  AGENT_DISCONNECT_GRACE_MS,
-  SOCKET_RATE_LIMIT_MS,
-  SOCKET_SPEAK_LIMIT_MS
-};
+app.locals.worldRuntime = worldRuntime;
 
 const __filename = fileURLToPath(import.meta.url);
 const __dirname = path.dirname(__filename);
@@ -596,111 +664,66 @@ if (config.worldSnapshotIntervalMs) {
   }, config.worldSnapshotIntervalMs);
 }
 
-// Frontend static UI
-app.use(express.static(frontendPath));
-app.get('/', (req, res) => {
-  res.sendFile(path.join(frontendPath, 'index.html'));
-});
-
-// Routes
-app.use('/api/auth', authRoutes);
-app.use('/api/moltbot', moltbotRoutes);
-app.use('/api/world', worldRoutes);
-app.use('/api/economy', economyRoutes);
-app.use('/api/favor', favorRoutes);
-app.use('/api/reputation', reputationRoutes);
-app.use('/api/negotiation', negotiationRoutes);
-app.use('/api/telemetry', telemetryRoutes);
-app.use('/api/vote', voteRoutes);
-app.use('/api/governance', governanceRoutes);
-app.use('/api/aesthetics', createAestheticsRouter({ aestheticsManager }));
-app.use('/api/events', eventRoutes);
-app.use('/api/coordination', coordinationRoutes);
-app.use('/api/commitments', commitmentsRoutes);
-app.use('/api/show', showRoutes);
-app.use('/api/admin', adminRoutes);
-app.use('/api/kick', kickRoutes);
-app.use('/api/analytics', createAnalyticsRouter({
-  registry: moltbotRegistry,
-  eventManager,
-  cityMoodManager,
-  analyticsStore,
-  io
-}));
-
-app.get('/api/health', (req, res) => {
-  res.json({
-    status: 'healthy',
-    timestamp: Date.now(),
-    agents: moltbotRegistry.getAgentCount(),
-    worldTick: worldState.getCurrentTick()
-  });
-});
-
-app.use('/api/metrics', createMetricsRouter({
+mountApplicationRoutes({
+  app,
+  frontendPath,
   io,
-  eventManager,
-  economyManager,
   worldState,
   moltbotRegistry,
+  economyManager,
+  eventManager,
   cityMoodManager,
   actionQueue,
   commitmentManager,
   reputationManager,
-  featureFlags
-}));
-
-app.get(/^\/(?!api|socket\.io).*/, (req, res) => {
-  res.sendFile(path.join(frontendPath, 'index.html'));
+  featureFlags,
+  coreFlags,
+  aestheticsManager,
+  analyticsStore
 });
 
 // â”€â”€ WebSocket Handling â”€â”€
-registerSocketServer(io, socketContext);
+registerRealtimeSocketHandlers({
+  io,
+  config,
+  logger,
+  metrics,
+  trackSocketEvent,
+  recordSocketDuration,
+  recordSocketError,
+  trackSocketRateLimit,
+  recordIntentSignal,
+  moltbotRegistry,
+  governanceManager,
+  cityMoodManager,
+  eventManager,
+  interactionEngine,
+  economyManager,
+  worldState,
+  reputationManager,
+  favorLedger,
+  telemetryService,
+  actionQueue,
+  agentAutonomyEngine,
+  buildAgentContext,
+  emitViewerEvent,
+  ensureActiveApiKey,
+  shouldBlockSocket,
+  isSocketRateLimited,
+  applySocketBackoff,
+  sanitizeText,
+  sanitizeId,
+  socketRateState,
+  disconnectTimers,
+  SOCKET_RATE_LIMIT_MS,
+  SOCKET_SPEAK_LIMIT_MS,
+  SOCKET_PERCEIVE_LIMIT_MS,
+  AGENT_DISCONNECT_GRACE_MS
+});
 
 // â”€â”€ World Update Loop â”€â”€
 // Now broadcasts interpolated positions for smooth client rendering
-setInterval(() => {
-  const tickStart = Date.now();
-  worldState.tick();
-  actionQueue.processQueue();
-  moltbotRegistry.pruneMemories();
-  policyEngine.applyActivePolicies();
-  economyManager.tick();
-  votingManager.tick();
-  governanceManager.tick();
-  cityMoodManager.tick();
-  aestheticsManager.tick(moltbotRegistry.getAgentCount());
-  const eventTransitions = eventManager.tick();
-  npcSpawner.tick();
-  eventScheduler.tick();
-  healthMonitor.tick();
-  if (microEventEngine) microEventEngine.tick();
-  interactionEngine.cleanupOldConversations();
-  if (eventTransitions?.length) {
-    emitEventGoals(eventTransitions);
-  }
-  container.services.eventService.applyIncentives(eventTransitions);
-
-  const now = Date.now();
-  if (now - lastAnalyticsRecord >= analyticsIntervalMs) {
-    const mood = cityMoodManager.getSummary();
-    const activeEvents = eventManager.getSummary().filter(event => event.status === 'active').length;
-    const dramaScore = buildDramaScore({
-      mood,
-      activeEvents,
-      npcDramaPoints: metrics.npc.dramaPoints
-    });
-    analyticsStore.record(dramaScore);
-    lastAnalyticsRecord = now;
-  }
-
-  // Broadcast interpolated agent positions to viewers
-  if (worldState.tickCount % 100 === 0) {
-    logger.info(`World tick ${worldState.tickCount} - Agents: ${Object.keys(worldState.getAllAgentPositions()).length}`);
-  }
-  io.to('viewers').emit('world:tick', container.services.worldService.buildTickPayload());
-  recordTickDuration(Date.now() - tickStart);
-}, config.worldTickRate);
+worldRuntime.start();
 
 // Error handling
 app.use((err, req, res, next) => {
@@ -720,11 +743,7 @@ httpServer.listen(PORT, () => {
   logger.info(`ðŸŒ World tick rate: ${config.worldTickRate}ms`);
 });
 
-process.on('SIGTERM', () => {
-  logger.info('SIGTERM received, shutting down gracefully...');
-  httpServer.close(() => { logger.info('Server closed'); process.exit(0); });
-});
+registerGracefulShutdown({ httpServer, worldRuntime, logger });
 
 export { io, worldState, moltbotRegistry, actionQueue, interactionEngine };
-
 

@@ -1,0 +1,171 @@
+<!DOCTYPE html>
+<html lang="es">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>MOLTVILLE</title>
+<link rel="stylesheet" href="./styles.css?v=20260210m">
+</head>
+<body>
+<div id="game-container"></div>
+<div id="hud">
+  <div id="reason-bar">Razón: -</div>
+  <div id="telemetry-feed">
+    <div class="feed-title">TELEMETRÍA</div>
+    <div id="telemetry-feed-body">Sin eventos</div>
+  </div>
+  <div id="top-bar">
+    <span class="city-name">🏙️ Moltville</span>
+    <span class="time-display" id="time-display">☀️ 10:00 AM</span>
+    <span class="weather-display" id="weather-display">🌤️ Clear</span>
+    <span class="mood-display" id="mood-display">🌿 Calm</span>
+    <span class="president-display" id="president-display">🏛️ Sin presidente</span>
+    <span class="event-display" id="event-display">🎭 Sin evento</span>
+    <span class="agent-count" id="agent-count">👥 0 Citizens</span>
+    <div class="show-indicator" id="show-indicator">
+      <span class="show-indicator-label">🎬 Show</span>
+      <span class="show-indicator-score" id="show-indicator-score">0</span>
+      <div class="show-indicator-bar">
+        <div class="show-indicator-fill" id="show-indicator-fill"></div>
+      </div>
+    </div>
+    <button class="show-mode-toggle" id="show-mode-toggle" type="button">Modo Show</button>
+    <button class="show-mode-toggle labels-toggle" id="labels-toggle" type="button">Etiquetas</button>
+  </div>
+  <div id="status-banner">
+    <div class="banner-content">
+      <span class="banner-message"></span>
+      <button class="retry-button" type="button">Reintentar</button>
+      <button class="details-button" type="button">Detalles</button>
+    </div>
+  </div>
+  <div id="status-modal">
+    <div class="modal-card">
+      <div class="modal-title">Estado de conexión</div>
+      <div class="modal-row" id="status-modal-last-success">Último refresh: -</div>
+      <div class="modal-row" id="status-modal-last-duration">Duración último refresh: -</div>
+      <div class="modal-row" id="status-modal-failures">Fallos seguidos: -</div>
+      <div class="modal-row" id="status-modal-last-section">Último módulo fallido: -</div>
+      <div class="modal-row" id="status-modal-last-error">Último error: -</div>
+      <div class="modal-actions">
+        <button class="secondary" id="status-modal-close" type="button">Cerrar</button>
+        <button id="status-modal-retry" type="button">Reintentar ahora</button>
+      </div>
+    </div>
+  </div>
+  <div id="refresh-indicator">
+    <span class="spinner"></span>
+    <span>Actualizando…</span>
+  </div>
+  <div id="chat-log"></div>
+  <div id="conversation-focus" class="conversation-focus">
+    <div class="conversation-focus-header">
+      <span>🎙️ Conversación activa</span>
+      <span class="conversation-focus-status" id="conversation-focus-status">Sin diálogo</span>
+    </div>
+    <div class="conversation-focus-body" id="conversation-focus-body"></div>
+  </div>
+  <div id="agents-panel"></div>
+  <div id="vote-panel">
+    <div class="panel-title">Votación diaria</div>
+    <div class="panel-row panel-muted">Sin votación activa</div>
+  </div>
+  <div id="governance-panel">
+    <div class="panel-title">Presidencia</div>
+    <div class="panel-row panel-muted">Sin presidente actual</div>
+  </div>
+  <div id="relationships-panel">
+    <div class="panel-title">Relaciones</div>
+    <div class="panel-row panel-muted">Sin datos</div>
+  </div>
+  <div id="districts-panel">
+    <div class="panel-title">Distritos</div>
+    <div class="panel-row panel-muted">Sin datos</div>
+  </div>
+  <div id="economy-panel">
+    <div class="panel-title">Economía</div>
+    <div class="panel-row panel-muted">Sin datos</div>
+  </div>
+  <div id="minimap-container">
+    <canvas id="minimap" width="140" height="140"></canvas>
+  </div>
+  <div id="agent-profile" class="agent-profile">
+    <div class="agent-profile-header">
+      <div class="agent-profile-title" id="agent-profile-name">Agente</div>
+      <button class="agent-profile-close" id="agent-profile-close" type="button">✕</button>
+    </div>
+    <div class="agent-profile-sub" id="agent-profile-role">-</div>
+    <div class="agent-profile-body">
+      <div class="agent-profile-row"><span>Estado</span><span id="agent-profile-state">-</span></div>
+      <div class="agent-profile-row"><span>Ubicación</span><span id="agent-profile-location">-</span></div>
+      <div class="agent-profile-row"><span>Trabajo</span><span id="agent-profile-job">-</span></div>
+      <div class="agent-profile-row"><span>Relaciones</span><span id="agent-profile-relations">-</span></div>
+      <div class="agent-profile-row"><span>Motivación actual</span><span id="agent-profile-motivation">-</span></div>
+      <div class="agent-profile-row"><span>Objetivo actual</span><span id="agent-profile-plan">-</span></div>
+      <div class="agent-profile-row"><span>Reputación</span><span id="agent-profile-reputation">-</span></div>
+      <div class="agent-profile-row"><span>Favores</span><span id="agent-profile-favors">-</span></div>
+      <div class="agent-profile-row"><span>Pensamiento</span><span id="agent-profile-thought-internal">-</span></div>
+      <div class="agent-profile-row"><span>Qué quiere hacer</span><span id="agent-profile-thought-external">-</span></div>
+    </div>
+    <div class="agent-profile-speech" id="agent-profile-speech">-</div>
+  </div>
+  <div id="event-panel" class="event-panel">
+    <div class="event-panel-header">
+      <div class="event-panel-title">Evento activo</div>
+      <button class="event-panel-close" id="event-panel-close" type="button">✕</button>
+    </div>
+    <div class="event-panel-body">
+      <div class="event-panel-row"><span>Nombre</span><span id="event-panel-name">-</span></div>
+      <div class="event-panel-row"><span>Creador</span><span id="event-panel-host">-</span></div>
+      <div class="event-panel-row"><span>Ubicación</span><span id="event-panel-location">-</span></div>
+      <div class="event-panel-row"><span>Participantes</span><span id="event-panel-participants">-</span></div>
+      <div class="event-panel-row"><span>Descripción</span><span id="event-panel-description">-</span></div>
+    </div>
+  </div>
+  <div id="show-mode-container" class="show-mode">
+    <div class="show-mode-viewport">
+      <div class="letterbox-top"></div>
+      <div class="letterbox-bottom"></div>
+      <div class="vignette-overlay"></div>
+    </div>
+    <aside class="show-mode-tracker">
+      <div class="show-mode-title">📺 Show Mode</div>
+      <div class="show-mode-current">
+        <div class="show-mode-current-header">
+          <span class="show-mode-badge" id="show-mode-scene-type">SIN ESCENA</span>
+          <span class="show-mode-score" id="show-mode-score">0/100</span>
+        </div>
+        <div class="show-mode-scene" id="show-mode-scene-title">Esperando interacción destacada...</div>
+        <div class="show-mode-meta" id="show-mode-meta">Sin participantes</div>
+        <div class="show-mode-progress">
+          <div class="show-mode-progress-fill" id="show-mode-progress-fill"></div>
+        </div>
+        <div class="show-mode-time" id="show-mode-time">0s</div>
+      </div>
+      <div class="show-mode-section-title">🧵 Tramas activas</div>
+      <div class="show-mode-thread-list" id="show-mode-thread-list"></div>
+      <div class="show-mode-section-title">⏭️ Próximas escenas</div>
+      <div class="show-mode-queue" id="show-mode-queue"></div>
+      <div class="show-mode-section-title">⏱️ Próximamente</div>
+      <div class="show-mode-predictions" id="show-mode-predictions"></div>
+      <div class="show-mode-section-title">📖 Arcos activos</div>
+      <div class="show-mode-arcs" id="show-mode-arcs"></div>
+      <div class="show-mode-section-title">📊 Estadísticas</div>
+      <div class="show-mode-stats" id="show-mode-stats"></div>
+      <div class="show-mode-section-title">🔥 Zonas calientes</div>
+      <div class="show-mode-heatmap">
+        <canvas id="show-mode-heatmap" width="220" height="140"></canvas>
+      </div>
+    </aside>
+    <div class="show-mode-caption" id="show-mode-caption">
+      <div class="show-mode-caption-speaker" id="show-mode-caption-speaker">-</div>
+      <div class="show-mode-caption-text" id="show-mode-caption-text">En espera de diálogo...</div>
+    </div>
+  </div>
+</div>
+
+<script src="https://cdnjs.cloudflare.com/ajax/libs/phaser/3.60.0/phaser.min.js"></script>
+<script src="https://cdn.socket.io/4.6.1/socket.io.min.js" crossorigin="anonymous"></script>
+<script src="./app.js?v=20260210n"></script>
+</body>
+</html>

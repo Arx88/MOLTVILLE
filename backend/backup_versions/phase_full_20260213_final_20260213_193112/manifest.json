@@ -1,0 +1,38 @@
+﻿[
+    {
+        "source":  "C:\\Users\\juanp\\Downloads\\MOLTVILLE\\MOLTVILLE-main\\backend\\server.js",
+        "backup":  "C:\\Users\\juanp\\Downloads\\MOLTVILLE\\MOLTVILLE-main\\backend\\backup_versions\\phase_full_20260213_final_20260213_193112\\server.js.bak.v1",
+        "bytes":  25484,
+        "copiedAt":  "2026-02-13T19:31:12.9310908+01:00"
+    },
+    {
+        "source":  "C:\\Users\\juanp\\Downloads\\MOLTVILLE\\MOLTVILLE-main\\frontend\\app.js",
+        "backup":  "C:\\Users\\juanp\\Downloads\\MOLTVILLE\\MOLTVILLE-main\\backend\\backup_versions\\phase_full_20260213_final_20260213_193112\\app.js.bak.v1",
+        "bytes":  155699,
+        "copiedAt":  "2026-02-13T19:31:12.9375711+01:00"
+    },
+    {
+        "source":  "C:\\Users\\juanp\\Downloads\\MOLTVILLE\\MOLTVILLE-main\\frontend\\index.html",
+        "backup":  "C:\\Users\\juanp\\Downloads\\MOLTVILLE\\MOLTVILLE-main\\backend\\backup_versions\\phase_full_20260213_final_20260213_193112\\index.html.bak.v1",
+        "bytes":  8785,
+        "copiedAt":  "2026-02-13T19:31:12.9417604+01:00"
+    },
+    {
+        "source":  "C:\\Users\\juanp\\Downloads\\MOLTVILLE\\MOLTVILLE-main\\backend\\bootstrap\\socketHandlers.js",
+        "backup":  "C:\\Users\\juanp\\Downloads\\MOLTVILLE\\MOLTVILLE-main\\backend\\backup_versions\\phase_full_20260213_final_20260213_193112\\socketHandlers.js.bak.v1",
+        "bytes":  26395,
+        "copiedAt":  "2026-02-13T19:31:12.9447966+01:00"
+    },
+    {
+        "source":  "C:\\Users\\juanp\\Downloads\\MOLTVILLE\\MOLTVILLE-main\\frontend\\runtime\\viewerRealtime.js",
+        "backup":  "C:\\Users\\juanp\\Downloads\\MOLTVILLE\\MOLTVILLE-main\\backend\\backup_versions\\phase_full_20260213_final_20260213_193112\\viewerRealtime.js.bak.v1",
+        "bytes":  11907,
+        "copiedAt":  "2026-02-13T19:31:12.9463135+01:00"
+    },
+    {
+        "source":  "C:\\Users\\juanp\\Downloads\\MOLTVILLE\\MOLTVILLE-main\\docs\\FASES_REFACTOR_100_2026-02-13.md",
+        "backup":  "C:\\Users\\juanp\\Downloads\\MOLTVILLE\\MOLTVILLE-main\\backend\\backup_versions\\phase_full_20260213_final_20260213_193112\\FASES_REFACTOR_100_2026-02-13.md.bak.v1",
+        "bytes":  1322,
+        "copiedAt":  "2026-02-13T19:31:12.9493570+01:00"
+    }
+]

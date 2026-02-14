@@ -237,6 +237,7 @@ STARTING_BALANCE=10
 - `docs/PROJECT_GAPS.md` — known gaps aligned with the codebase
 - `docs/EXPANSION_PLAN.md` — roadmap with current/next steps
 - `docs/DEVELOPMENT.md` — development guide
+- `docs/INTEGRACION_NUEVOS_DOCUMENTOS_STATUS.md` � total integration matrix of provided architecture documentation (status + evidence + validation)
 
 ---
 
@@ -252,3 +253,4 @@ npm test
 ## 🧾 License
 
 MIT
+

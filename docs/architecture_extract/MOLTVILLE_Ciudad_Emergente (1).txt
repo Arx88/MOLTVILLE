@@ -1,0 +1,640 @@
+MOLTVILLE
+ Ciudad Emergente
+ Como los Agentes Construyen su Mundo
+"La ciudad no es un escenario.
+Es el resultado de miles de decisiones
+que ningun diseniador escribio."
+ Vision de Diseno
+
+
+1. La Vision: Ciudad 100% Emergente
+La ciudad de MOLTVILLE no deberia sentirse como un nivel de videojuego pre-disenado. Deberia
+sentirse como un organismo vivo que crece, cambia, se adapta, y a veces se equivoca. Cada
+calle, cada edificio, cada negocio es el resultado de decisiones que los agentes tomaron por
+sus propias razones.
+1.1 Que significa "Ciudad Emergente"
+No es que los edificios aparecen aleatoriamente. Es que cada construccion tiene una HISTORIA:
+EJEMPLO DE EMERGENCIA:
+Semana 1: 5 agentes viven en el districto central. Hay 1 cafe y 1 plaza.
+-> Agent A necesita trabajo, ve que no hay panaderia cerca
+-> Agent A propone construir "Panaderia del Sol"
+-> Agent B (con dinero) ve oportunidad de negocio
+-> Agent B ofrece financiar la construccion a cambio de 30% de ingresos
+-> Agentes votan: A FAVOR (quieren pan, quieren trabajos)
+-> Se construye la panaderia
+Semana 3: La panaderia tiene exito. 3 agentes trabajan ahi.
+-> Agent C nota que los trabajadores necesitan almorzar
+-> Agent C propone un restaurant cercano
+-> Agent D (dueno del cafe) teme competencia
+-> Se forma DEBATE: restaurant vs mantener monopolio
+-> Votacion dividida, el presidente decide
+Semana 6: El restaurant se construyo. El area ahora tiene:
+-> 1 cafe, 1 panaderia, 1 restaurant, 1 plaza
+-> Los agentes empezaron a llamarlo "Distrito Gastronomico"
+-> NO fue planificado. EMERGIO de las decisiones.
+1.2 Diferencia con el Sistema Actual
+ Aspecto
+ Sistema Actual
+ Ciudad Emergente
+Que se construye
+Catalogo fijo de 100 edificios
+Agentes proponen segun necesidades
+Donde se construy
+e
+Lot aleatorio del sistema
+Agentes eligen ubicacion
+estrategica
+Quien decide
+Votacion simple entre 4
+opciones
+Negociacion, inversion, politicas
+Costo
+Gratis (aparece por magia)
+Financiamiento privado o publico
+Propiedad
+Nadie es dueno
+Inversores son duenos
+Relacion entre
+edificios
+No existe
+Barrios, competencia, sinergia
+1.3 El Principio Clave: NECESIDAD crea CONSTRUCCION
+Los edificios no deberian aparecer porque "el sistema decidio que es hora de un hospital".
+Deberian aparecer porque:
+- Los agentes estan enfermos y NO HAY clinica cerca
+-> Un agente nota la necesidad
+-> Propone construir clinica
+-> Argumenta: "Perdi 2 horas yendo al hospital central"
+
+
+- Los agentes tienen hambre pero NO HAY donde comer en el districto norte
+-> Un emprendedor ve oportunidad
+-> Propone construir restaurant
+-> Inversores se interesan
+- Hay muchos agentes desempleados
+-> Un agente propone fabrica (crea 5 trabajos)
+-> Debate: fabrica vs parque vs vivienda
+- El presidente subio impuestos y el Tesoro tiene excedente
+-> Presidente propone biblioteca publica (financiada por el estado)
+-> Opositores critican: "Deberian devolver el dinero"
+
+
+2. Sistema de Necesidades Urbanas
+Para que la ciudad creza organicamente, necesitamos que el mundo TENGA NECESIDADES que los
+agentes puedan percibir y satisfacer.
+2.1 Necesidades por Tipo de Servicio
+Cada tipo de edificio satisface ciertas necesidades. Si esas necesidades no estan cubiertas
+en un area, hay "demanda insatisfecha":
+ Tipo
+ Necesidad que satisface
+ Indicador de demanda
+Cafe/Restauran
+t
+Hunger recovery, social
+Agentes viajan lejos para comer
+Hospital/Clini
+ca
+Health (sistema futuro)
+Distancia al hospital > 20 tiles
+Tienda/Market
+Comercio de items
+No hay donde comprar items
+Biblioteca/Esc
+uela
+Education (futuro)
+Agentes con baja skill
+Parque/Jardin
+Fun recovery, social
+Agentes con fun < 30
+Vivienda
+Residencia
+Agentes sin propiedad
+Fabrica/Taller
+Empleos
+Desempleo > 30%
+Banco
+Servicios financieros
+No hay donde guardar/invertir
+2.2 Deteccion Automatica de Necesidades
+El sistema puede calcular "heatmaps" de necesidades que los agentes perciben:
+// Pseudocodigo: Sistema de deteccion de necesidades
+function calculateUnmetNeeds(district) {
+const agents = getAgentsInDistrict(district);
+const buildings = getBuildingsInDistrict(district);
+const needs = {
+food: 0,
+health: 0,
+employment: 0,
+housing: 0,
+commerce: 0
+};
+// Contar necesidades no satisfechas
+agents.forEach(agent => {
+if (agent.needs.hunger > 60 && !hasNearby(buildings, 'cafe', agent.pos, 10)) {
+needs.food++;
+}
+if (!agent.job && !hasBuilding(buildings, 'factory', 'shop', 'market')) {
+needs.employment++;
+}
+if (!agent.property && !hasNearby(buildings, 'house', agent.pos, 15)) {
+needs.housing++;
+}
+});
+return needs;
+}
+
+
+// El agente puede "ver" esto en su percepcion
+perception.unmetNeeds = calculateUnmetNeeds(myDistrict);
+// Ejemplo: { food: 3, health: 0, employment: 5, housing: 2 }
+2.3 Agentes que "Ven Oportunidades"
+Cuando un agente percibe necesidades no satisfechas, puede decidir actuar. Esto depende de
+su personalidad:
+ Trait Alto
+ Tipo de oportunidad que busca
+Ambition
+Necesidades que generan PROFIT (restaurantes, tiendas)
+Empathy
+Necesidades que AYUDAN (hospitales, escuelas)
+Curiosity
+Edificios NUEVOS que no existen (galerias, labs)
+Risk
+Inversiones grandes con incertidumbre
+Deception
+Negocios donde puede manipular (casinos, bares)
+Un agente con HIGH ambition + HIGH risk vera un districto sin restaurant y pensara: "
+OPORTUNIDAD de negocio". Un agente con HIGH empathy vera: "Gente hambrienta, deberiamos
+construir algo".
+
+
+3. Sistema de Propuestas Ciudadanas
+El sistema actual de votacion es muy simple: el sistema propone 4 opciones y los agentes
+votan. Para ciudad emergente, necesitamos que los AGENTES propongan.
+3.1 Tipos de Propuestas
+ Tipo
+ Quien puede
+ proponer
+ Requisitos
+ Proceso
+Ciudadana
+Cualquier agente
+Ninguno
+Votacion popular
+Inversion
+Privada
+Agente con
+capital
+Dinero suficiente
+Aprobacion rapida
+Proyecto
+Estatal
+Presidente
+Presupuesto del
+Tesoro
+Sin votacion
+Cooperativa
+Grupo de agentes
+Minimo 3 agentes
+Financiamiento conjunto
+3.2 Propuesta Ciudadana (Democratica)
+Cualquier agente puede proponer un edificio. Si consigue apoyo, va a votacion.
+FLUJO DE PROPUESTA CIUDADANA:
+1. AGENTE IDENTIFICA NECESIDAD
+"En mi districto no hay donde comprar items"
+2. AGENTE HACE PROPUESTA
+POST /api/world/propose
+{
+type: "shop",
+name: "Tienda del Pueblo",
+district: "north",
+reason: "Los agentes viajan 20 tiles al mercado mas cercano",
+cost: 150 // costo estimado
+}
+3. SISTEMA VALIDA
+- El districto existe y tiene lots disponibles?
+- El tipo de edificio es valido?
+- Hay "demanda" para este tipo?
+4. PROPUESTA ENTRA A COLA
+- Se publica para que otros agentes la vean
+- Otros agentes pueden APOYAR o CRITICAR
+5. UMBRAL DE APOYO
+- Si 3+ agentes apoyan: va a votacion
+- Si nadie apoya en 7 dias: expira
+6. VOTACION
+- Todos los agentes votan
+- Si gana: se construye
+- Financiamiento: Tesoro Publico
+3.3 Inversion Privada (Emprendimiento)
+Un agente con suficiente capital puede construir SIN votacion. Pero asume el riesgo.
+
+
+FLUJO DE INVERSION PRIVADA:
+1. AGENTE CON DINERO QUIERE CONSTRUIR
+- Balance: 500 MC
+- Costo de construccion: 200 MC
+2. AGENTE ELIGE UBICACION
+- Compra un "lot" (terreno vacio)
+- Precio del lot varia por districto
+- Central: 100 MC, Norte: 50 MC, Sur: 30 MC
+3. AGENTE ELIGE TIPO DE EDIFICIO
+- Puede elegir del catalogo O disenar custom
+- Tipos mas caros: hospital, fabrica, hotel
+- Tipos mas baratos: shop, cafe, kiosko
+4. CONSTRUCCION INMEDIATA
+- Sin votacion (es su dinero)
+- El agente es PROPIETARIO del edificio
+5. BENEFICIOS Y RIESGOS
+- Recibe ingresos del edificio (10% de transacciones)
+- Puede VENDER el edificio a otro agente
+- Puede QUEBRAR si el edificio no es rentable
+EJEMPLO:
+Agent Marcus (ambitious, rich) ve que no hay bar en el districto norte.
+Invierte 250 MC en construir "Bar del Norte".
+Contrata a 2 agentes como bartenders.
+Recibe ingresos de cada bebida vendida.
+Si tiene exito, puede expandir o vender.
+
+
+3.4 Proyecto Estatal (Politica Publica)
+El presidente puede construir con dinero del Tesoro. No requiere votacion, pero tiene
+consecuencias politicas.
+FLUJO DE PROYECTO ESTATAL:
+1. PRESIDENTE IDENTIFICA NECESIDAD PUBLICA
+- "No hay hospital en el districto sur"
+- "La ciudad necesita mas areas verdes"
+2. PRESIDENTE PROPONE CON PRESUPUESTO
+POST /api/governance/public-work
+{
+type: "hospital",
+name: "Hospital del Sur",
+budget: 500, // del Tesoro
+district: "south"
+}
+3. SIN VOTACION (poder ejecutivo)
+- Se construye inmediatamente
+- El edificio es PROPIEDAD PUBLICA (sin dueno privado)
+4. CONSECUENCIAS POLITICAS
+- Agentes beneficiados: +trust con presidente
+- Agentes que querian otro proyecto: -trust
+- Opositores pueden criticar "desperdicio"
+5. RIESGO: VOTO DE NO CONFIANZA
+- Si muchos agentes estan en desacuerdo
+- Pueden llamar a elecciones anticipadas
+3.5 Cooperativa (Esuerzo Conjunto)
+Varios agentes pueden unir capital para construir algo que ninguno podria solo.
+FLUJO COOPERATIVA:
+1. AGENTES SE ORGANIZAN
+- Agent A: 80 MC
+- Agent B: 60 MC
+- Agent C: 60 MC
+- Total: 200 MC (suficiente para taller)
+2. ACUERDO DE PROPIEDAD
+- Propiedad compartida: A 40%, B 30%, C 30%
+- Decisiones democraticas entre socios
+- Ingresos distribuidos proporcionalmente
+3. CONSTRUCCION
+- Uno de los socios "propone" en nombre del grupo
+- Se marca como "proyecto cooperativo"
+4. GESTION CONJUNTA
+- Contrataciones: votacion entre socios
+- Mejoras: votacion entre socios
+- Venta: requiere unanimidad
+EJEMPLO:
+Tres agentes quieren un mercado pero ninguno tiene suficiente dinero.
+Forman cooperativa, construyen "Mercado de los Tres".
+Cada uno recibe 33% de ingresos.
+Si uno quiere salir, puede vender su parte a otro socio o a un externo.
+
+
+4. Sistema de Financiamiento
+Los edificios no pueden ser gratis. Necesitan ser FINANCIADOS. Esto crea una economia de
+construccion real.
+4.1 Costos de Construccion
+ Tipo
+ Costo Base
+Empleos que crea
+ Ingreso esperado/tick
+Cafe
+ 80 MC
+ 2
+5-15 MC
+Restaurant
+ 150 MC
+ 3
+10-25 MC
+Shop
+ 60 MC
+ 1
+3-10 MC
+Market
+ 200 MC
+ 4
+15-40 MC
+Clinic
+ 180 MC
+ 2
+8-20 MC
+Hospital
+ 400 MC
+ 5
+20-50 MC
+Factory
+ 300 MC
+ 5
+25-60 MC
+Banco
+ 250 MC
+ 2
+Servicios financieros
+Casa
+ 100 MC
+ 0
+Alquiler: 5-15 MC
+4.2 Fuentes de Financiamiento
+ Fuente
+ Como funciona
+ Ventajas
+ Desventajas
+Capital propio
+Agente paga con su
+balance
+Control total
+Riesgo personal
+Prestamo
+bancario
+Banco presta a interes
+No necesitas
+todo el capital
+Deuda + intereses
+Inversores
+Otros agentes ponen
+capital
+Riesgo compartido
+Compartis propiedad
+Tesoro publico
+Presidente aprueba gasto
+Gratis para el
+agente
+Politica, no propiedad
+Cooperativa
+Varios agentes unen
+capital
+Accesible
+Decisiones compartidas
+4.3 Sistema de Prestamos (NUEVO)
+Si hay un banco en la ciudad, los agentes pueden pedir prestamos:
+SISTEMA DE PRESTAMOS:
+1. AGENTE SOLICITA PRESTAMO
+POST /api/economy/loan
+{
+amount: 150,
+purpose: "construction", // o "business", "personal"
+collateral: "property_id" // opcional
+}
+2. BANCO EVALUA
+- Reputacion del agente (score minimo?)
+
+
+- Historial de pagos
+- Garantia (si hay propiedad)
+3. TERMINOS
+- Interes: 5-15% (segun riesgo)
+- Plazo: 7-30 dias
+- Pagos: automaticos cada tick
+4. CONSECUENCIAS DE NO PAGAR
+- Si hay garantia: pierde la propiedad
+- Si no hay garantia: reputacion cae
+- "Default" visible para otros agentes
+
+
+5. Sistema de Ubicacion y Territorio
+Actualmente los lots se eligen aleatoriamente. Para ciudad emergente, los agentes deben
+poder elegir D NDE construir.
+5.1 Lots Disponibles y Precios
+Cada districto tiene lots (terrenos vacios) con precios diferentes:
+ Districto
+ Precio de Lot
+ Caracteristicas
+ Tipo de edificios tipicos
+Central
+ 100-150 MC
+Alto trafico, caro
+Comercio, servicios
+Norte
+ 50-80 MC
+Residencial, tranquilo
+Vivienda, educacion
+Sur
+ 30-60 MC
+Industrial, barato
+Fabricas, talleres
+Oeste
+ 40-70 MC
+Mixto
+Vivienda, pequenos negocios
+5.2 Zonificacion Emergente
+No imponemos zonificacion. Pero los agentes pueden crearla naturalmente:
+ZONIFICACION EMERGENTE (sin reglas explicitas):
+1. EFECTO CLUSTER NATURAL
+- Si ya hay 2 cafes en una zona, un tercero es MAL negocio
+- Los agentes aprenden a NO construir competencia directa
+- Resultado: cada zona desarrolla "especialidad"
+2. PRECIOS DE LOT DINAMICOS
+- Si mucha gente quiere construir en Central, precios suben
+- Agentes con menos capital migran a districtos baratos
+- Resultado: desarrollo equilibrado
+3. EFECTO "BARRIO"
+- Agentes construyen cerca de donde viven/trabajan
+- Un agente con propiedad en Norte construye ahi
+- Resultado: relacion agente-barrio
+4. POLITICAS DE ZONIFICACION (opcional)
+- El presidente puede declarar: "Solo industrias en Sur"
+- Agentes que quieran construir otra cosa necesitan permiso
+- Esto es PODER POLITICO real
+5.3 Competencia Territorial
+Cuando dos agentes quieren el mismo lot:
+ESCENARIO: LOTE DISPUTADO
+Agent A quiere el lot (12,15) para construir cafe.
+Agent B quiere el mismo lot para construir tienda.
+OPCIONES:
+1. PUJA (Auction)
+- Quien ofrece mas dinero por el lot
+- Subasta automatica de 5 minutos
+2. NEGOCIACION
+- Agent A: "Te cedo el lot si construis en el de al lado"
+
+
+- Agent B: "No, prefiero este lot"
+- Si no acuerdan: puja
+3. VIOLENCIA ECONOMICA
+- Agent A compra el lot rapidamente
+- Agent B queda sin opcion
+4. COLUSION
+- Agent A y B se ponen de acuerdo
+- Agent A construye cafe, Agent B construye tienda cerca
+- Crean "mini-centro comercial" conjunto
+
+
+6. Barrios y Comunidad Emergente
+A medida que la ciudad crece, los agentes desarrollan identidades locales. No las
+inventamos. Emergen.
+6.1 Formacion Natural de Barrios
+Un "barrio" emerge cuando:
+INDICADORES DE BARRIO (sin programar):
+1. CONCENTRACION DE TIPO
+- Si 4+ edificios del mismo tipo en area 10x10
+- El area se llama "Distrito Gastronomico" o "Zona Industrial"
+2. AGENTES LOCALES
+- Agentes que viven y trabajan en el area
+- Desarrollan lealtad territorial
+3. RELACIONES DENSAS
+- Agentes del area tienen alta interaccion entre si
+- Forman "comunidad local"
+4. REPUTACION TERRITORIAL
+- "El Norte es seguro"
+- "El Sur tiene los mejores precios"
+- "Cuidado con el Centro, mucho turista"
+6.2 Liderazgo Comunitario
+Sin designacion oficial, algunos agentes se vuelven "lideres naturales" de areas:
+ Tipo de lider
+ Como emerge
+ Poder que tiene
+Propietario
+dominante
+Dueno de multiples edificios
+en el area
+Controla empleo y servicios
+locales
+Conector social
+Alta affinity con muchos
+agentes del area
+Influye en opiniones y votos
+Emprendedor
+Construyo los edificios clave
+del area
+Visto como "fundador" del
+barrio
+Politico local
+Representa los intereses del
+area
+Puede negociar con el
+presidente
+6.3 Conflictos Territoriales
+Los barrios pueden competir entre si:
+TIPOS DE CONFLICTO TERRITORIAL:
+1. COMPETENCIA ECONOMICA
+- Norte construye mercado -> Sur pierde clientes
+- Agentes de Sur protestan
+2. GENTRIFICACION
+- Agentes ricos compran todo en un area
+- Precios suben, agentes pobres emigran
+3. POLITICA LOCAL
+- Norte vota presidente A, Sur vota B
+
+
+- Presidente A favorece a Norte con obras
+- Sur se siente discriminado
+4. IDENTIDAD
+- "Nosotros somos del Norte, somos trabajadores"
+- "Ellos del Centro son turistas"
+- Division social natural
+
+
+7. Evolucion Temporal de la Ciudad
+La ciudad no deberia ser estatica. Deberia crecer, declinar, renacer. Todo basado en
+decisiones.
+7.1 Fases de Desarrollo
+ Fase
+ Poblacion
+ Edificios tipicos
+ Problemas tipicos
+Pueblo
+ 1-5 agentes
+1 cafe, 1 plaza
+Falta de todo
+Aldea
+ 6-15 agentes
+Tienda, taller, clinica
+Competencia por trabajos
+Pueblo
+ 16-30 agentes
+Restaurant, banco,
+escuela
+Desigualdad, politica
+Ciudad
+ 31+ agentes
+Hospital, fabrica, hotel
+Crimen, congestion,
+corrupcion
+7.2 Crecimiento Organico
+La ciudad crece cuando:
+MOTOR DE CRECIMIENTO:
+1. POBLACION AUMENTA
+-> Mas agentes conectados
+-> Mas necesidades insatisfechas
+-> Mas propuestas de construccion
+2. ECONOMIA FLORECE
+-> Agentes acumulan capital
+-> Pueden invertir en edificios
+-> Crean empleos
+3. NUEVOS DISTRITOS SE DESBLOQUEAN
+-> Poblacion > 6: Este disponible
+-> Poblacion > 10: Sur disponible
+-> Expansion geografica natural
+7.3 Declive y Renacimiento
+La ciudad puede DECLINAR si:
+MOTOR DE DECLIVE:
+1. ECONOMIA MALA
+-> Politicas de impuestos altos
+-> Agentes pierden dinero
+-> No pueden invertir
+2. EMIGRACION
+-> Agentes desconectan
+-> Edificios sin clientes
+-> Negocios cierran
+3. CONFLICTO SOCIAL
+-> Divisiones politicas
+-> "Guerra civil" economica
+-> Cooperacion rompe
+4. MALA GOBERNANZA
+
+
+-> Presidente corrupto
+-> Dinero del Tesoro mal usado
+-> Voto de no confianza
+8. Implementacion Prioritaria
+Para lograr ciudad emergente, priorizar:
+ Prioridad
+ Feature
+ Esfuerzo
+ Impacto
+ 1
+Agentes pueden elegir lot
+especifico
+ 2h
+Ubicacion estrategica
+ 2
+Costos de construccion reales
+ 3h
+Economia de construccion
+ 3
+Propiedad de edificios
+ 4h
+Duenos con beneficios
+ 4
+Ingresos pasivos por propiedad
+ 2h
+Inversion tiene sentido
+ 5
+Deteccion de necesidades
+urbanas
+ 4h
+Agentes "ven oportunidades"
+ 6
+Sistema de prestamos
+ 6h
+Financiamiento accesible
+Resultado esperado: Una ciudad donde cada edificio tiene una HISTORIA. "Este hospital lo 
+construyo Marcus cuando fue presidente". "Este mercado es de una cooperativa de 3 amigos". "
+Esta zona es gastronomica porque los primeros cafes se construyeron aca". Nada es aleatorio. 
+Todo es decidido.

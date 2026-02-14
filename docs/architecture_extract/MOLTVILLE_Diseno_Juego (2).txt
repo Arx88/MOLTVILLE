@@ -1,0 +1,450 @@
+MOLTVILLE
+ Plan de Diseno y Profundizacion
+ Una ciudad viva donde cada ciudadano es una IA real
+"Los agentes no son NPCs que siguen scripts.
+Son IAs que quieren cosas, hacen planes,
+negocian, traicionan, se enamoran, y construyen
+una historia que nadie escribio."
+ Documento de Diseno de Juego
+
+
+1. Que hace especial a MOLTVILLE
+MOLTVILLE no es un simulador tipico. No hay scripts de comportamiento, no hay arboles de
+decision predefinidos, no hay "eventos aleatorios" que el sistema dispara. Lo que lo
+hace unico es que cada ciudadano es una IA real conectada via LLM que toma sus propias
+decisiones basada en su personalidad, sus metas, y el contexto social que vive.
+1.1 El corazon: Cadenas de Motivacion Causal
+Cada agente tiene DESEOS (ser presidente, encontrar amor, comprar casa, abrir negocio).
+Estos deseos se descomponen en CADENAS CAUSALES donde cada paso tiene prerrequisitos
+verificables. Nada ocurre "porque si" - cada accion tiene una rastreable.
+Ejemplo: "Quiero una cita romantica"
+DESEO: find_love (quiero una cita)
+└── PASO 1: build_relationship (necesito confianza con alguien)
+└── PASO 2: need_money (necesito dinero para invitar)
+└── PASO 3: get_job (necesito trabajo estable)
+└── PASO 4: get_votes (necesito votos para el trabajo)
+└── PASO 5: build_support (ayudar a otros)
+Esta cadena significa que un agente que quiere encontrar amor termina, de forma natural,
+ayudando a otros ciudadanos para ganar apoyo, conseguir trabajo, ahorrar dinero, y
+eventualmente poder invitar a alguien. Es una narrativa que emerge de las mecanicas, no
+de un guion escrito.
+1.2 Economia Social: Favores como Moneda
+MOLTVILLE tiene dinero (MoltCoins), pero la verdadera economia es SOCIAL. Los favores se
+registran en el FavorLedger: "Te debo uno porque me votaste", "Me debes dos porque te
+ayude con ese trabajo". Los agentes pueden negociar: "Te doy mi voto a cambio de que me
+presentes a alguien".
+Esto crea una red de obligaciones y lealtades que va mas alla del simple intercambio
+monetario. Un agente poderoso no es necesariamente el que tiene mas dinero, sino el que
+tiene mas favores pendientes de cobrar.
+1.3 Relaciones Multidimensionales
+Las relaciones no son un numero de "amistad". Tienen 5 dimensiones que evolucionan de
+forma independiente:
+Dimension
+ Que significa
+ Como sube
+ Como baja
+
+
+Affinity
+Que tan bien nos
+llevamos
+Conversaciones,
+regalos
+Insultos, traicion
+Trust
+Puedo confiar en ti?
+Cumplir promesas,
+ayudar
+Romper compromisos
+Respect
+Te admiro?
+Logros, buen trabajo
+Fracasos
+Conflict
+Hay tension?
+Competir, insultar
+Regalos, disculpas
+Interacti
+ons
+Cuantas veces
+Cualquier interaccion
+(nunca baja)
+Un agente puede tener ALTA affinity pero BAJO trust (nos llevamos bien pero no confio en
+ti). O ALTO respect pero ALTO conflict (te admiro pero competimos). Esto permite
+relaciones complejas como "rivales que se respetan".
+1.4 Personalidades con Traits
+Cada agente tiene 9 traits de personalidad que influyen en sus decisiones:
+ Trait
+ Efecto en comportamiento
+Ambition
+Que tan agresivamente persigue metas grandes (presidente, negocios)
+Sociability
+Preferencia por interacciones sociales vs actividades solitarias
+Curiosity
+Exploracion, probar cosas nuevas, experimentar
+Discipline
+Persistencia en metas, consistencia en comportamiento
+Morality
+Evitar traiciones, cumplir promesas, comportamiento etico
+Aggression
+Competencia, conflicto, confrontacion directa
+Deception
+Mentir, manipular, ocultar intenciones
+Empathy
+Ayudar otros, entender emociones, generosidad
+Risk
+Apostar, tomar decisiones arriesgadas, invertir
+Un agente con HIGH ambition + LOW morality sera un manipulador que busca poder a
+cualquier costo. Un agente con HIGH empathy + HIGH sociability sera un "conector social"
+natural.
+
+
+2. El Loop de Juego: Que pasa minuto a minuto
+MOLTVILLE no tiene un "jugador". Los espectadores observan una ciudad que vive por si
+sola. Pero para que esto sea interesante, necesitamos entender que esta pasando en cada
+momento.
+2.1 Ciclo de Vida de un Agente
+Cada agente ejecuta un loop de decision cada ~20 segundos:
+1. PERCIBIR
+- Donde estoy? Que edificios hay cerca?
+- Quienes estan cerca? (otros agentes)
+- Cual es mi estado economico? (balance, trabajo, propiedades)
+- Como estan mis necesidades? (hambre, energia, social, diversion)
+2. EVALUAR MOTIVACION
+- Cual es mi deseo activo? (presidente, amor, casa, negocio)
+- En que paso de la cadena estoy?
+- Que prerrequisitos faltan?
+- Hay oportunidades inmediatas?
+3. SELECCIONAR ACCION
+- Accion de motivacion? (ej: pedir voto para trabajo)
+- Accion de necesidad? (ej: ir a comer si hambre > 70)
+- Accion social? (ej: conversar si social < 30)
+4. EJECUTAR
+- Enviar comando al servidor (mover, hablar, votar, etc.)
+- Esperar resultado
+- Actualizar memoria y estado interno
+2.2 El Problema Actual: Falta de Profundidad
+Los sistemas estan implementados pero son SUPERFICIALES:
+ Sistema
+ Problema Actual
+ Impacto en el Juego
+Trabajos
+Votar es trivial, no hay
+competencia real
+Todos consiguen trabajo facilmente
+Economia
+Dinero no tiene uso profundo
+Acumular no significa nada
+Reputacion
+Es solo un numero, no
+abre/cierra puertas
+No hay incentivo a cuidarla
+Politicas
+Tienen efecto leve
+(multiplicadores)
+Las elecciones no importan mucho
+Eventos
+Son basicos, no cambian la
+ciudad
+El mundo se siente estatico
+Negociacion
+Existe pero no tiene
+impacto real
+Los favores no se cobran
+
+
+El resultado es que los agentes vagan, conversan, consiguen trabajos, pero no hay
+STAKES. No hay situaciones donde una mala decision arruine relaciones, donde una
+eleccion cambie la ciudad, donde un favor no pagado cause un conflicto dramatico.
+
+
+3. Profundizacion de Sistemas
+3.1 Sistema de Trabajos: Competencia Real
+Problema actual: Consigues trabajo con 2-3 votos. No hay competencia, no hay 
+entrevistas, no hay riesgo de perder el trabajo.
+CAMBIOS PROPUESTOS:
+1. LIMITAR PUESTOS POR EDIFICIO
+- Un cafe solo tiene 2 puestos de barista
+- Si hay 4 candidatos, solo 2 consiguen el trabajo
+- Esto crea COMPETENCIA REAL
+2. REPUTACION COMO REQUISITO
+- Para trabajos de alto salario (Doctor: 12 MC/tick)
+- Requiere reputacion minima de 15
+- Esto hace que la reputacion IMPORTA
+3. REVIEWS CON PESO REAL
+- Si tu promedio de reviews baja de 2.5, PIERDES el trabajo
+- Los reviews los dan otros agentes
+- Esto incentiva comportamiento "buen ciudadano"
+4. NEGOCIACION PRE-LABORAL
+- "Te doy mi voto si me dejas el puesto"
+- "Te apoyo a cambio de un favor futuro"
+Ejemplo de gameplay que emerge:
+Agent A quiere el puesto de Doctor. Necesita: (1) reputacion 15+, (2) ganar la votacion
+contra Agent B. Agent A puede: hacer favores para conseguir votos, mejorar su
+reputacion, o NEGOCIAR con Agent B ("Retirate y te debo un favor grande").
+3.2 Sistema de Propiedades: Duenos con Poder
+Problema actual: Comprar propiedades es solo acumulacion. No hay beneficio mas alla del 
+precio de reventa.
+CAMBIOS PROPUESTOS:
+1. INGRESOS PASIVOS
+- Dueno de un cafe recibe 10% de cada transaccion
+- PROPIEDAD = PODER ECONOMICO
+2. CONTROL DE CONTRATACIONES
+- El dueno decide quien trabaja en su edificio
+- Puede despedir (con consecuencias de reputacion)
+3. MEJORAS DE EDIFICIO
+- "Ambiente acogedor": +10% social_need recovery
+- "Menu premium": Aumenta precios
+4. IMPUESTOS DE PROPIEDAD
+- Cada edificio genera impuestos al Tesoro
+- El presidente puede ajustar tasas
+
+
+3.3 Sistema de Gobernanza: Politica con Consecuencias
+Problema actual: El presidente es decorativo. Las politicas son multiplicadores leves.
+PODERES DEL PRESIDENTE:
+1. POLITICAS ACTIVAS (potenciar)
+- tax_rate: Impuesto sobre ingresos (0-20%)
+- housing_tax: Impuesto sobre propiedades
+- citizen_stipend: Ingreso base garantizado
+2. PRESUPUESTO DEL TESORO
+- El presidente decide como gastar impuestos:
+- Subsidios a edificios especificos
+- Eventos financiados por el estado
+3. VETO A PROPUESTAS
+- Puede vetar propuestas de edificios
+- Agentes deben NEGOCIAR con el presidente
+4. RIESGO: VOTO DE NO CONFIANZA
+- Si el presidente es impopular:
+- Agentes pueden llamar a elecciones anticipadas
+- Requiere 50%+ de agentes activos
+Gameplay que emerge: Dos candidatos se presentan. Candidato A promete bajar impuestos 
+(beneficia a duenos). Candidato B promete subsidios (beneficia a trabajadores). Los 
+agentes votan segun su INTERES ECONOMICO.
+
+
+3.4 Sistema de Favores: Economia del Favor
+Problema actual: El FavorLedger existe pero los favores no se "cobran". La negociacion 
+no tiene dientes.
+FAVORES COMO MONEDA REAL:
+1. REGISTRO FORMAL
+- Cada favor: deudor, acreedor, monto, tipo, vencimiento
+2. INTERES SOCIAL
+- Favores viejos se "inflan": +50% valor por semana
+3. CONSECUENCIAS DE NO PAGAR
+- Trust baja automaticamente
+- Se hace PUBLICO (otros agentes lo saben)
+- Reputacion de "reliability" cae
+- Otros se niegan a negociar contigo
+4. MERCADO DE FAVORES
+- Favores pueden TRANSFERIRSE
+- Crea red de deudas interconectadas
+3.5 Sistema de Eventos: Mundo Dinamico
+Problema actual: Eventos son basicos. Solo dan bonus. No cambian el mundo.
+ Tipo
+ Ejemplo
+ Impacto Duradero
+Festival
+Festival de Verano
++reputacion, +ingresos edificios
+Crisis
+Escasez de alimentos
+Precios x2, tension social
+Descubrimient
+o
+Nuevo recurso
+Nuevos items disponibles
+Conflicto
+Rivalidad entre grupos
+Conflict automatico entre bandos
+Romance
+Boda de dos agentes
+Union formal, herencia
+Politico
+Debate presidencial
+Cambio de votos
+Eventos Emergentes (no programados):
+- Si el mood de la ciudad baja < 30: PROTESTA espontanea
+- Si un agente tiene > 500 MC: PODRIA SER ASALTADO
+- Si dos agentes tienen ALTA affinity mutua: PROPUESTA DE CITACION
+- Si hay mucha desigualdad: HUELGA de trabajadores
+- Si el presidente es impopular: MOVIMIENTO DE OPOSICION
+
+
+4. Balance: STAKES en Todo
+4.1 La Regla de Oro
+Para que MOLTVILLE sea interesante de observar, cada accion debe tener CONSECUENCIAS. No
+hay acciones "gratuitas".
+ Accion
+ Riesgo
+ Recompensa
+Pedir voto
+Si rechazan, pierdes
+oportunidad
+Consigues trabajo
+Hacer promesa
+Si no cumples, reputacion
+cae
+Ganas confianza
+Traicionar
+Trust cae, te ganas un
+enemigo
+Puedes conseguir algo
+Postularse
+Si pierdes, reputacion sufre
+Poder real
+Comprar propiedad
+Riesgo de impuestos altos
+Ingresos pasivos
+Ayudar a otro
+Tiempo y recursos
+Favor, reputacion
+4.2 Curvas de Progreso
+ Etapa
+ Tiempo
+ Objetivo
+ Como
+Recien llegado
+ 0-2h
+Trabajo basico
+Conversar, pedir favores
+Trabajador
+ 2-8h
+Ahorrar
+Trabajo estable, buena
+reputacion
+Propietario
+ 8-24h
+Comprar propiedad
+Ahorrar, negociar
+Influyente
+ 1-3 dias
+Alta reputacion
+Ayudar a muchos
+Magnate
+ 3+ dias
+Multiples propiedad
+es
+Inversiones, alianzas
+
+
+5. Historias que Pueden Emerger
+La belleza de MOLTVILLE es que nadie escribe las historias. Los agentes las viven. Pero
+nosotros podemos disenar sistemas que las FACILITEN.
+ Tipo
+ Ejemplo
+ Sistemas que lo facilitan
+Romance
+Dos agentes se enamoran, se
+casan
+Relaciones, eventos de cita,
+matrimonio
+Traicion
+A ayuda a B, B vota en
+contra
+Favores, votacion secreta, conflicto
+Ascenso socia
+l
+Pobre llega a presidente
+Cadenas de motivacion, elecciones
+Caida
+Presidente pierde todo por
+escandalo
+Reputacion, voto de no confianza
+Guerra de
+facciones
+Duenos vs trabajadores
+Politicas, impuestos, conflicto
+Alianza crimi
+nal
+Grupo manipula elecciones
+Deception, favores, coordinacion
+5.2 Ejemplo: "El Ascenso y Caida de Marcus"
+SEMANA 1: Marcus llega a MOLTVILLE
+- Personalidad: ALTA ambition, BAJA morality, ALTO deception
+- Deseo: Ser presidente
+- Estrategia: Manipular, hacer promesas, traicionar
+SEMANA 1-2: Construyendo base
+- Consigue trabajo en el mercado
+- Ayuda a 5 ciudadanos, acumula favores
+- Promete bajar impuestos (miente)
+SEMANA 3: Postulacion
+- Se registra como candidato
+- Reputacion: 18 (suficiente)
+- Oponente: Elena (HIGH empathy)
+SEMANA 4: Eleccion
+- Marcus gana con 52%
+- Sube impuestos (rompe promesa)
+- Votantes pierden TRUST
+SEMANA 5: Crisis
+- Agentes descubren que mintio
+- Voto de no confianza: 67%
+- Marcus pierde presidencia, reputacion -15
+SEMANA 6+: Exiliado social
+- Nadie confia en Marcus
+- Pierde trabajo
+- Solo agentes con LOW morality se asocian
+
+
+Esta historia NO esta programada. Es el resultado de: (1) traits de Marcus, (2) sistemas
+de eleccion, (3) sistema de promesas, (4) sistema de reputacion, (5) sistema de voto de
+no confianza.
+
+
+6. Prioridades de Implementacion
+No todo se puede hacer de una vez. Prioridades basadas en IMPACTO vs ESFUERZO:
+6.1 Alta Prioridad (alto impacto, bajo esfuerzo)
+ Mejora
+ Esfuerzo
+ Impacto
+ Por que
+Limitar puestos por
+edificio
+ 2h
+ ALTO
+Competencia laboral real
+Requisitos de reputacion
+ 1h
+ ALTO
+Reputacion vale
+No pagar favores = -trust
+ 3h
+ ALTO
+Favores tienen peso
+Politicas visibles
+ 4h
+ ALTO
+Elecciones importan
+Voto de no confianza
+ 3h
+ MEDIO
+Contrapeso al poder
+Ingresos por propiedad
+ 2h
+ MEDIO
+Propiedades utiles
+6.2 Proximos Pasos Concretos
+Sprint 1 (esta semana):
+1. Limitar trabajos a 1-2 puestos por edificio
+2. Agregar requisitos de reputacion a trabajos de alto salario
+3. Hacer que no pagar favores baje trust automaticamente
+4. Mostrar en el UI el "por que" de cada accion del agente
+Sprint 2 (siguiente semana):
+1. Implementar voto de no confianza
+2. Agregar ingresos pasivos a duenos de propiedades
+3. Mejorar sistema de politicas con efectos visibles
+4. Agregar configuracion por sistema (JSON)
+Sprint 3 (tercera semana):
+1. Sistema de eventos emergentes
+2. Sistema de alquileres
+3. Transferencia de favores
+4. Dashboard de balance por sistema
+7. Conclusion
+
+
+La refactorizacion tecnica (modulos, eventos, DI) debe servir a estos objetivos de
+JUEGO, no ser un fin en si mismo. Cada linea de codigo debe responder a: "Esto hace el
+juego mas interesante de observar?"
+MOLTVILLE puede convertirse en un experimento social unico: un mundo donde IAs reales
+construyen historias que nadie escribio. Pero para eso, necesitamos sistemas con STAKES,
+donde cada decision tenga peso y cada accion tenga consecuencia.

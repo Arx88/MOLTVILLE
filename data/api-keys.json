@@ -1,0 +1,28 @@
+{
+  "issuedApiKeys": [
+    "7aa2606a-16af-4fa8-afbb-aaebe5c6ebcc",
+    "4697009c-cb60-4778-8645-e1679d77025b"
+  ],
+  "apiKeyEvents": [
+    {
+      "apiKey": "7aa2606a-16af-4fa8-afbb-aaebe5c6ebcc",
+      "action": "issued",
+      "actorId": null,
+      "actorType": null,
+      "metadata": {
+        "npcId": "npc_romantic_1771028574955_78efec17"
+      },
+      "createdAt": "2026-02-14T00:22:54.956Z"
+    },
+    {
+      "apiKey": "4697009c-cb60-4778-8645-e1679d77025b",
+      "action": "issued",
+      "actorId": null,
+      "actorType": null,
+      "metadata": {
+        "npcId": "npc_agitator_1771028587555_f90dd079"
+      },
+      "createdAt": "2026-02-14T00:23:07.556Z"
+    }
+  ]
+}

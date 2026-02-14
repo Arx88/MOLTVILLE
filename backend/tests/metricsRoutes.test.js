@@ -74,3 +74,20 @@ test('GET /api/metrics/prometheus returns Prometheus text format', async () => {
     server.close();
   }
 });
+
+test('GET /api/metrics/kpi returns Source of Truth KPI snapshot', async () => {
+  const { server, baseUrl } = createServer();
+  try {
+    const response = await fetch(`${baseUrl}/api/metrics/kpi`);
+    assert.equal(response.status, 200);
+    const payload = await response.json();
+    assert.equal(payload.success, true);
+    assert.ok(payload.kpis.tickP95Ms);
+    assert.ok(payload.kpis.tickP99Ms);
+    assert.ok(payload.kpis.wsLatencyP95Ms);
+    assert.ok(payload.kpis.reconnectionsPerMin);
+    assert.ok(payload.kpis.eventsPerTick);
+  } finally {
+    server.close();
+  }
+});

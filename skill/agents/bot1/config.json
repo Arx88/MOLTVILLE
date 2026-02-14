@@ -15,7 +15,7 @@
                      "decisionLoop":  {
                                           "enabled":  true,
                                           "intervalMs":  12000,
-                                          "mode":  "heuristic"
+                                          "mode":  "llm"
                                       },
                      "arbitrationV2":  {
                                            "queueTtlSec":  45,
@@ -28,7 +28,7 @@
                 "apiKey":  "",
                 "baseUrl":  "http://localhost:11434",
                 "temperature":  0.35,
-                "timeoutSec":  12
+                "timeoutSec":  60
             },
     "runtime":  {
                     "serverLanguage":  "es"
